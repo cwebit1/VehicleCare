@@ -4917,7 +4917,7 @@ async function exportData(){
     zip.file('dati.json', JSON.stringify(backup, null, 2));
     // Foto veicoli da IndexedDB (vehicle_photos)
     const photos = await new Promise(res=>{
-      const req=indexedDB.open('VehicleCareProIDB');
+      const req=indexedDB.open('VehicleCarePro',2);
       req.onsuccess=e=>{
         const db=e.target.result;
         if(!db.objectStoreNames.contains('vehicle_photos')){ res([]); return; }
@@ -5191,6 +5191,30 @@ function checkBackupAlert(){
 // ═══════════════════════════════════════════════════════
 //  INIT
 // ═══════════════════════════════════════════════════════
+// Sincronizza vehicle_photos dai documenti "Foto veicolo" già presenti in IDB.
+// Serve dopo un ripristino backup dove vehicle_photos è vuoto ma i doc ci sono.
+async function syncVehiclePhotosFromDocs(){
+  try{
+    const allDocs = await IDB.getAll();
+    const fotoVeicolo = allDocs.filter(d => d.tipo === 'Foto veicolo' && d.mime && d.mime.startsWith('image/'));
+    let changed = false;
+    for(const doc of fotoVeicolo){
+      const existing = await getVehiclePhoto(doc.vehicleId);
+      if(!existing){
+        const blob = new Blob([doc.data], {type: doc.mime});
+        const dataUrl = await new Promise(res => {
+          const r = new FileReader();
+          r.onload = e => res(e.target.result);
+          r.readAsDataURL(blob);
+        });
+        await saveVehiclePhoto(doc.vehicleId, dataUrl);
+        changed = true;
+      }
+    }
+    if(changed) renderMain();
+  }catch(e){ console.warn('syncVehiclePhotosFromDocs:', e); }
+}
+
 function init(){
   initPWA();
   renderAlerts();
@@ -5198,6 +5222,7 @@ function init(){
   renderFab();
   _initPlannerSwipeGlobal();
   setTimeout(checkBackupAlert, 1500);
+  setTimeout(syncVehiclePhotosFromDocs, 500);
 
   // Seed dati demo se vuoto
   if(DB.vehicles().length===0 && DB.suppliers().length===0){
