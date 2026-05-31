@@ -406,7 +406,7 @@ body.dark .backup-banner-text{color:#fcd34d;}
     </button>
     <div id="app-logo">
       <div id="logo-wordmark">
-        <span id="logo-name">VehicolCare Pro</span>
+        <span id="logo-name">VehicleCare Pro</span>
         <span id="logo-sub">Gestione Parco Veicoli</span>
       </div>
     </div>
@@ -723,6 +723,8 @@ function renderAlerts(){
   const checks = DB.checks();
   const anomByVehicle = {};
   checks.forEach(function(c){
+    const vCheck = vehicles.find(x=>x.id===c.vehicleId);
+    if(!vCheck || vCheck.venduto) return;
     (c.items||[]).forEach(function(item){
       if(item.val==='anomalia'){
         const alreadyHandled = interventions.some(function(i){
@@ -746,10 +748,11 @@ function renderAlerts(){
   // Segnalazioni aperte (senza intervento o risoluzione)
   const segnalazioni = DB.segnalazioni();
   segnalazioni.forEach(function(s){
+    const vSegn = vehicles.find(x=>x.id===s.vehicleId);
+    if(!vSegn || vSegn.venduto) return;
     const alreadyHandled = DB.interventions().some(function(i){ return i.segnalazioneId===s.id; });
     if(alreadyHandled) return;
-    const v = vehicles.find(x=>x.id===s.vehicleId);
-    const targa = v ? v.targa : '?';
+    const targa = vSegn.targa;
     const chip = mkChip('red', '📢 '+targa+' · Segnalazione', ()=>openSegnalazioneDetail(s.id));
     bar.appendChild(chip);
   });
@@ -758,7 +761,8 @@ function renderAlerts(){
   const lav = interventions.filter(i=>i.stato==='in_lavorazione');
   lav.forEach(i=>{
     const v = vehicles.find(x=>x.id===i.vehicleId);
-    const targa = v ? v.targa : '?';
+    if(!v || v.venduto) return;
+    const targa = v.targa;
     const chip = mkChip('amber', '🔧 '+targa+' · In lavorazione', ()=>openInterventionDetail(i.id));
     bar.appendChild(chip);
   });
@@ -2065,12 +2069,16 @@ const MODULO_MAP = {
 };
 // Checkbox S. Fermo header — sempre flaggato
 const MODULO_SFERMO = [531, 116];  // S. Fermo — riga header RSD
-// Campo note: x_start=467, larghezza=285
+// Campo note per voce (colonna destra): x_start=467, larghezza=285
 const MODULO_NOTE_X = 467;
 const MODULO_NOTE_W = 285;
-// Campo anomalie testo
+// Campo anomalie testo (riga in fondo al modulo)
 const MODULO_ANOM_X = 355;
 const MODULO_ANOM_Y = 858;
+// Campo note generali (righe tratteggiate sotto "Anomalie da segnalare")
+const MODULO_NOTE_GEN_X = 100;
+const MODULO_NOTE_GEN_Y = 875;
+const MODULO_NOTE_GEN_W = 600;
 
 function stampaCheckModulo(checkId){
   const c = DB.checks().find(x => x.id === checkId);
@@ -2104,7 +2112,7 @@ function stampaCheckModulo(checkId){
     function drawNote(text, yt, yb){
       if(!text) return;
       ctx.fillStyle = COL_TEXT;
-      ctx.font = 'bold 9px Arial, sans-serif';
+      ctx.font = 'bold 12px Arial, sans-serif';
       const cy = Math.floor((yt + yb) / 2);
       const w = ctx.measureText(text).width;
       if(w <= MODULO_NOTE_W){
@@ -2134,9 +2142,9 @@ function stampaCheckModulo(checkId){
     // ── 1. Header testi — Y abbassata per stare sulle righe ──
     ctx.fillStyle = COL_TEXT;
     ctx.font = 'bold 16px Arial, sans-serif';
-    ctx.fillText(fmtDate(c.data)||'', 253, 192);
-    ctx.fillText(escHtml(c.operatore||'').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>'), 408, 192);
-    ctx.fillText((v?.targa||'') + (c.km ? ' (Km ' + Number(c.km).toLocaleString('it-IT') + ')' : ''), 253, 228);
+    ctx.fillText(fmtDate(c.data)||'', 253, 197);
+    ctx.fillText(escHtml(c.operatore||'').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>'), 408, 197);
+    ctx.fillText((v?.targa||'') + (c.km ? ' (Km ' + Number(c.km).toLocaleString('it-IT') + ')' : ''), 253, 233);
 
     // ── 2. S. Fermo fisso ──
     drawX(MODULO_SFERMO[0], MODULO_SFERMO[1]);
@@ -2164,11 +2172,37 @@ function stampaCheckModulo(checkId){
     const anomStr = anomalieTesto.join(' | ');
     if(anomStr){
       ctx.fillStyle = COL_TEXT;
-      ctx.font = 'bold 9px Arial, sans-serif';
+      ctx.font = 'bold 12px Arial, sans-serif';
       ctx.fillText(anomStr.slice(0,120), MODULO_ANOM_X, MODULO_ANOM_Y);
     }
 
-    // ── 5. Genera PDF con jsPDF e apri per visualizzazione/stampa ──
+    // ── 5. Note generali (c.note) — inizia dopo "U.d.O:", continua sulle righe tratteggiate sotto ──
+    if(c.note){
+      ctx.fillStyle = COL_TEXT;
+      ctx.font = 'bold 12px Arial, sans-serif';
+      // Prima riga: parte dopo l'etichetta "UdO:" (x=455), larghezza ridotta
+      // Righe successive: partono dall'inizio (x=64), larghezza piena
+      const noteLineYs = [865, 885, 905, 925];
+      const words = c.note.split(' ');
+      let line = '', lineIdx = 0;
+      for(const w of words){
+        const lineX = lineIdx === 0 ? 350 : 64;
+        const lineW = lineIdx === 0 ? 395 : 680;
+        const test = line ? line + ' ' + w : w;
+        if(ctx.measureText(test).width > lineW && line){
+          ctx.fillText(line, lineX, noteLineYs[lineIdx]);
+          lineIdx++;
+          if(lineIdx >= noteLineYs.length) { line=''; break; }
+          line = w;
+        } else { line = test; }
+      }
+      if(line && lineIdx < noteLineYs.length){
+        const lineX = lineIdx === 0 ? 455 : 64;
+        ctx.fillText(line, lineX, noteLineYs[lineIdx]);
+      }
+    }
+
+    // ── 6. Genera PDF con jsPDF e apri per visualizzazione/stampa ──
     const dataUrl = canvas.toDataURL('image/png');
     try {
       const { jsPDF } = window.jspdf;
@@ -3703,7 +3737,7 @@ function reportDetail(type){
 // ═══════════════════════════════════════════════════════
 //  ARCHIVIO TAB — Check & Interventi per veicolo
 // ═══════════════════════════════════════════════════════
-let _archivioTab    = 'check';       // 'check' | 'interventi'
+let _archivioTab    = 'check';       // 'check' | 'interventi' | 'gomme'
 let _archivioVeicolo = '';           // '' = tutti
 let _archivioFiltroInt = 'tutti';    // 'tutti'|'aperti'|'chiusi'|'anomalie'
 
@@ -3712,6 +3746,7 @@ function renderArchivio(container){
   const checks      = DB.checks();
   const interventions = DB.interventions();
   const suppliers   = DB.suppliers();
+  const tireInts    = DB.tireInterventions();
 
   // ── Selettore veicolo ──
   const vOptions = ['<option value="">Tutti i veicoli</option>',
@@ -3740,6 +3775,7 @@ function renderArchivio(container){
   // ── HTML sezione check ──
   function renderCheckCards(){
     if(sortedChecks.length===0) return '<div class="empty"><p>Nessun check trovato</p></div>';
+    const avanzata = DB.settings().gestioneAvanzata;
     return sortedChecks.map(c=>{
       const v    = vehicles.find(x=>x.id===c.vehicleId);
       const anom = (c.items||[]).filter(i=>i.val==='anomalia');
@@ -3764,12 +3800,15 @@ function renderArchivio(container){
             </div>
           </div>
           <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
-            <button onclick="openCheckViewer('${c.id}','${c.vehicleId}')" style="background:#1e40af;color:#fff;border:none;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">
+            <button onclick="openCheckViewer('${c.id}','${c.vehicleId}')" style="background:#1e40af;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">
               📋 Apri
             </button>
-            <button onclick="stampaCheckModulo('${c.id}')" style="background:#f1f5f9;color:#475569;border:none;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">
+            <button onclick="stampaCheckModulo('${c.id}')" style="background:#f1f5f9;color:#475569;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">
               🖨️ Stampa
             </button>
+            ${avanzata?`<button onclick="eliminaCheck('${c.id}')" style="background:#fee2e2;color:#b91c1c;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">
+              🗑️ Elimina
+            </button>`:''}
           </div>
         </div>
       </div>`;
@@ -3779,6 +3818,7 @@ function renderArchivio(container){
   // ── HTML sezione interventi ──
   function renderIntCards(){
     if(sortedInts.length===0) return '<div class="empty"><p>Nessun intervento trovato</p></div>';
+    const avanzata = DB.settings().gestioneAvanzata;
     const statoMap = {
       in_lavorazione:{cls:'lavorazione',lbl:'🔧 In lavorazione'},
       anomalia:      {cls:'anomalia',   lbl:'⚠️ Anomalia'},
@@ -3810,9 +3850,52 @@ function renderArchivio(container){
             ${i.noteChiusura?`<div style="font-size:11px;color:#64748b;margin-top:3px;font-style:italic;">${escHtml(i.noteChiusura)}</div>`:''}
           </div>
           <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
-            ${isAperto?`<button onclick="openChiusuraForm('${i.id}','${i.vehicleId}')" style="background:#16a34a;color:#fff;border:none;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">✅ Chiudi</button>`:''}
-            <button onclick="openInterventionForm('${i.vehicleId}','${i.id}')" style="background:#f1f5f9;color:#475569;border:none;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">✏️ Modifica</button>
-            ${isAperto?`<button onclick="annullaIntervento('${i.id}','${i.vehicleId}')" style="background:#fef3c7;color:#92400e;border:none;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">✕ Annulla</button>`:''}
+            ${isAperto?`<button onclick="openChiusuraForm('${i.id}','${i.vehicleId}')" style="background:#16a34a;color:#fff;border:none;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">✅ Chiudi</button>`:''}
+            <button onclick="openInterventionForm('${i.vehicleId}','${i.id}')" style="background:#f1f5f9;color:#475569;border:none;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">✏️ Modifica</button>
+            ${isAperto?`<button onclick="annullaIntervento('${i.id}','${i.vehicleId}')" style="background:#fef3c7;color:#92400e;border:none;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">✕ Annulla</button>`:''}
+            ${avanzata?`<button onclick="eliminaIntervento('${i.id}')" style="background:#fee2e2;color:#b91c1c;border:none;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">🗑️ Elimina</button>`:''}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // ── HTML sezione gomme ──
+  function renderGommeCards(){
+    const avanzata = DB.settings().gestioneAvanzata;
+    const filtTireInts = _archivioVeicolo
+      ? tireInts.filter(t=>t.vehicleId===_archivioVeicolo)
+      : tireInts;
+    const sorted = [...filtTireInts].sort((a,b)=>new Date(b.dataProgrammata||b.createdAt)-new Date(a.dataProgrammata||a.createdAt));
+    if(sorted.length===0) return '<div class="empty"><p>Nessun cambio gomme trovato</p></div>';
+    const statoColors = {
+      programmato: 'background:#dbeafe;color:#1e40af',
+      completato:  'background:#dcfce7;color:#15803d',
+      annullato:   'background:#f1f5f9;color:#64748b'
+    };
+    return sorted.map(t=>{
+      const v = vehicles.find(x=>x.id===t.vehicleId);
+      const sc = statoColors[t.stato]||statoColors.programmato;
+      return `
+      <div class="card" style="margin-bottom:8px;">
+        <div style="display:flex;align-items:flex-start;gap:10px;">
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
+              ${v?renderTargaHtml(v.targa):''}
+              <span style="font-size:13px;color:#64748b;">${escHtml(v?.nome||'')}</span>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px;">
+              <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;${sc}">🔄 ${t.stato.charAt(0).toUpperCase()+t.stato.slice(1)}</span>
+            </div>
+            <div style="font-size:12px;color:#64748b;">
+              📅 Programmato: ${fmtDate(t.dataProgrammata)}
+              ${t.dataEffettiva?` &nbsp;→&nbsp; Effettuato: ${fmtDate(t.dataEffettiva)}`:''}
+            </div>
+            ${t.note?`<div style="font-size:11px;color:#94a3b8;margin-top:3px;font-style:italic;">${escHtml(t.note)}</div>`:''}
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
+            ${avanzata?`<button onclick="modificaCambioGomme('${t.id}')" style="background:#f1f5f9;color:#475569;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">✏️ Modifica</button>`:''}
+            ${avanzata?`<button onclick="eliminaCambioGomme('${t.id}')" style="background:#fee2e2;color:#b91c1c;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">🗑️ Elimina</button>`:''}
           </div>
         </div>
       </div>`;
@@ -3823,6 +3906,7 @@ function renderArchivio(container){
   const nCheck = sortedChecks.length;
   const nInt   = sortedInts.length;
   const nAperti = filtInts.filter(i=>i.stato==='in_lavorazione'||i.stato==='anomalia').length;
+  const nGomme = (_archivioVeicolo ? tireInts.filter(t=>t.vehicleId===_archivioVeicolo) : tireInts).length;
 
   container.innerHTML = `
     <div style="padding-bottom:2px;">
@@ -3841,6 +3925,9 @@ function renderArchivio(container){
         </div>
         <div class="tab-item ${_archivioTab==='interventi'?'active':''}" onclick="_archivioTab='interventi';renderMain()">
           🔧 Interventi <span style="font-size:11px;background:${_archivioTab==='interventi'?'#dbeafe':'#e2e8f0'};color:${_archivioTab==='interventi'?'#1e40af':'#64748b'};border-radius:10px;padding:1px 6px;margin-left:3px;">${filtInts.length}</span>
+        </div>
+        <div class="tab-item ${_archivioTab==='gomme'?'active':''}" onclick="_archivioTab='gomme';renderMain()">
+          🔄 Gomme <span style="font-size:11px;background:${_archivioTab==='gomme'?'#dbeafe':'#e2e8f0'};color:${_archivioTab==='gomme'?'#1e40af':'#64748b'};border-radius:10px;padding:1px 6px;margin-left:3px;">${nGomme}</span>
         </div>
       </div>
 
@@ -3862,7 +3949,7 @@ function renderArchivio(container){
 
     <!-- Contenuto -->
     <div>
-      ${_archivioTab==='check' ? renderCheckCards() : renderIntCards()}
+      ${_archivioTab==='check' ? renderCheckCards() : _archivioTab==='interventi' ? renderIntCards() : renderGommeCards()}
     </div>
 
     <div style="height:80px;"></div>
@@ -4821,6 +4908,18 @@ function openSettings(){
 
     <div class="divider" style="margin:20px 0;"></div>
     <div class="settings-section-title">Zona pericolo</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0 14px;">
+      <div>
+        <span style="font-size:14px;font-weight:600;color:var(--c-text,#1e293b);">🔓 Gestione avanzata</span>
+        <div style="font-size:11px;color:#94a3b8;margin-top:2px;">Abilita eliminazione record in archivio</div>
+      </div>
+      <label style="position:relative;display:inline-block;width:48px;height:26px;flex-shrink:0;">
+        <input type="checkbox" id="st-advanced" ${s.gestioneAvanzata?'checked':''} onchange="toggleGestioneAvanzata(this.checked)" style="opacity:0;width:0;height:0;position:absolute;">
+        <span id="advanced-slider" style="position:absolute;inset:0;border-radius:26px;background:${s.gestioneAvanzata?'#dc2626':'#cbd5e1'};transition:background .2s;cursor:pointer;">
+          <span style="position:absolute;top:3px;left:${s.gestioneAvanzata?'25px':'3px'};width:20px;height:20px;border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.3);"></span>
+        </span>
+      </label>
+    </div>
     <button class="btn btn-danger" onclick="confirmResetAll()">🗑️ Azzera tutti i dati</button>
     <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.0 — VehicleCare Pro</p>
     <div style="height:10px;"></div>
@@ -4854,6 +4953,17 @@ function caricaModuloPNG(event){
   reader.readAsDataURL(file);
 }
 
+function toggleGestioneAvanzata(val){
+  const s = DB.settings();
+  s.gestioneAvanzata = !!val;
+  DB.saveSettings(s);
+  const slider = document.getElementById('advanced-slider');
+  const knob = slider ? slider.querySelector('span') : null;
+  if(slider) slider.style.background = val ? '#dc2626' : '#cbd5e1';
+  if(knob) knob.style.left = val ? '25px' : '3px';
+}
+
+
 function rimuoviModuloPNG(){
   const s = DB.settings();
   s.pdfBg = null;
@@ -4873,6 +4983,183 @@ function saveSettings(){
   closeModal();
   toast('Impostazioni salvate','success');
   renderAlerts();
+}
+
+function eliminaIntervento(intId){
+  const i = DB.interventions().find(x=>x.id===intId);
+  if(!i){ toast('Intervento non trovato','error'); return; }
+  const v = DB.vehicles().find(x=>x.id===i.vehicleId);
+  openModal('🗑️ Elimina intervento', `
+    <p style="font-size:15px;color:#334155;margin-bottom:8px;">Stai per eliminare l'intervento <strong>${escHtml(i.descrizione||'')}</strong>${v?' per <strong>'+escHtml(v.targa)+'</strong>':''}.</p>
+    <p style="font-size:13px;color:#ef4444;margin-bottom:20px;">Questa azione è irreversibile.</p>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="closeModal()">Annulla</button>
+      <button class="btn btn-danger" onclick="confirmEliminaIntervento('${intId}')">🗑️ Elimina</button>
+    </div>
+  `);
+}
+function confirmEliminaIntervento(intId){
+  DB.saveInterventions(DB.interventions().filter(x=>x.id!==intId));
+  closeModal();
+  toast('Intervento eliminato','success');
+  renderMain();
+  renderAlerts();
+}
+
+function modificaCambioGomme(intId){
+  const t = DB.tireInterventions().find(x=>x.id===intId);
+  if(!t){ toast('Cambio gomme non trovato','error'); return; }
+  const v = DB.vehicles().find(x=>x.id===t.vehicleId);
+  const vehicles = DB.vehicles();
+  const vOptions = vehicles.map(v=>`<option value="${v.id}" ${v.id===t.vehicleId?'selected':''}>${escHtml(v.targa)} — ${escHtml(v.nome)}</option>`).join('');
+
+  // Gomme associate a questo intervento (montate/deposito del veicolo)
+  const tires = DB.tires().filter(x=>x.vehicleId===t.vehicleId);
+
+  const statoOpts = ['programmato','completato','annullato'].map(s=>`<option value="${s}" ${t.stato===s?'selected':''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('');
+
+  const tiresHtml = tires.length===0 ? '<p style="font-size:12px;color:#94a3b8;">Nessuna gomma associata</p>' :
+    tires.map(tire=>{
+      const stagioneOpts = ['estate','inverno','4stagioni'].map(s=>`<option value="${s}" ${tire.stagione===s?'selected':''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('');
+      const statoTireOpts = ['montata','deposito','buttata'].map(s=>`<option value="${s}" ${tire.stato===s?'selected':''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('');
+      return `
+      <div style="border:1px solid #e2e8f0;border-radius:8px;padding:10px;margin-bottom:8px;">
+        <div style="font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:8px;">🔄 ${escHtml(tire.marca||'')} ${escHtml(tire.modello||'')} ×${tire.quantita||4}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div class="form-group" style="margin-bottom:0;"><label class="form-label">Stagione</label>
+            <select class="form-select" id="et-stagione-${tire.id}">${stagioneOpts}</select></div>
+          <div class="form-group" style="margin-bottom:0;"><label class="form-label">Stato</label>
+            <select class="form-select" id="et-stato-${tire.id}">${statoTireOpts}</select></div>
+          <div class="form-group" style="margin-bottom:0;"><label class="form-label">Marca</label>
+            <input class="form-input" id="et-marca-${tire.id}" value="${escHtml(tire.marca||'')}"></div>
+          <div class="form-group" style="margin-bottom:0;"><label class="form-label">Modello</label>
+            <input class="form-input" id="et-modello-${tire.id}" value="${escHtml(tire.modello||'')}"></div>
+          <div class="form-group" style="margin-bottom:0;"><label class="form-label">Dimensione</label>
+            <input class="form-input" id="et-dim-${tire.id}" value="${escHtml(tire.dimensione||'')}"></div>
+          <div class="form-group" style="margin-bottom:0;"><label class="form-label">Quantità</label>
+            <input class="form-input" type="number" min="1" max="8" id="et-qty-${tire.id}" value="${tire.quantita||4}"></div>
+          <div class="form-group" style="margin-bottom:0;"><label class="form-label">Data montaggio</label>
+            <input class="form-input" type="date" id="et-datamon-${tire.id}" value="${tire.dataMontaggio||''}"></div>
+          <div class="form-group" style="margin-bottom:0;"><label class="form-label">Km montaggio</label>
+            <input class="form-input" type="number" id="et-kmmon-${tire.id}" value="${tire.kmMontaggio||''}"></div>
+          <div class="form-group" style="margin-bottom:0;"><label class="form-label">Data smontaggio</label>
+            <input class="form-input" type="date" id="et-datasmon-${tire.id}" value="${tire.dataSmontaggio||''}"></div>
+          <div class="form-group" style="margin-bottom:0;"><label class="form-label">Km smontaggio</label>
+            <input class="form-input" type="number" id="et-kmsmon-${tire.id}" value="${tire.kmSmontaggio||''}"></div>
+        </div>
+        <div class="form-group" style="margin-top:8px;margin-bottom:0;"><label class="form-label">Note</label>
+          <input class="form-input" id="et-note-${tire.id}" value="${escHtml(tire.note||'')}"></div>
+      </div>`;
+    }).join('');
+
+  openModal(`✏️ Modifica Cambio Gomme — ${v?.targa||''}`, `
+    <div style="overflow-y:auto;max-height:70vh;padding-right:4px;">
+
+      <div style="font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:8px;">Intervento</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+        <div class="form-group" style="margin-bottom:0;"><label class="form-label">Veicolo</label>
+          <select class="form-select" id="et-vehicleId">${vOptions}</select></div>
+        <div class="form-group" style="margin-bottom:0;"><label class="form-label">Stato intervento</label>
+          <select class="form-select" id="et-stato">${statoOpts}</select></div>
+        <div class="form-group" style="margin-bottom:0;"><label class="form-label">Data programmata</label>
+          <input class="form-input" type="date" id="et-dataprog" value="${t.dataProgrammata||''}"></div>
+        <div class="form-group" style="margin-bottom:0;"><label class="form-label">Data effettiva</label>
+          <input class="form-input" type="date" id="et-dataeff" value="${t.dataEffettiva||''}"></div>
+        <div class="form-group" style="margin-bottom:0;"><label class="form-label">Km effettivi</label>
+          <input class="form-input" type="number" id="et-kmeff" value="${t.kmEffettivo||''}"></div>
+        <div class="form-group" style="margin-bottom:0;"><label class="form-label">Note intervento</label>
+          <input class="form-input" id="et-note" value="${escHtml(t.note||'')}"></div>
+      </div>
+
+      <div style="font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:8px;">Gomme associate</div>
+      ${tiresHtml}
+
+    </div>
+    <div class="btn-row" style="margin-top:12px;">
+      <button class="btn btn-secondary" onclick="closeModal()">Annulla</button>
+      <button class="btn btn-primary" onclick="saveModificaCambioGomme('${intId}')">💾 Salva</button>
+    </div>
+  `);
+}
+
+function saveModificaCambioGomme(intId){
+  const tireInts = DB.tireInterventions();
+  const idx = tireInts.findIndex(x=>x.id===intId);
+  if(idx===-1){ toast('Intervento non trovato','error'); return; }
+
+  tireInts[idx].vehicleId      = document.getElementById('et-vehicleId').value;
+  tireInts[idx].stato          = document.getElementById('et-stato').value;
+  tireInts[idx].dataProgrammata= document.getElementById('et-dataprog').value||null;
+  tireInts[idx].dataEffettiva  = document.getElementById('et-dataeff').value||null;
+  tireInts[idx].kmEffettivo    = parseInt(document.getElementById('et-kmeff').value)||null;
+  tireInts[idx].note           = document.getElementById('et-note').value.trim();
+  DB.saveTireInterventions(tireInts);
+
+  // Salva modifiche gomme
+  const tires = DB.tires();
+  tires.filter(t=>t.vehicleId===tireInts[idx].vehicleId).forEach(tire=>{
+    const ti = tires.findIndex(x=>x.id===tire.id);
+    if(ti===-1) return;
+    tires[ti].stagione      = document.getElementById('et-stagione-'+tire.id)?.value || tire.stagione;
+    tires[ti].stato         = document.getElementById('et-stato-'+tire.id)?.value || tire.stato;
+    tires[ti].marca         = document.getElementById('et-marca-'+tire.id)?.value.trim() || tire.marca;
+    tires[ti].modello       = document.getElementById('et-modello-'+tire.id)?.value.trim() || '';
+    tires[ti].dimensione    = document.getElementById('et-dim-'+tire.id)?.value.trim() || '';
+    tires[ti].quantita      = parseInt(document.getElementById('et-qty-'+tire.id)?.value)||4;
+    tires[ti].dataMontaggio = document.getElementById('et-datamon-'+tire.id)?.value||null;
+    tires[ti].kmMontaggio   = parseInt(document.getElementById('et-kmmon-'+tire.id)?.value)||null;
+    tires[ti].dataSmontaggio= document.getElementById('et-datasmon-'+tire.id)?.value||null;
+    tires[ti].kmSmontaggio  = parseInt(document.getElementById('et-kmsmon-'+tire.id)?.value)||null;
+    tires[ti].note          = document.getElementById('et-note-'+tire.id)?.value.trim()||'';
+  });
+  DB.saveTires(tires);
+
+  closeModal();
+  toast('Cambio gomme aggiornato','success');
+  renderMain();
+}
+
+function eliminaCambioGomme(intId){
+  const t = DB.tireInterventions().find(x=>x.id===intId);
+  if(!t){ toast('Cambio gomme non trovato','error'); return; }
+  const v = DB.vehicles().find(x=>x.id===t.vehicleId);
+  openModal('🗑️ Elimina cambio gomme', `
+    <p style="font-size:15px;color:#334155;margin-bottom:8px;">Stai per eliminare il cambio gomme del <strong>${fmtDate(t.dataProgrammata)}</strong>${v?' per <strong>'+escHtml(v.targa)+'</strong>':''}.</p>
+    <p style="font-size:13px;color:#ef4444;margin-bottom:20px;">Questa azione è irreversibile.</p>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="closeModal()">Annulla</button>
+      <button class="btn btn-danger" onclick="confirmEliminaCambioGomme('${intId}')">🗑️ Elimina</button>
+    </div>
+  `);
+}
+function confirmEliminaCambioGomme(intId){
+  DB.saveTireInterventions(DB.tireInterventions().filter(x=>x.id!==intId));
+  closeModal();
+  toast('Cambio gomme eliminato','success');
+  renderMain();
+  renderAlerts();
+}
+
+function eliminaCheck(checkId){
+  const c = DB.checks().find(x=>x.id===checkId);
+  if(!c){ toast('Check non trovato','error'); return; }
+  const v = DB.vehicles().find(x=>x.id===c.vehicleId);
+  openModal('🗑️ Elimina check',`
+    <p style="font-size:15px;color:#334155;margin-bottom:8px;">Stai per eliminare il check del <strong>${fmtDate(c.data)}</strong>${v?' per <strong>'+escHtml(v.targa)+'</strong>':''}.</p>
+    <p style="font-size:13px;color:#dc2626;margin-bottom:20px;">Questa operazione è irreversibile.</p>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="closeModal()">Annulla</button>
+      <button class="btn btn-danger" onclick="_doEliminaCheck('${checkId}')">Elimina</button>
+    </div>
+  `);
+}
+
+function _doEliminaCheck(checkId){
+  const checks = DB.checks().filter(x=>x.id!==checkId);
+  DB.saveChecks(checks);
+  closeModal();
+  renderMain();
+  toast('Check eliminato','success');
 }
 
 function confirmResetAll(){
@@ -5660,10 +5947,9 @@ function renderAnalytics(container){
     return i && i.stato==='chiuso' && !i.fornitoreId;
   }).length);
   const segnEst   = periods.map(p=>fSegn.filter(s=>{
-    if(periodKey(s.data)===p){
-      const i=allInts.find(i=>i.segnalazioneId===s.id);
-      return i && i.fornitoreId;
-    }
+    if(periodKey(s.data)!==p) return false;
+    const i=allInts.find(i=>i.segnalazioneId===s.id);
+    return i && i.fornitoreId;
   }).length);
 
   document.querySelector('#an-chart-oper > div').textContent = '🚨 Segnalazioni — risoluzione';
