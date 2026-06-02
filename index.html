@@ -48,7 +48,7 @@ body{display:flex;flex-direction:column;height:100dvh;}
 #nav-panel{background:linear-gradient(160deg,#0f172a 0%,#1e3a8a 55%,#3730a3 100%);width:220px;height:100%;display:flex;flex-direction:column;gap:4px;padding:80px 10px 24px;pointer-events:all;transform:translateX(-100%);transition:transform .28s cubic-bezier(.4,0,.2,1);box-shadow:4px 0 24px rgba(0,0,0,.25);}
 #nav-panel.open{transform:translateX(0);}
 #nav-close-row{display:flex;justify-content:flex-end;padding:0 4px 8px;}
-#nav-close-btn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);border-radius:20px;padding:6px 16px;cursor:pointer;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:rgba(255,255,255,.75);}
+#nav-close-btn{background:#dc2626;border:none;border-radius:7px;padding:0;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:#fff;width:32px;height:32px;box-shadow:1px 2px 0 #991b1b;}
 #nav-overlay-bg{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:299;opacity:0;pointer-events:none;transition:opacity .28s;}
 #nav-overlay-bg.open{opacity:1;pointer-events:all;}
 .nav-tab{display:flex;flex-direction:row;align-items:center;gap:12px;padding:11px 14px;cursor:pointer;border:none;background:rgba(255,255,255,.07);border-radius:12px;font-weight:600;color:rgba(255,255,255,.75);transition:background .15s,color .15s;width:100%;text-align:left;}
@@ -126,7 +126,7 @@ body{display:flex;flex-direction:column;height:100dvh;}
 #modal-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;}
 #modal-header.hidden{display:none;}
 #modal-title{font-size:17px;font-weight:700;}
-#modal-close{background:none;border:none;color:#94a3b8;padding:4px;cursor:pointer;font-size:22px;line-height:1;}
+#modal-close{background:#dc2626;border:none;color:#fff;padding:0;cursor:pointer;font-size:32px;font-weight:900;line-height:1;width:32px;height:32px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:1px 2px 0 #991b1b;}
 #modal-body{overflow-y:auto;padding:0 16px 20px;flex:1;}
 
 /* ── FORMS ── */
@@ -334,7 +334,7 @@ body{display:flex;flex-direction:column;height:100dvh;}
 body.dark{background:#1a1a1a;color:#e0e0e0;}
 body.dark #header{background:linear-gradient(135deg,#020617 0%,#0f172a 55%,#1e1b4b 100%);}
 body.dark #nav-panel{background:#222222;}
-body.dark #nav-close-btn{background:#333333;color:#999999;}
+body.dark #nav-close-btn{background:#dc2626;color:#fff;}
 body.dark .nav-tab{background:#2a2a2a;color:#666666;}
 body.dark .nav-tab.active{background:#1e1e3a;color:#a5b4fc;}
 body.dark .ni-home{background:#312e81;color:#a5b4fc;}
@@ -352,7 +352,7 @@ body.dark .list-item{background:#2a2a2a;box-shadow:0 1px 3px rgba(0,0,0,.4);}
 body.dark #modal-box{background:#2a2a2a;}
 body.dark #modal-handle{background:#3a3a3a;}
 body.dark #modal-title{color:#e0e0e0;}
-body.dark #modal-close{color:#666666;}
+body.dark #modal-close{background:#dc2626;color:#fff;}
 body.dark .form-input,
 body.dark .form-select{background:#1a1a1a;color:#e0e0e0;border-color:#3a3a3a;}
 body.dark .form-label{color:#999999;}
@@ -2472,7 +2472,7 @@ function saveRisolviAnomalia(vehicleId, checkId, voce, km){
 // ═══════════════════════════════════════════════════════
 //  DOCUMENTI VEICOLO
 // ═══════════════════════════════════════════════════════
-const DOC_TYPES=['Foto veicolo','Libretto circolazione','Assicurazione','Bollo','Tagliando','Altro'];
+const DOC_TYPES=['Foto veicolo','Libretto circolazione (fronte)','Libretto circolazione (retro)','Assicurazione','Bollo','Tagliando','Altro'];
 
 async function openDocuments(vehicleId){
   const v=DB.vehicles().find(x=>x.id===vehicleId);
@@ -2577,9 +2577,120 @@ async function viewDoc(docId){
     const w=window.open('');
     w.document.write(`<iframe src="${url}" style="width:100%;height:100vh;border:none;"></iframe>`);
   } else {
-    const w=window.open('');
-    w.document.write(`<img src="${url}" style="max-width:100%;height:auto;">`);
+    openImageViewer(url, doc.nome||'Documento');
   }
+}
+
+function openImageViewer(url, title){
+  // rimuovi viewer esistente
+  const existing = document.getElementById('img-viewer-overlay');
+  if(existing) existing.remove();
+
+  let scale = 1, rotate = 0;
+  let panX = 0, panY = 0;
+  let isDragging = false, lastX = 0, lastY = 0;
+  let lastDist = null;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'img-viewer-overlay';
+  overlay.style.cssText = `
+    position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.95);
+    display:flex;flex-direction:column;overflow:hidden;touch-action:none;
+  `;
+
+  overlay.innerHTML = `
+    <div id="ivw-header" style="display:flex;align-items:center;justify-content:space-between;
+      padding:12px 16px;background:rgba(0,0,0,.6);flex-shrink:0;gap:8px;">
+      <span style="color:#fff;font-size:14px;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(title)}</span>
+      <button id="ivw-close" style="background:#dc2626;border:none;color:#fff;
+        border-radius:7px;padding:0;font-size:32px;font-weight:900;cursor:pointer;
+        width:32px;height:32px;display:flex;align-items:center;justify-content:center;
+        flex-shrink:0;box-shadow:1px 2px 0 #991b1b;">✕</button>
+    </div>
+    <div id="ivw-canvas" style="flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;">
+      <img id="ivw-img" src="${url}" draggable="false"
+        style="max-width:90%;max-height:80vh;object-fit:contain;user-select:none;
+               transition:transform .15s ease;transform-origin:center center;
+               transform:scale(1) rotate(0deg) translate(0px,0px);">
+    </div>
+    <div id="ivw-toolbar" style="display:flex;align-items:center;justify-content:center;gap:10px;
+      padding:12px 16px;background:rgba(0,0,0,.6);flex-shrink:0;flex-wrap:wrap;">
+      <button class="ivw-btn" id="ivw-rot-l" title="Ruota sinistra">↺ -90°</button>
+      <button class="ivw-btn" id="ivw-rot-r" title="Ruota destra">↻ +90°</button>
+      <button class="ivw-btn" id="ivw-zoom-in" title="Zoom in">＋ Zoom</button>
+      <button class="ivw-btn" id="ivw-zoom-out" title="Zoom out">－ Zoom</button>
+      <button class="ivw-btn" id="ivw-reset" title="Reset" style="background:rgba(255,255,255,.1);">⊙ Reset</button>
+      <a id="ivw-download" href="${url}" download="${escHtml(title)}"
+        class="ivw-btn" style="text-decoration:none;">⬇ Salva</a>
+    </div>
+    <div id="ivw-hint" style="text-align:center;color:rgba(255,255,255,.35);font-size:11px;padding:4px 0 8px;">
+      Pizzica per zoom • Trascina per spostare
+    </div>
+  `;
+
+  // Stile bottoni toolbar
+  const style = document.createElement('style');
+  style.textContent = `.ivw-btn{background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.25);
+    color:#fff;border-radius:9px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;
+    display:inline-flex;align-items:center;gap:4px;}
+  .ivw-btn:active{background:rgba(255,255,255,.32);}`;
+  overlay.appendChild(style);
+  document.body.appendChild(overlay);
+
+  const img = document.getElementById('ivw-img');
+
+  function applyTransform(animated){
+    img.style.transition = animated ? 'transform .18s ease' : 'none';
+    img.style.transform = `translate(${panX}px,${panY}px) scale(${scale}) rotate(${rotate}deg)`;
+  }
+
+  // Bottoni
+  document.getElementById('ivw-close').onclick = () => { overlay.remove(); URL.revokeObjectURL(url); };
+  document.getElementById('ivw-rot-l').onclick  = () => { rotate = (rotate - 90 + 360) % 360; applyTransform(true); };
+  document.getElementById('ivw-rot-r').onclick  = () => { rotate = (rotate + 90) % 360; applyTransform(true); };
+  document.getElementById('ivw-zoom-in').onclick  = () => { scale = Math.min(scale * 1.3, 8); applyTransform(true); };
+  document.getElementById('ivw-zoom-out').onclick = () => { scale = Math.max(scale / 1.3, 0.2); applyTransform(true); };
+  document.getElementById('ivw-reset').onclick  = () => { scale=1; rotate=0; panX=0; panY=0; applyTransform(true); };
+
+  // Chiudi cliccando sfondo
+  overlay.addEventListener('click', e => { if(e.target===overlay || e.target===document.getElementById('ivw-canvas')) { overlay.remove(); URL.revokeObjectURL(url); } });
+
+  // ── MOUSE drag & wheel ──
+  img.addEventListener('mousedown', e => { isDragging=true; lastX=e.clientX; lastY=e.clientY; e.preventDefault(); });
+  window.addEventListener('mousemove', e => {
+    if(!isDragging) return;
+    panX += e.clientX - lastX; panY += e.clientY - lastY;
+    lastX=e.clientX; lastY=e.clientY; applyTransform(false);
+  });
+  window.addEventListener('mouseup', () => { isDragging=false; });
+  overlay.addEventListener('wheel', e => {
+    e.preventDefault();
+    scale = e.deltaY < 0 ? Math.min(scale*1.15, 8) : Math.max(scale/1.15, 0.2);
+    applyTransform(false);
+  }, {passive:false});
+
+  // ── TOUCH pinch + pan ──
+  overlay.addEventListener('touchstart', e => {
+    if(e.touches.length===1){ isDragging=true; lastX=e.touches[0].clientX; lastY=e.touches[0].clientY; }
+    if(e.touches.length===2){ lastDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY); }
+    e.preventDefault();
+  }, {passive:false});
+  overlay.addEventListener('touchmove', e => {
+    if(e.touches.length===1 && isDragging){
+      panX += e.touches[0].clientX - lastX; panY += e.touches[0].clientY - lastY;
+      lastX=e.touches[0].clientX; lastY=e.touches[0].clientY; applyTransform(false);
+    }
+    if(e.touches.length===2 && lastDist!==null){
+      const dist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+      scale = Math.min(Math.max(scale*(dist/lastDist), 0.2), 8);
+      lastDist=dist; applyTransform(false);
+    }
+    e.preventDefault();
+  }, {passive:false});
+  overlay.addEventListener('touchend', e => {
+    if(e.touches.length<2) lastDist=null;
+    if(e.touches.length===0) isDragging=false;
+  });
 }
 
 // ═══════════════════════════════════════════════════════
@@ -5504,6 +5615,18 @@ async function syncVehiclePhotosFromDocs(){
 
 function init(){
   initPWA();
+  // Migrazione: rinomina 'Libretto circolazione' → 'Libretto circolazione (fronte)'
+  (async()=>{
+    try{
+      const docs = await IDB.getAll();
+      for(const doc of docs){
+        if(doc.tipo==='Libretto circolazione'){
+          doc.tipo='Libretto circolazione (fronte)';
+          await IDB.put(doc);
+        }
+      }
+    }catch(e){ console.warn('Migrazione libretto:', e); }
+  })();
   renderAlerts();
   renderMain();
   renderFab();
