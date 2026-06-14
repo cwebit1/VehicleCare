@@ -107,6 +107,19 @@ body{display:flex;flex-direction:column;height:100dvh;}
 .vact-btn.success{background:#dcfce7;border-color:#bbf7d0;color:#15803d;}
 .vact-btn.amber{background:#fef3c7;border-color:#fde68a;color:#92400e;}
 
+/* DASHBOARD COMPATTA — riduce spazi verticali per mostrare 4 veicoli senza scroll */
+.dashboard-compact .vehicle-card{padding:8px 10px;margin-bottom:6px;}
+.dashboard-compact .vehicle-top{margin-bottom:6px;}
+.dashboard-compact .vehicle-name{font-size:14px;margin-bottom:1px;}
+.dashboard-compact .vehicle-model{font-size:12px;}
+.dashboard-compact .vehicle-meta{margin-top:4px;font-size:11px;gap:8px;}
+.dashboard-compact .icon-row{margin-top:3px;gap:4px;}
+.dashboard-compact .icon-badge{padding:2px 6px;font-size:10px;}
+.dashboard-compact .badge{padding:1px 7px;font-size:10px;}
+.dashboard-compact .vehicle-actions{margin-top:6px;gap:3px;}
+.dashboard-compact .targa-svg{width:133px;height:32px;}
+.dashboard-compact [style*="width:110px"][style*="height:84px"]{width:77px !important;height:59px !important;}
+
 /* ── SEARCH ── */
 .search-wrap{position:relative;margin-bottom:12px;}
 .search-wrap input{width:100%;padding:11px 14px 11px 40px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:15px;background:#fff;color:#1e293b;outline:none;}
@@ -1086,7 +1099,7 @@ async function renderVehicles(container){
   await preloadPhotos(vehicles.map(v=>v.id));
   container.innerHTML=`
     ${vehicles.length===0?`<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h3l3 4v3h-6V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg><p>Nessun veicolo attivo</p></div>`:
-      vehicles.map(v=>{ const photo=_photoCache[v.id]; return renderVehicleCard(v,photo); }).join('')}
+      `<div class="dashboard-compact">${vehicles.map(v=>{ const photo=_photoCache[v.id]; return renderVehicleCard(v,photo); }).join('')}</div>`}
     <div style="height:80px;"></div>
   `;
 }
