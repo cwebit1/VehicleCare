@@ -1496,6 +1496,92 @@ function openSegnalazioneDetail(segnalazioneId){
   };
 }
 
+function openInterventionFromAnomaliaCheck(checkId, vehicleId, voce, note, km){
+  const v = DB.vehicles().find(x=>x.id===vehicleId);
+  const interventions = DB.interventions();
+  if(interventions.some(i=>i.checkId===checkId && i.descrizione && i.descrizione.startsWith(voce))){
+    toast('Intervento già esistente per questa anomalia');
+    openCheckAnomalieFromPlanner(checkId, vehicleId);
+    return;
+  }
+  const suppliers = DB.suppliers().filter(sup=>sup.attivo);
+  const suppliersOptions = suppliers.map(sup=>`<option value="${sup.id}">${escHtml(sup.nome)} (${escHtml(sup.tipo)})</option>`).join('');
+  openModal('Nuovo Intervento — '+(v?.targa||''), `
+    <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:#c2410c;">
+      ⚠️ Anomalia da check: <strong>${escHtml(voce)}</strong></div>
+    <div class="form-group"><label class="form-label">Descrizione problema *</label>
+      <textarea class="form-input" id="int-desc" rows="3" placeholder="Descrivi il problema o l'intervento…">${escHtml(voce+(note?' — '+note:''))}</textarea></div>
+    <div class="form-row">
+      <div class="form-group inline"><label class="form-label">Data apertura</label>
+        <input class="form-input" id="int-data" type="date" value="${today()}"></div>
+      <div class="form-group inline"><label class="form-label">KM apertura</label>
+        <input class="form-input" id="int-km" type="number" value="${km||v?.km||''}" min="0"></div>
+    </div>
+    <div class="form-group inline"><label class="form-label">Stato</label>
+      <select class="form-select" id="int-stato">
+        <option value="in_lavorazione" selected>🔧 In lavorazione</option>
+        <option value="anomalia">⚠️ Anomalia</option>
+        <option value="chiuso">✅ Chiuso</option>
+        <option value="annullato">✕ Annullato</option>
+      </select></div>
+    <div class="form-group inline"><label class="form-label">Fornitore</label>
+      <select class="form-select" id="int-fornitore">
+        <option value="">— Nessun fornitore —</option>
+        ${suppliersOptions}
+      </select></div>
+    <div id="chiusura-fields" style="display:none">
+      <div class="form-row">
+        <div class="form-group inline"><label class="form-label">Data chiusura</label>
+          <input class="form-input" id="int-data-ch" type="date" value="${today()}"></div>
+        <div class="form-group inline"><label class="form-label">KM chiusura</label>
+          <input class="form-input" id="int-km-ch" type="number" value="" min="0"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Note chiusura</label>
+        <textarea class="form-input" id="int-note-ch" rows="2" placeholder="Cosa è stato fatto…"></textarea></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="closeModal()">Annulla</button>
+      <button class="btn btn-primary" id="btn-save-int-anom">Crea intervento</button>
+    </div>
+  `);
+  setTimeout(()=>{
+    const sel = document.getElementById('int-stato');
+    if(sel) sel.onchange = function(){
+      document.getElementById('chiusura-fields').style.display =
+        (this.value==='chiuso'||this.value==='annullato')?'':'none';
+    };
+    document.getElementById('btn-save-int-anom').onclick = function(){
+      const desc = (document.getElementById('int-desc').value||'').trim();
+      if(!desc){ toast('Inserisci una descrizione','error'); return; }
+      const stato = document.getElementById('int-stato').value;
+      const ints = DB.interventions();
+      if(ints.some(i=>i.checkId===checkId && i.descrizione && i.descrizione.startsWith(voce))){
+        toast('Intervento già esistente per questa anomalia');
+        closeModal();
+        return;
+      }
+      ints.push({
+        id: DB.uid(), vehicleId: vehicleId,
+        checkId: checkId,
+        descrizione: desc,
+        dataApertura: document.getElementById('int-data').value,
+        kmApertura: parseInt(document.getElementById('int-km').value)||null,
+        stato, origine: 'check',
+        fornitoreId: document.getElementById('int-fornitore').value||null,
+        dataChiusura: stato==='chiuso'?document.getElementById('int-data-ch').value:null,
+        kmChiusura: stato==='chiuso'?parseInt(document.getElementById('int-km-ch').value)||null:null,
+        noteChiusura: stato==='chiuso'?document.getElementById('int-note-ch').value:'',
+        createdAt: nowISO()
+      });
+      DB.saveInterventions(ints);
+      closeModal();
+      toast('Intervento creato','success');
+      renderAlerts();
+      renderMain();
+    };
+  },10);
+}
+
 function openInterventionFromSegnalazione(s){
   const v = DB.vehicles().find(x=>x.id===s.vehicleId);
   const suppliers = DB.suppliers().filter(sup=>sup.attivo);
@@ -4998,7 +5084,7 @@ function openCheckAnomalieFromPlanner(checkId, vehicleId) {
   setTimeout(function(){
     document.querySelectorAll('.crea-int-anom').forEach(function(btn){
       btn.addEventListener('click', function(){
-        creaInterventoAnomalia(btn.dataset.cid, btn.dataset.vid, btn.dataset.voce, btn.dataset.note, parseInt(btn.dataset.km)||0);
+        openInterventionFromAnomaliaCheck(btn.dataset.cid, btn.dataset.vid, btn.dataset.voce, btn.dataset.note, parseInt(btn.dataset.km)||0);
       });
     });
   }, 30);
