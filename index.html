@@ -77,7 +77,7 @@ body{display:flex;flex-direction:column;height:100dvh;}
 .vehicle-card.venduto{opacity:.6;}
 .vehicle-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;}
 .vehicle-info{flex:1;}
-.vehicle-name{font-size:16px;font-weight:700;margin-bottom:2px;}
+.vehicle-name{font-size:16px;font-weight:700;margin-bottom:2px;text-transform:uppercase;}
 .vehicle-model{font-size:13px;color:#64748b;}
 .vehicle-meta{display:flex;gap:10px;margin-top:6px;font-size:12px;color:#64748b;}
 .vehicle-meta span{display:flex;align-items:center;gap:3px;}
@@ -106,6 +106,19 @@ body{display:flex;flex-direction:column;height:100dvh;}
 .vact-btn.danger{background:#fee2e2;border-color:#fecaca;color:#b91c1c;}
 .vact-btn.success{background:#dcfce7;border-color:#bbf7d0;color:#15803d;}
 .vact-btn.amber{background:#fef3c7;border-color:#fde68a;color:#92400e;}
+
+/* DASHBOARD COMPATTA — riduce spazi verticali per mostrare 4 veicoli senza scroll */
+.dashboard-compact .vehicle-card{padding:8px 10px;margin-bottom:5px;}
+.dashboard-compact .vehicle-top{margin-bottom:4px;}
+.dashboard-compact .vehicle-name{font-size:14px;margin-bottom:0;}
+.dashboard-compact .vehicle-model{font-size:12px;}
+.dashboard-compact .vehicle-meta{margin-top:3px;font-size:11px;gap:8px;}
+.dashboard-compact .icon-row{margin-top:2px;gap:4px;}
+.dashboard-compact .icon-badge{padding:2px 6px;font-size:10px;}
+.dashboard-compact .badge{padding:1px 7px;font-size:10px;}
+.dashboard-compact .vehicle-actions{margin-top:5px;gap:3px;}
+.dashboard-compact .targa-svg{width:133px;height:32px;}
+.dashboard-compact [style*="width:110px"][style*="height:84px"]{width:103px !important;height:51px !important;top:8px !important;right:8px !important;}
 
 /* ── SEARCH ── */
 .search-wrap{position:relative;margin-bottom:12px;}
@@ -1086,7 +1099,7 @@ async function renderVehicles(container){
   await preloadPhotos(vehicles.map(v=>v.id));
   container.innerHTML=`
     ${vehicles.length===0?`<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h3l3 4v3h-6V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg><p>Nessun veicolo attivo</p></div>`:
-      vehicles.map(v=>{ const photo=_photoCache[v.id]; return renderVehicleCard(v,photo); }).join('')}
+      `<div class="dashboard-compact">${vehicles.map(v=>{ const photo=_photoCache[v.id]; return renderVehicleCard(v,photo); }).join('')}</div>`}
     <div style="height:80px;"></div>
   `;
 }
@@ -1238,7 +1251,7 @@ function renderVehicleCard(v, photo){
 
   const photoHtml = photo
     ? `<div style="position:absolute;top:14px;right:14px;width:110px;height:84px;border-radius:10px;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,.18);z-index:2;cursor:pointer;" onclick="openDocuments('${v.id}')" title="Gestisci foto in Documenti">
-         <img src="${photo.dataUrl}" style="width:100%;height:100%;object-fit:cover;">
+         <img src="${photo.dataUrl}" style="width:100%;height:100%;object-fit:cover;object-position:center;">
        </div>`
     : `<div onclick="openDocuments('${v.id}')" title="Aggiungi foto in Documenti"
          style="position:absolute;top:14px;right:14px;width:110px;height:84px;border-radius:10px;border:2px dashed #cbd5e1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:#f8fafc;cursor:pointer;z-index:2;">
@@ -1252,8 +1265,10 @@ function renderVehicleCard(v, photo){
     <div class="vehicle-top">
       <div class="vehicle-info">
         ${renderTargaHtml(v.targa)}
-        <div class="vehicle-name" style="margin-top:6px;">${escHtml(v.nome)}</div>
-        <div class="vehicle-model">${escHtml(v.modello||'')}${v.anno?' · '+v.anno:''}</div>
+        <div style="display:flex;align-items:baseline;gap:6px;margin-top:6px;flex-wrap:wrap;">
+          <div class="vehicle-name" style="margin-bottom:0;">${escHtml(v.nome)}</div>
+          <div class="vehicle-model">${escHtml(v.modello||'')}${v.anno?' · '+v.anno:''}</div>
+        </div>
         <div class="vehicle-meta">
           ${v.km?`<span>🛣️ ${Number(v.km).toLocaleString('it-IT')} km</span>`:''}
           ${v.scadenzaRevisione?`<span>📋 Rev. ${fmtDate(v.scadenzaRevisione)}</span>`:''}
@@ -4083,6 +4098,7 @@ const EV_COLORS = {
   intervento: '#f87171',
   gomme:      '#60a5fa',
   annullato:  '#facc15',
+  segnalazione: '#facc15',
 };
 
 let _plannerYear  = new Date().getFullYear();
@@ -4163,23 +4179,14 @@ function _buildMonthPanel(Y, M) {
   var mStart = Y + '-' + String(M+1).padStart(2,'0') + '-01';
   var mEnd   = Y + '-' + String(M+1).padStart(2,'0') + '-' + String(daysInMonth).padStart(2,'0');
   var segments = [];
-  interventions.forEach(function(int) {
-    if (!int.dataApertura) return;
-    var isChiuso    = int.stato === 'chiuso';
-    var isAnnullato = int.stato === 'annullato';
-    var isFuturo    = int.dataApertura > todayStr;
-    var endDateStr;
-    if (isAnnullato || isFuturo) {
-      endDateStr = int.dataApertura;
-    } else if (int.dataChiusura) {
-      endDateStr = int.dataChiusura;
-    } else if (isChiuso) {
-      endDateStr = int.dataApertura;
-    } else {
-      endDateStr = todayStr;
-    }
-    if (int.dataApertura > mEnd || endDateStr < mStart) return;
-    var absStart = int.dataApertura > mStart ? int.dataApertura : mStart;
+
+  // Helper riutilizzabile: spezza un intervallo [startDateStr,endDateStr] (clippato al mese)
+  // in segmenti contigui riga/colonna della griglia, e li accoda a `segments`.
+  function _pushDateRangeSegments(startDateStr, endDateStr, item) {
+    if (!startDateStr) return;
+    if (!endDateStr) endDateStr = startDateStr;
+    if (startDateStr > mEnd || endDateStr < mStart) return;
+    var absStart = startDateStr > mStart ? startDateStr : mStart;
     var absEnd   = endDateStr < mEnd ? endDateStr : mEnd;
     if (absEnd < absStart) return;
     var giornoInizio = parseInt(absStart.slice(8, 10));
@@ -4196,11 +4203,51 @@ function _buildMonthPanel(Y, M) {
       if (g.riga === cur.riga && g.colonna === cur.colEnd + 1) {
         cur.colEnd = g.colonna;
       } else {
-        segments.push({ int: int, row: cur.riga, colStart: cur.colStart, colEnd: cur.colEnd, span: cur.colEnd - cur.colStart + 1, isFirst: cur.isFirst });
+        segments.push({ int: item, row: cur.riga, colStart: cur.colStart, colEnd: cur.colEnd, span: cur.colEnd - cur.colStart + 1, isFirst: cur.isFirst });
         cur = { riga: g.riga, colStart: g.colonna, colEnd: g.colonna, isFirst: false };
       }
     }
-    segments.push({ int: int, row: cur.riga, colStart: cur.colStart, colEnd: cur.colEnd, span: cur.colEnd - cur.colStart + 1, isFirst: cur.isFirst });
+    segments.push({ int: item, row: cur.riga, colStart: cur.colStart, colEnd: cur.colEnd, span: cur.colEnd - cur.colStart + 1, isFirst: cur.isFirst });
+  }
+
+  interventions.forEach(function(int) {
+    if (!int.dataApertura) return;
+    var isChiuso    = int.stato === 'chiuso';
+    var isAnnullato = int.stato === 'annullato';
+    var isFuturo    = int.dataApertura > todayStr;
+    var endDateStr;
+    if (isAnnullato || isFuturo) {
+      endDateStr = int.dataApertura;
+    } else if (int.dataChiusura) {
+      endDateStr = int.dataChiusura;
+    } else if (isChiuso) {
+      endDateStr = int.dataApertura;
+    } else {
+      endDateStr = todayStr;
+    }
+    _pushDateRangeSegments(int.dataApertura, endDateStr, int);
+  });
+
+  // Anomalie da check senza intervento collegato — traccia fino ad oggi (o fino alla data del check se nel futuro)
+  checks.forEach(function(c) {
+    if (!c.data || !c.items) return;
+    var anomItems = c.items.filter(function(it){ return it.val === 'anomalia'; });
+    if (!anomItems.length) return;
+    var senzaIntervento = anomItems.some(function(a){
+      return !interventions.some(function(i){ return i.checkId===c.id && i.descrizione.startsWith(a.voce); });
+    });
+    if (!senzaIntervento) return;
+    var endDateStr = c.data > todayStr ? c.data : todayStr;
+    _pushDateRangeSegments(c.data, endDateStr, { id:c.id, vehicleId:c.vehicleId, _isCheckAnom:true, _checkId:c.id, stato:'anomalia_check' });
+  });
+
+  // Segnalazioni aperte (senza intervento collegato) — traccia fino ad oggi
+  DB.segnalazioni().forEach(function(s) {
+    if (!s.data) return;
+    var alreadyHandled = interventions.some(function(i){ return i.segnalazioneId===s.id; });
+    if (alreadyHandled) return;
+    var endDateStr = s.data > todayStr ? s.data : todayStr;
+    _pushDateRangeSegments(s.data, endDateStr, { id:s.id, vehicleId:s.vehicleId, _isSegnalazione:true, _segnalazioneId:s.id, stato:'segnalazione' });
   });
 
   // Gomme programmate
@@ -4230,6 +4277,16 @@ function _buildMonthPanel(Y, M) {
       barsHtml += '<button class="pl-bar pl-bar-tire"'
         +' style="left:calc('+left+'% + 1px);width:calc('+width+'% - 2px);top:'+rowTop+'px;height:'+PL_ROW_H+'px;background:'+EV_COLORS.gomme+';"'
         +' data-tiid="'+seg.int._tireIntId+'" data-vid="'+seg.int.vehicleId+'">'
+        +'<span class="pl-bar-lbl">'+lbl+'</span></button>';
+    } else if (seg.int._isCheckAnom) {
+      barsHtml += '<button class="pl-bar pl-bar-checkanom"'
+        +' style="left:calc('+left+'% + 1px);width:calc('+width+'% - 2px);top:'+rowTop+'px;height:'+PL_ROW_H+'px;background:'+EV_COLORS.checkAnom+';"'
+        +' data-checkanom-vid="'+seg.int.vehicleId+'" data-checkanom-cid="'+seg.int._checkId+'">'
+        +'<span class="pl-bar-lbl">'+lbl+'</span></button>';
+    } else if (seg.int._isSegnalazione) {
+      barsHtml += '<button class="pl-bar pl-bar-segnalazione"'
+        +' style="left:calc('+left+'% + 1px);width:calc('+width+'% - 2px);top:'+rowTop+'px;height:'+PL_ROW_H+'px;background:'+EV_COLORS.segnalazione+';"'
+        +' data-segn-id="'+seg.int._segnalazioneId+'">'
         +'<span class="pl-bar-lbl">'+lbl+'</span></button>';
     } else {
       var color = seg.int.stato==='annullato' ? EV_COLORS.annullato : EV_COLORS.intervento;
@@ -4391,6 +4448,26 @@ function _attachPanelListeners(panel) {
       bubble.style.left=finalX+'px';
       bubble.style.top=finalY+'px';
       bubble.style.transform='translateY(-100%)';
+    });
+  });
+
+  // Barre ANOMALIA DA CHECK (senza intervento) → apre maschera anomalie del check specifico
+  panel.querySelectorAll('.pl-bar-checkanom').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var bubble = document.getElementById('pl-bubble');
+      if (bubble) bubble.style.display='none';
+      openCheckAnomalieFromPlanner(btn.dataset.checkanomCid, btn.dataset.checkanomVid);
+    });
+  });
+
+  // Barre SEGNALAZIONE aperta → apre dettaglio segnalazione
+  panel.querySelectorAll('.pl-bar-segnalazione').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var bubble = document.getElementById('pl-bubble');
+      if (bubble) bubble.style.display='none';
+      openSegnalazioneDetail(btn.dataset.segnId);
     });
   });
 
