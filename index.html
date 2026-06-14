@@ -4210,6 +4210,11 @@ function _buildMonthPanel(Y, M) {
     segments.push({ int: item, row: cur.riga, colStart: cur.colStart, colEnd: cur.colEnd, span: cur.colEnd - cur.colStart + 1, isFirst: cur.isFirst });
   }
 
+  var segnalazioniById = {};
+  DB.segnalazioni().forEach(function(s){ segnalazioniById[s.id] = s; });
+  var checksById = {};
+  checks.forEach(function(c){ checksById[c.id] = c; });
+
   interventions.forEach(function(int) {
     if (!int.dataApertura) return;
     var isChiuso    = int.stato === 'chiuso';
@@ -4225,7 +4230,23 @@ function _buildMonthPanel(Y, M) {
     } else {
       endDateStr = todayStr;
     }
-    _pushDateRangeSegments(int.dataApertura, endDateStr, int);
+    var startDateStr = int.dataApertura;
+    // Se collegato a una segnalazione o a un'anomalia da check dello stesso giorno,
+    // la barra rossa parte dal giorno dopo (il giorno dell'origine resta giallo/arancione).
+    var originDate = null;
+    if (int.segnalazioneId && segnalazioniById[int.segnalazioneId]) {
+      originDate = segnalazioniById[int.segnalazioneId].data;
+    } else if (int.checkId && checksById[int.checkId]) {
+      originDate = checksById[int.checkId].data;
+    }
+    if (originDate && originDate === int.dataApertura && endDateStr >= startDateStr) {
+      var d = new Date(startDateStr+'T00:00:00');
+      d.setDate(d.getDate()+1);
+      var nextDay = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+      if (nextDay <= endDateStr) startDateStr = nextDay;
+      // se l'intervento dura un solo giorno, non spostiamo (altrimenti endDateStr<startDateStr e la barra rossa scompare del tutto)
+    }
+    _pushDateRangeSegments(startDateStr, endDateStr, int);
   });
 
   // Anomalie da check senza intervento collegato — traccia fino ad oggi (o fino alla data del check se nel futuro)
@@ -4233,20 +4254,58 @@ function _buildMonthPanel(Y, M) {
     if (!c.data || !c.items) return;
     var anomItems = c.items.filter(function(it){ return it.val === 'anomalia'; });
     if (!anomItems.length) return;
-    var senzaIntervento = anomItems.some(function(a){
-      return !interventions.some(function(i){ return i.checkId===c.id && i.descrizione.startsWith(a.voce); });
+    // Per ogni anomalia del check, trova l'intervento collegato (se esiste) e la sua dataApertura
+    var linkedDates = [];
+    var senzaIntervento = false;
+    anomItems.forEach(function(a){
+      var linkedInt = interventions.find(function(i){ return i.checkId===c.id && i.descrizione.startsWith(a.voce); });
+      if (linkedInt && linkedInt.dataApertura) {
+        linkedDates.push(linkedInt.dataApertura);
+      } else {
+        senzaIntervento = true;
+      }
     });
-    if (!senzaIntervento) return;
-    var endDateStr = c.data > todayStr ? c.data : todayStr;
+    var endDateStr;
+    if (!senzaIntervento && linkedDates.length) {
+      // Tutte le anomalie hanno un intervento collegato: traccia in arancione fino al giorno
+      // prima dell'apertura più precoce (o fino a c.data se coincide con essa).
+      linkedDates.sort();
+      var earliest = linkedDates[0];
+      if (earliest < c.data) return; // caso anomalo, non dovrebbe succedere
+      if (earliest === c.data) {
+        endDateStr = c.data;
+      } else {
+        var d = new Date(earliest+'T00:00:00');
+        d.setDate(d.getDate()-1);
+        endDateStr = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+      }
+    } else {
+      endDateStr = c.data > todayStr ? c.data : todayStr;
+    }
     _pushDateRangeSegments(c.data, endDateStr, { id:c.id, vehicleId:c.vehicleId, _isCheckAnom:true, _checkId:c.id, stato:'anomalia_check' });
   });
 
-  // Segnalazioni aperte (senza intervento collegato) — traccia fino ad oggi
+  // Segnalazioni — traccia in giallo da s.data fino al giorno prima dell'apertura
+  // dell'intervento collegato (se esiste), o fino ad oggi se ancora non gestita.
+  // Se l'intervento è stato aperto lo stesso giorno della segnalazione, il giorno
+  // della segnalazione resta comunque giallo (un solo giorno).
   DB.segnalazioni().forEach(function(s) {
     if (!s.data) return;
-    var alreadyHandled = interventions.some(function(i){ return i.segnalazioneId===s.id; });
-    if (alreadyHandled) return;
-    var endDateStr = s.data > todayStr ? s.data : todayStr;
+    var linked = interventions.find(function(i){ return i.segnalazioneId===s.id; });
+    var endDateStr;
+    if (linked && linked.dataApertura) {
+      if (linked.dataApertura < s.data) return; // intervento aperto prima della segnalazione → niente da tracciare
+      if (linked.dataApertura === s.data) {
+        endDateStr = s.data; // stesso giorno: traccia comunque il giorno della segnalazione
+      } else {
+        // giorno prima della dataApertura dell'intervento
+        var d = new Date(linked.dataApertura+'T00:00:00');
+        d.setDate(d.getDate()-1);
+        endDateStr = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+      }
+    } else {
+      endDateStr = s.data > todayStr ? s.data : todayStr;
+    }
     _pushDateRangeSegments(s.data, endDateStr, { id:s.id, vehicleId:s.vehicleId, _isSegnalazione:true, _segnalazioneId:s.id, stato:'segnalazione' });
   });
 
