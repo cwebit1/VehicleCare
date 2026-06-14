@@ -4340,11 +4340,12 @@ function _buildMonthPanel(Y, M) {
     if (!c.data || !c.items) return;
     var anomItems = c.items.filter(function(it){ return it.val === 'anomalia'; });
     if (!anomItems.length) return;
-    // Per ogni anomalia del check, trova l'intervento collegato (se esiste) e la sua dataApertura
+    // Per ogni anomalia del check, trova l'intervento collegato NON annullato (se esiste) e la sua dataApertura.
+    // Un intervento annullato non "chiude" l'anomalia: questa resta tracciata come ancora aperta.
     var linkedDates = [];
     var senzaIntervento = false;
     anomItems.forEach(function(a){
-      var linkedInt = interventions.find(function(i){ return i.checkId===c.id && i.descrizione.startsWith(a.voce); });
+      var linkedInt = interventions.find(function(i){ return i.checkId===c.id && i.descrizione.startsWith(a.voce) && i.stato!=='annullato'; });
       if (linkedInt && linkedInt.dataApertura) {
         linkedDates.push(linkedInt.dataApertura);
       } else {
@@ -4372,12 +4373,13 @@ function _buildMonthPanel(Y, M) {
   });
 
   // Segnalazioni — traccia in giallo da s.data fino al giorno prima dell'apertura
-  // dell'intervento collegato (se esiste), o fino ad oggi se ancora non gestita.
+  // dell'intervento collegato NON annullato (se esiste), o fino ad oggi se ancora non gestita.
+  // Un intervento annullato non "chiude" la segnalazione: resta tracciata come ancora aperta.
   // Se l'intervento è stato aperto lo stesso giorno della segnalazione, il giorno
   // della segnalazione resta comunque giallo (un solo giorno).
   DB.segnalazioni().forEach(function(s) {
     if (!s.data) return;
-    var linked = interventions.find(function(i){ return i.segnalazioneId===s.id; });
+    var linked = interventions.find(function(i){ return i.segnalazioneId===s.id && i.stato!=='annullato'; });
     var endDateStr;
     if (linked && linked.dataApertura) {
       if (linked.dataApertura < s.data) return; // intervento aperto prima della segnalazione → niente da tracciare
