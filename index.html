@@ -4409,8 +4409,47 @@ function _buildMonthPanel(Y, M) {
     segments.push({ int:{id:ti.id,vehicleId:ti.vehicleId,_isTireInt:true,_tireIntId:ti.id}, row:Math.floor(cellIdx/PL_COLS), colStart:cellIdx%PL_COLS, colEnd:cellIdx%PL_COLS, span:1, isFirst:true });
   });
 
-  // Barre overlay HTML
+  // Raggruppa i segmenti per (riga calendario, veicolo): l'altezza della riga viene
+  // divisa per il numero di tracce presenti in quella riga per quel veicolo.
+  var segGroups = {};
+  segments.forEach(function(seg) {
+    var key = seg.row + '_' + seg.int.vehicleId;
+    if (!segGroups[key]) segGroups[key] = [];
+    segGroups[key].push(seg);
+  });
+  Object.keys(segGroups).forEach(function(key) {
+    var group = segGroups[key];
+    var n = group.length;
+    // ordina per colonna di inizio così la prima fascia corrisponde al primo segmento visivo
+    group.sort(function(a,b){ return a.colStart - b.colStart; });
+    group.forEach(function(seg, idx) {
+      seg._laneH = PL_ROW_H / n;
+      seg._laneTop = idx * seg._laneH;
+      seg._laneCount = n;
+    });
+  });
+
+  // Etichetta targa: una sola per riga/veicolo, indipendente dal numero di fasce.
+  // Viene mostrata sopra il primo segmento (in ordine di colonna) di quella riga/veicolo.
   var colWidthPct = 100 / PL_COLS;
+  var targaLabelsHtml = '';
+  Object.keys(segGroups).forEach(function(key) {
+    var group = segGroups[key];
+    if (!group.length) return;
+    var first = group[0];
+    var vIdx = vehicles.findIndex(function(v){ return v.id===first.int.vehicleId; });
+    if (vIdx===-1) return;
+    if (!first.isFirst) return; // mostra la targa solo se il primo segmento è l'inizio reale della traccia
+    var v = vehicles[vIdx];
+    var left = first.colStart * colWidthPct;
+    var width= first.span    * colWidthPct;
+    var rowTop = first.row * (cellH + PL_CELL_GAP) + PL_HDR_H + vIdx * (PL_ROW_H + PL_ROW_GAP);
+    targaLabelsHtml += '<div class="pl-bar-lbl pl-targa-lbl"'
+      +' style="position:absolute;left:calc('+left+'% + 4px);width:calc('+width+'% - 8px);top:'+rowTop+'px;height:'+PL_ROW_H+'px;pointer-events:none;display:flex;align-items:center;z-index:3;">'
+      +escHtml(v.targa)+'</div>';
+  });
+
+  // Barre overlay HTML
   var barsHtml = '';
   segments.forEach(function(seg) {
     var vIdx = vehicles.findIndex(function(v){ return v.id===seg.int.vehicleId; });
@@ -4418,27 +4457,28 @@ function _buildMonthPanel(Y, M) {
     var v    = vehicles[vIdx];
     var left = seg.colStart * colWidthPct;
     var width= seg.span    * colWidthPct;
-    var rowTop = seg.row * (cellH + PL_CELL_GAP) + PL_HDR_H + vIdx * (PL_ROW_H + PL_ROW_GAP);
-    var lbl  = seg.isFirst ? escHtml(v.targa) : '';
+    var rowTop = seg.row * (cellH + PL_CELL_GAP) + PL_HDR_H + vIdx * (PL_ROW_H + PL_ROW_GAP) + seg._laneTop;
+    var barH = seg._laneH;
+    var lbl  = '';
     if (seg.int._isTireInt) {
       barsHtml += '<button class="pl-bar pl-bar-tire"'
-        +' style="left:calc('+left+'% + 1px);width:calc('+width+'% - 2px);top:'+rowTop+'px;height:'+PL_ROW_H+'px;background:'+EV_COLORS.gomme+';"'
+        +' style="left:calc('+left+'% + 1px);width:calc('+width+'% - 2px);top:'+rowTop+'px;height:'+barH+'px;background:'+EV_COLORS.gomme+';"'
         +' data-tiid="'+seg.int._tireIntId+'" data-vid="'+seg.int.vehicleId+'">'
         +'<span class="pl-bar-lbl">'+lbl+'</span></button>';
     } else if (seg.int._isCheckAnom) {
       barsHtml += '<button class="pl-bar pl-bar-checkanom"'
-        +' style="left:calc('+left+'% + 1px);width:calc('+width+'% - 2px);top:'+rowTop+'px;height:'+PL_ROW_H+'px;background:'+EV_COLORS.checkAnom+';"'
+        +' style="left:calc('+left+'% + 1px);width:calc('+width+'% - 2px);top:'+rowTop+'px;height:'+barH+'px;background:'+EV_COLORS.checkAnom+';"'
         +' data-checkanom-vid="'+seg.int.vehicleId+'" data-checkanom-cid="'+seg.int._checkId+'">'
         +'<span class="pl-bar-lbl">'+lbl+'</span></button>';
     } else if (seg.int._isSegnalazione) {
       barsHtml += '<button class="pl-bar pl-bar-segnalazione"'
-        +' style="left:calc('+left+'% + 1px);width:calc('+width+'% - 2px);top:'+rowTop+'px;height:'+PL_ROW_H+'px;background:'+EV_COLORS.segnalazione+';"'
+        +' style="left:calc('+left+'% + 1px);width:calc('+width+'% - 2px);top:'+rowTop+'px;height:'+barH+'px;background:'+EV_COLORS.segnalazione+';"'
         +' data-segn-id="'+seg.int._segnalazioneId+'">'
         +'<span class="pl-bar-lbl">'+lbl+'</span></button>';
     } else {
       var color = seg.int.stato==='annullato' ? EV_COLORS.annullato : EV_COLORS.intervento;
       barsHtml += '<button class="pl-bar"'
-        +' style="left:calc('+left+'% + 1px);width:calc('+width+'% - 2px);top:'+rowTop+'px;height:'+PL_ROW_H+'px;background:'+color+';"'
+        +' style="left:calc('+left+'% + 1px);width:calc('+width+'% - 2px);top:'+rowTop+'px;height:'+barH+'px;background:'+color+';"'
         +' data-iid="'+seg.int.id+'" data-vid="'+seg.int.vehicleId+'">'
         +'<span class="pl-bar-lbl">'+lbl+'</span></button>';
     }
@@ -4492,7 +4532,7 @@ function _buildMonthPanel(Y, M) {
     title: MONTHS[M] + ' ' + Y,
     dowHdr: dowHdr,
     gridHtml: gridHtml,
-    barsHtml: barsHtml,
+    barsHtml: barsHtml + targaLabelsHtml,
     openCount: openInts.length + futureInts.length,
     sumHtml: sumHtml
   };
