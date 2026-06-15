@@ -1427,39 +1427,54 @@ const CHECK_VOCI=[
 
 let checkItems = {};
 
-function openSegnalazioneForm(vehicleId){
+function openSegnalazioneForm(vehicleId, editId){
   const v = DB.vehicles().find(x=>x.id===vehicleId);
   const settings = DB.settings();
-  openModal('📢 Nuova Segnalazione — '+(v?v.targa:''),
+  const editing = editId ? DB.segnalazioni().find(x=>x.id===editId) : null;
+  openModal((editing?'📢 Modifica Segnalazione — ':'📢 Nuova Segnalazione — ')+(v?v.targa:''),
     '<div class="form-group"><label class="form-label">Problema *</label>'
-    +'<textarea class="form-input" id="segn-problema" rows="3" placeholder="Descrivi il problema riscontrato…"></textarea></div>'
+    +'<textarea class="form-input" id="segn-problema" rows="3" placeholder="Descrivi il problema riscontrato…">'+escHtml(editing?editing.problema:'')+'</textarea></div>'
     +'<div class="form-group"><label class="form-label">Note aggiuntive</label>'
-    +'<textarea class="form-input" id="segn-note" rows="2" placeholder="Opzionale…"></textarea></div>'
+    +'<textarea class="form-input" id="segn-note" rows="2" placeholder="Opzionale…">'+escHtml(editing?(editing.note||''):'')+'</textarea></div>'
     +'<div class="form-group inline"><label class="form-label">Operatore</label>'
-    +'<input class="form-input" id="segn-operatore" type="text" value="'+escHtml(settings.operator||'')+'" placeholder="Nome operatore"></div>'
+    +'<input class="form-input" id="segn-operatore" type="text" value="'+escHtml(editing?(editing.operatore||''):(settings.operator||''))+'" placeholder="Nome operatore"></div>'
     +'<div class="form-group inline"><label class="form-label">KM attuali</label>'
-    +'<input class="form-input" id="segn-km" type="number" value="'+(v?v.km:'')+'" min="0"></div>'
+    +'<input class="form-input" id="segn-km" type="number" value="'+(editing?(editing.km||''):(v?v.km:''))+'" min="0"></div>'
+    +'<div class="form-group inline"><label class="form-label">Data</label>'
+    +'<input class="form-input" id="segn-data" type="date" value="'+(editing?(editing.data||today()):today())+'"></div>'
     +'<div class="btn-row">'
     +'<button class="btn btn-secondary" onclick="closeModal()">Annulla</button>'
-    +'<button class="btn btn-primary" id="btn-save-segn">Invia segnalazione</button>'
+    +'<button class="btn btn-primary" id="btn-save-segn">'+(editing?'Salva modifiche':'Invia segnalazione')+'</button>'
     +'</div>'
   );
   document.getElementById('btn-save-segn').onclick = function(){
-    saveSegnalazione(vehicleId);
+    saveSegnalazione(vehicleId, editId);
   };
 }
 
-function saveSegnalazione(vehicleId){
+function saveSegnalazione(vehicleId, editId){
   const problema  = (document.getElementById('segn-problema')?.value||'').trim();
   const note      = (document.getElementById('segn-note')?.value||'').trim();
   const operatore = (document.getElementById('segn-operatore')?.value||'').trim();
   const km        = parseInt(document.getElementById('segn-km')?.value)||null;
+  const dataEl    = document.getElementById('segn-data');
   if(!problema){ toast('Inserisci una descrizione del problema','error'); return; }
   const segnalazioni = DB.segnalazioni();
+  if(editId){
+    const idx = segnalazioni.findIndex(x=>x.id===editId);
+    if(idx===-1){ toast('Segnalazione non trovata','error'); closeModal(); return; }
+    segnalazioni[idx] = { ...segnalazioni[idx], problema, note, operatore, km, data: (dataEl?dataEl.value:segnalazioni[idx].data)||segnalazioni[idx].data };
+    DB.saveSegnalazioni(segnalazioni);
+    closeModal();
+    toast('Segnalazione aggiornata','success');
+    renderAlerts();
+    renderMain();
+    return;
+  }
   segnalazioni.push({
     id: DB.uid(), vehicleId,
     problema, note, operatore, km,
-    data: today(),
+    data: dataEl?(dataEl.value||today()):today(),
     createdAt: nowISO()
   });
   DB.saveSegnalazioni(segnalazioni);
@@ -1474,6 +1489,7 @@ function openSegnalazioneDetail(segnalazioneId){
   const s = segnalazioni.find(x=>x.id===segnalazioneId);
   if(!s) return;
   const v = DB.vehicles().find(x=>x.id===s.vehicleId);
+  const avanzata = DB.settings().gestioneAvanzata;
   openModal('📢 Segnalazione — '+(v?v.targa:''),
     '<div style="background:#fff0f0;border:1px solid #fca5a5;border-radius:10px;padding:14px;margin-bottom:10px;">'
     +'<div style="font-size:13px;font-weight:700;color:#b91c1c;margin-bottom:6px;">'+escHtml(s.problema)+'</div>'
@@ -1482,10 +1498,17 @@ function openSegnalazioneDetail(segnalazioneId){
     +'</div>'
     +'<div class="btn-row">'
     +'<button class="btn btn-secondary" onclick="closeModal()">Chiudi</button>'
+    +(avanzata?'<button id="btn-segn-edit" class="btn" style="background:#f1f5f9;color:#475569;">✏️ Modifica</button>':'')
     +'<button id="btn-segn-int" class="btn btn-primary">+ Intervento</button>'
     +'<button id="btn-segn-ris" class="btn" style="background:#16a34a;color:#fff;">✓ Risolto</button>'
     +'</div>'
   );
+  if(avanzata){
+    document.getElementById('btn-segn-edit').onclick = function(){
+      closeModal();
+      openSegnalazioneForm(s.vehicleId, s.id);
+    };
+  }
   document.getElementById('btn-segn-int').onclick = function(){
     closeModal();
     openInterventionFromSegnalazione(s);
@@ -1710,25 +1733,31 @@ function risolviSegnalazione(s){
   };
 }
 
-function openCheckForm(vehicleId){
+function openCheckForm(vehicleId, editCheckId){
   const v=DB.vehicles().find(x=>x.id===vehicleId);
   if(!v){ toast('Veicolo non trovato','error'); return; }
+  const editingCheck = editCheckId ? DB.checks().find(c=>c.id===editCheckId) : null;
   checkItems={};
   CHECK_VOCI.forEach(voce=>{ checkItems[voce]={val:'',note:''}; });
+  if(editingCheck){
+    (editingCheck.items||[]).forEach(it=>{
+      if(checkItems[it.voce]) checkItems[it.voce] = { val: it.val||'', note: it.note||'' };
+    });
+  }
   const settings=DB.settings();
 
-  openModal(`Check — ${v.targa}`, `
+  openModal(`${editingCheck?'Modifica check':'Check'} — ${v.targa}`, `
     <div class="form-group inline">
       <label class="form-label">KM attuali *</label>
-      <input class="form-input" id="ck-km" type="number" value="${v.km||''}" placeholder="KM veicolo" min="0">
+      <input class="form-input" id="ck-km" type="number" value="${editingCheck?(editingCheck.km||''):(v.km||'')}" placeholder="KM veicolo" min="0">
     </div>
     <div class="form-group inline">
       <label class="form-label">Operatore</label>
-      <input class="form-input" id="ck-op" value="${escHtml(settings.operator||'')}" placeholder="Nome operatore">
+      <input class="form-input" id="ck-op" value="${escHtml(editingCheck?(editingCheck.operatore||''):(settings.operator||''))}" placeholder="Nome operatore">
     </div>
     <div class="form-group inline">
       <label class="form-label">Data check</label>
-      <input class="form-input" id="ck-date" type="date" value="${today()}">
+      <input class="form-input" id="ck-date" type="date" value="${editingCheck?(editingCheck.data||today()):today()}">
     </div>
     <div class="divider"></div>
     <div class="section-title">Voci di controllo</div>
@@ -1737,21 +1766,21 @@ function openCheckForm(vehicleId){
         <div class="check-item" id="chk-row-${i}">
           <div class="check-label">${escHtml(voce)}</div>
           <div class="check-toggle">
-            <button class="ctgl ok" onclick="setCheck(${i},'ok','${escHtml(voce)}')" id="chk-ok-${i}">OK</button>
-            <button class="ctgl anom" onclick="setCheck(${i},'anomalia','${escHtml(voce)}')" id="chk-an-${i}">⚠️</button>
+            <button class="ctgl ok ${checkItems[voce].val==='ok'?'active':''}" onclick="setCheck(${i},'ok','${escHtml(voce)}')" id="chk-ok-${i}">OK</button>
+            <button class="ctgl anom ${checkItems[voce].val==='anomalia'?'active':''}" onclick="setCheck(${i},'anomalia','${escHtml(voce)}')" id="chk-an-${i}">⚠️</button>
           </div>
         </div>
-        <textarea class="check-note" id="chk-note-${i}" placeholder="Note per ${escHtml(voce)}…" oninput="checkItems['${escHtml(voce)}'].note=this.value"></textarea>
+        <textarea class="check-note ${checkItems[voce].val==='anomalia'?'show':''}" id="chk-note-${i}" placeholder="Note per ${escHtml(voce)}…" oninput="checkItems['${escHtml(voce)}'].note=this.value">${escHtml(checkItems[voce].note||'')}</textarea>
       `).join('')}
     </div>
     <div class="divider"></div>
     <div class="form-group">
       <label class="form-label">Note generali</label>
-      <textarea class="form-input" id="ck-notes" rows="2" placeholder="Osservazioni generali…"></textarea>
+      <textarea class="form-input" id="ck-notes" rows="2" placeholder="Osservazioni generali…">${escHtml(editingCheck?(editingCheck.note||''):'')}</textarea>
     </div>
     <div class="btn-row">
       <button class="btn btn-secondary" onclick="closeModal()">Annulla</button>
-      <button class="btn btn-primary" onclick="saveCheck('${vehicleId}')">Salva check</button>
+      <button class="btn btn-primary" onclick="saveCheck('${vehicleId}'${editingCheck?`,'${editingCheck.id}'`:''})">${editingCheck?'Salva modifiche':'Salva check'}</button>
     </div>
     <div style="height:10px;"></div>
   `);
@@ -1768,7 +1797,7 @@ function setCheck(idx, val, voce){
   if(noteEl){ noteEl.classList.toggle('show', val==='anomalia'); }
 }
 
-function saveCheck(vehicleId){
+function saveCheck(vehicleId, editCheckId){
   const km=document.getElementById('ck-km').value;
   if(!km){ toast('Inserisci i KM','error'); return; }
   const op=document.getElementById('ck-op').value.trim()||DB.settings().operator||'Operatore';
@@ -1783,6 +1812,20 @@ function saveCheck(vehicleId){
     return {voce, val:ci.val, note:noteVal||ci.note};
   });
   const anomalie=items.filter(i=>i.val==='anomalia');
+
+  if(editCheckId){
+    // ── MODIFICA CHECK ESISTENTE ──
+    const checks=DB.checks();
+    const idx=checks.findIndex(c=>c.id===editCheckId);
+    if(idx===-1){ toast('Check non trovato','error'); closeModal(); return; }
+    checks[idx] = { ...checks[idx], data:date, operatore:op, km:parseInt(km), items, note:notes };
+    DB.saveChecks(checks);
+    closeModal();
+    renderMain();
+    renderAlerts();
+    toast('✅ Check aggiornato','success');
+    return;
+  }
 
   // SALVA SEMPRE il check prima di qualsiasi altra azione
   const checkId=DB.uid();
@@ -2476,6 +2519,10 @@ function openHistory(vehicleId){
           const s=ev.data;
           const allInterventions=DB.interventions();
           const handled=allInterventions.some(function(i){ return i.segnalazioneId===s.id; });
+          const avanzata=DB.settings().gestioneAvanzata;
+          const editBtnHtml = avanzata
+            ? '<button data-segn-edit="'+s.id+'" data-vid="'+s.vehicleId+'" style="background:#f1f5f9;color:#475569;border:none;border-radius:8px;padding:9px 10px;font-size:12px;font-weight:600;cursor:pointer;">✏️ Modifica</button>'
+            : '';
           const boxHtml = !handled
             ? '<div style="margin-top:8px;padding:8px 10px;background:#fff0f0;border:1px solid #fca5a5;border-radius:8px;">'
               +'<div style="font-size:11px;font-weight:700;color:#b91c1c;margin-bottom:6px;">SEGNALAZIONE APERTA:</div>'
@@ -2494,6 +2541,7 @@ function openHistory(vehicleId){
             +'<div class="tl-desc" style="margin-top:4px;font-weight:600;">'+escHtml(s.problema)+'</div>'
             +(s.note?'<div class="tl-desc" style="color:#64748b;">'+escHtml(s.note)+'</div>':'')
             +boxHtml
+            +(editBtnHtml?'<div style="margin-top:8px;">'+editBtnHtml+'</div>':'')
             +'</div></div>';
         } else {
           const t=ev.data;
@@ -2519,6 +2567,7 @@ function openHistory(vehicleId){
   document.getElementById('modal-box').addEventListener('click', function(e){
     const btnInt = e.target.closest('[data-segn-int]');
     const btnRis = e.target.closest('[data-segn-risolto]');
+    const btnEdit = e.target.closest('[data-segn-edit]');
     if(btnInt){
       const sid = btnInt.dataset.segnInt;
       const s = DB.segnalazioni().find(x=>x.id===sid);
@@ -2527,6 +2576,11 @@ function openHistory(vehicleId){
       const sid = btnRis.dataset.segnRisolto;
       const s = DB.segnalazioni().find(x=>x.id===sid);
       if(s){ closeModal(); risolviSegnalazione(s); }
+    } else if(btnEdit){
+      const sid = btnEdit.dataset.segnEdit;
+      const vid = btnEdit.dataset.vid;
+      closeModal();
+      openSegnalazioneForm(vid, sid);
     }
   });
 }
@@ -4018,6 +4072,9 @@ function renderArchivio(container){
             <button onclick="stampaCheckModulo('${c.id}')" style="background:#f1f5f9;color:#475569;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">
               🖨️ Stampa
             </button>
+            ${avanzata?`<button onclick="openCheckForm('${c.vehicleId}','${c.id}')" style="background:#f1f5f9;color:#475569;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">
+              ✏️ Modifica
+            </button>`:''}
             ${avanzata?`<button onclick="eliminaCheck('${c.id}')" style="background:#fee2e2;color:#b91c1c;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">
               🗑️ Elimina
             </button>`:''}
@@ -4063,7 +4120,7 @@ function renderArchivio(container){
           </div>
           <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
             ${isAperto?`<button onclick="openChiusuraForm('${i.id}','${i.vehicleId}')" style="background:#16a34a;color:#fff;border:none;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">✅ Chiudi</button>`:''}
-            <button onclick="openInterventionForm('${i.vehicleId}','${i.id}')" style="background:#f1f5f9;color:#475569;border:none;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">✏️ Modifica</button>
+            ${avanzata?`<button onclick="openInterventionForm('${i.vehicleId}','${i.id}')" style="background:#f1f5f9;color:#475569;border:none;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">✏️ Modifica</button>`:''}
             ${isAperto?`<button onclick="annullaIntervento('${i.id}','${i.vehicleId}')" style="background:#fef3c7;color:#92400e;border:none;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">✕ Annulla</button>`:''}
             ${avanzata?`<button onclick="eliminaIntervento('${i.id}')" style="background:#fee2e2;color:#b91c1c;border:none;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">🗑️ Elimina</button>`:''}
           </div>
