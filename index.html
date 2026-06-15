@@ -4478,8 +4478,11 @@ function _buildMonthPanel(Y, M) {
     group.forEach(function(seg){
       var sid = seg.int._storyId || null;
       var idx = sid!==null ? storyLane[sid] : 0;
-      seg._laneH = PL_ROW_H / n;
-      seg._laneTop = idx * seg._laneH;
+      var fullLaneH = PL_ROW_H / n;
+      // 1px di gap tra fasce (solo se ci sono più fasce), sottratto dall'altezza di ciascuna
+      var gap = n > 1 ? 2 : 0;
+      seg._laneH = fullLaneH - gap;
+      seg._laneTop = idx * fullLaneH + (idx > 0 ? gap : 0);
       seg._laneCount = n;
     });
   });
