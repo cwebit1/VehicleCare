@@ -4480,7 +4480,7 @@ function _buildMonthPanel(Y, M) {
       var idx = sid!==null ? storyLane[sid] : 0;
       var fullLaneH = PL_ROW_H / n;
       // 1px di gap tra fasce (solo se ci sono più fasce), sottratto dall'altezza di ciascuna
-      var gap = n > 1 ? 2 : 0;
+      var gap = n > 1 ? 1 : 0;
       seg._laneH = fullLaneH - gap;
       seg._laneTop = idx * fullLaneH + (idx > 0 ? gap : 0);
       seg._laneCount = n;
