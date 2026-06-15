@@ -4479,10 +4479,11 @@ function _buildMonthPanel(Y, M) {
       var sid = seg.int._storyId || null;
       var idx = sid!==null ? storyLane[sid] : 0;
       var fullLaneH = PL_ROW_H / n;
-      // 1px di gap tra fasce (solo se ci sono più fasce), sottratto dall'altezza di ciascuna
+      // 1px di gap totale tra fasce adiacenti (solo se ci sono più fasce):
+      // tolto solo dall'altezza, nessun offset aggiuntivo sul top.
       var gap = n > 1 ? 1 : 0;
       seg._laneH = fullLaneH - gap;
-      seg._laneTop = idx * fullLaneH + (idx > 0 ? gap : 0);
+      seg._laneTop = idx * fullLaneH;
       seg._laneCount = n;
     });
   });
