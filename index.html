@@ -4373,22 +4373,6 @@ function _buildMonthPanel(Y, M) {
     } else {
       endDateStr = todayStr;
     }
-    var startDateStr = int.dataApertura;
-    // Se collegato a una segnalazione o a un'anomalia da check dello stesso giorno,
-    // la barra rossa parte dal giorno dopo (il giorno dell'origine resta giallo/arancione).
-    var originDate = null;
-    if (int.segnalazioneId && segnalazioniById[int.segnalazioneId]) {
-      originDate = segnalazioniById[int.segnalazioneId].data;
-    } else if (int.checkId && checksById[int.checkId]) {
-      originDate = checksById[int.checkId].data;
-    }
-    if (originDate && originDate === int.dataApertura && endDateStr >= startDateStr) {
-      var d = new Date(startDateStr+'T00:00:00');
-      d.setDate(d.getDate()+1);
-      var nextDay = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-      if (nextDay <= endDateStr) startDateStr = nextDay;
-      // se l'intervento dura un solo giorno, non spostiamo (altrimenti endDateStr<startDateStr e la barra rossa scompare del tutto)
-    }
     var storyId;
     if (int.segnalazioneId) {
       storyId = 'segn_' + int.segnalazioneId;
@@ -4404,7 +4388,7 @@ function _buildMonthPanel(Y, M) {
     } else {
       storyId = 'int_' + int.id;
     }
-    _pushDateRangeSegments(startDateStr, endDateStr, Object.assign({}, int, { _storyId: storyId }));
+    _pushDateRangeSegments(int.dataApertura, endDateStr, Object.assign({}, int, { _storyId: storyId }));
   });
 
   // Anomalie da check senza intervento collegato — traccia fino ad oggi (o fino alla data del check se nel futuro)
