@@ -4393,7 +4393,14 @@ function _buildMonthPanel(Y, M) {
     if (int.segnalazioneId) {
       storyId = 'segn_' + int.segnalazioneId;
     } else if (int.checkId) {
-      storyId = 'check_' + int.checkId;
+      // trova la voce dell'anomalia collegata (descrizione inizia con la voce)
+      var origCheck = checksById[int.checkId];
+      var matchedVoce = null;
+      if (origCheck && origCheck.items) {
+        var found = origCheck.items.find(function(it){ return it.val==='anomalia' && int.descrizione && int.descrizione.startsWith(it.voce); });
+        if (found) matchedVoce = found.voce;
+      }
+      storyId = matchedVoce ? ('check_' + int.checkId + '_' + matchedVoce) : ('check_' + int.checkId);
     } else {
       storyId = 'int_' + int.id;
     }
@@ -4401,40 +4408,29 @@ function _buildMonthPanel(Y, M) {
   });
 
   // Anomalie da check senza intervento collegato — traccia fino ad oggi (o fino alla data del check se nel futuro)
+  // Ogni anomalia del check genera il proprio segmento/storia, in modo che più anomalie sullo
+  // stesso check occupino fasce separate nel planner.
   checks.forEach(function(c) {
     if (!c.data || !c.items) return;
     var anomItems = c.items.filter(function(it){ return it.val === 'anomalia'; });
     if (!anomItems.length) return;
-    // Per ogni anomalia del check, trova l'intervento collegato NON annullato (se esiste) e la sua dataApertura.
-    // Un intervento annullato non "chiude" l'anomalia: questa resta tracciata come ancora aperta.
-    var linkedDates = [];
-    var senzaIntervento = false;
     anomItems.forEach(function(a){
       var linkedInt = interventions.find(function(i){ return i.checkId===c.id && i.descrizione.startsWith(a.voce) && i.stato!=='annullato'; });
+      var endDateStr;
       if (linkedInt && linkedInt.dataApertura) {
-        linkedDates.push(linkedInt.dataApertura);
+        if (linkedInt.dataApertura < c.data) return; // caso anomalo, non dovrebbe succedere
+        if (linkedInt.dataApertura === c.data) {
+          endDateStr = c.data;
+        } else {
+          var d = new Date(linkedInt.dataApertura+'T00:00:00');
+          d.setDate(d.getDate()-1);
+          endDateStr = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+        }
       } else {
-        senzaIntervento = true;
+        endDateStr = c.data > todayStr ? c.data : todayStr;
       }
+      _pushDateRangeSegments(c.data, endDateStr, { id:c.id, vehicleId:c.vehicleId, _isCheckAnom:true, _checkId:c.id, stato:'anomalia_check', _storyId:'check_'+c.id+'_'+a.voce });
     });
-    var endDateStr;
-    if (!senzaIntervento && linkedDates.length) {
-      // Tutte le anomalie hanno un intervento collegato: traccia in arancione fino al giorno
-      // prima dell'apertura più precoce (o fino a c.data se coincide con essa).
-      linkedDates.sort();
-      var earliest = linkedDates[0];
-      if (earliest < c.data) return; // caso anomalo, non dovrebbe succedere
-      if (earliest === c.data) {
-        endDateStr = c.data;
-      } else {
-        var d = new Date(earliest+'T00:00:00');
-        d.setDate(d.getDate()-1);
-        endDateStr = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-      }
-    } else {
-      endDateStr = c.data > todayStr ? c.data : todayStr;
-    }
-    _pushDateRangeSegments(c.data, endDateStr, { id:c.id, vehicleId:c.vehicleId, _isCheckAnom:true, _checkId:c.id, stato:'anomalia_check', _storyId:'check_'+c.id });
   });
 
   // Segnalazioni — traccia in giallo da s.data fino al giorno prima dell'apertura
