@@ -4332,7 +4332,15 @@ function _buildMonthPanel(Y, M) {
       if (nextDay <= endDateStr) startDateStr = nextDay;
       // se l'intervento dura un solo giorno, non spostiamo (altrimenti endDateStr<startDateStr e la barra rossa scompare del tutto)
     }
-    _pushDateRangeSegments(startDateStr, endDateStr, int);
+    var storyId;
+    if (int.segnalazioneId) {
+      storyId = 'segn_' + int.segnalazioneId;
+    } else if (int.checkId) {
+      storyId = 'check_' + int.checkId;
+    } else {
+      storyId = 'int_' + int.id;
+    }
+    _pushDateRangeSegments(startDateStr, endDateStr, Object.assign({}, int, { _storyId: storyId }));
   });
 
   // Anomalie da check senza intervento collegato — traccia fino ad oggi (o fino alla data del check se nel futuro)
@@ -4369,7 +4377,7 @@ function _buildMonthPanel(Y, M) {
     } else {
       endDateStr = c.data > todayStr ? c.data : todayStr;
     }
-    _pushDateRangeSegments(c.data, endDateStr, { id:c.id, vehicleId:c.vehicleId, _isCheckAnom:true, _checkId:c.id, stato:'anomalia_check' });
+    _pushDateRangeSegments(c.data, endDateStr, { id:c.id, vehicleId:c.vehicleId, _isCheckAnom:true, _checkId:c.id, stato:'anomalia_check', _storyId:'check_'+c.id });
   });
 
   // Segnalazioni — traccia in giallo da s.data fino al giorno prima dell'apertura
@@ -4394,7 +4402,7 @@ function _buildMonthPanel(Y, M) {
     } else {
       endDateStr = s.data > todayStr ? s.data : todayStr;
     }
-    _pushDateRangeSegments(s.data, endDateStr, { id:s.id, vehicleId:s.vehicleId, _isSegnalazione:true, _segnalazioneId:s.id, stato:'segnalazione' });
+    _pushDateRangeSegments(s.data, endDateStr, { id:s.id, vehicleId:s.vehicleId, _isSegnalazione:true, _segnalazioneId:s.id, stato:'segnalazione', _storyId:'segn_'+s.id });
   });
 
   // Gomme programmate
@@ -4410,7 +4418,8 @@ function _buildMonthPanel(Y, M) {
   });
 
   // Raggruppa i segmenti per (riga calendario, veicolo): l'altezza della riga viene
-  // divisa per il numero di tracce presenti in quella riga per quel veicolo.
+  // divisa per il numero di STORIE distinte presenti in quella riga per quel veicolo.
+  // Segmenti con lo stesso _storyId (es. anomalia + intervento collegato) condividono la stessa fascia.
   var segGroups = {};
   segments.forEach(function(seg) {
     var key = seg.row + '_' + seg.int.vehicleId;
@@ -4419,10 +4428,19 @@ function _buildMonthPanel(Y, M) {
   });
   Object.keys(segGroups).forEach(function(key) {
     var group = segGroups[key];
-    var n = group.length;
-    // ordina per colonna di inizio così la prima fascia corrisponde al primo segmento visivo
+    // ordina per colonna di inizio così la prima fascia corrisponde alla prima storia visiva
     group.sort(function(a,b){ return a.colStart - b.colStart; });
-    group.forEach(function(seg, idx) {
+    // assegna un indice di fascia per ogni _storyId, nell'ordine di prima apparizione
+    var storyLane = {};
+    var nextLane = 0;
+    group.forEach(function(seg){
+      var sid = seg.int._storyId || ('seg_'+seg.row+'_'+seg.colStart+'_'+seg.colEnd+'_'+Math.random());
+      if (!(sid in storyLane)) { storyLane[sid] = nextLane++; }
+    });
+    var n = nextLane;
+    group.forEach(function(seg){
+      var sid = seg.int._storyId || null;
+      var idx = sid!==null ? storyLane[sid] : 0;
       seg._laneH = PL_ROW_H / n;
       seg._laneTop = idx * seg._laneH;
       seg._laneCount = n;
