@@ -5240,10 +5240,6 @@ function openCheckAnomalieFromPlanner(checkId, vehicleId) {
   }
 
   var rows = anomSenzaInt.map(function(a) {
-    var hasInt = interventions.some(function(i) {
-      return i.checkId === checkId && i.descrizione && i.descrizione.startsWith(a.voce);
-    });
-    if (hasInt) return ''; // già gestita
     return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;margin-bottom:8px;">'
       + '<div style="flex:1;">'
       + '<div style="font-size:13px;font-weight:700;color:#c2410c;">⚠️ ' + escHtml(a.voce) + '</div>'
