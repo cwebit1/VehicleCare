@@ -4697,6 +4697,10 @@ function _attachPanelListeners(panel) {
       var finalY = Math.max(rect.top-8,0);
       var statoColor = int.stato==='chiuso'?'#16a34a':int.stato==='anomalia'?'#dc2626':'#d97706';
       var statoLbl   = int.stato==='chiuso'?'✅ Chiuso':int.stato==='anomalia'?'⚠️ Anomalia':'🔧 In lavorazione';
+      // Rimuovi bordo da eventuali barre precedentemente selezionate
+      document.querySelectorAll('.pl-bar-selected').forEach(function(el){ el.classList.remove('pl-bar-selected'); el.style.outline=''; });
+      btn.style.outline='1.5px solid #000';
+      btn.classList.add('pl-bar-selected');
       var bubble = document.getElementById('pl-bubble');
       bubble.innerHTML='<div class="pl-bubble-inner">'
         +'<div style="font-size:11px;font-weight:700;color:'+statoColor+';margin-bottom:6px;">'+statoLbl+'</div>'
@@ -4711,7 +4715,6 @@ function _attachPanelListeners(panel) {
         +(int.stato!=='chiuso'&&int.stato!=='annullato'?'<button class="bubble-ann" data-iid="'+int.id+'" data-vid="'+int.vehicleId+'" style="background:#ca8a04;color:#fff;border:none;border-radius:7px;padding:8px;font-size:12px;font-weight:600;cursor:pointer;">✕ Annulla</button>':'')
         +'<button class="bubble-mod" data-iid="'+int.id+'" data-vid="'+int.vehicleId+'" style="background:#f1f5f9;color:#475569;border:none;border-radius:7px;padding:8px;font-size:12px;font-weight:600;cursor:pointer;">Modifica</button>'
         +'</div>'
-        +'<div class="pl-bubble-arrow"></div><div class="pl-bubble-arrow2"></div>'
         +'</div>';
       bubble.style.display='block';
       bubble.style.left=finalX+'px';
@@ -4731,6 +4734,9 @@ function _attachPanelListeners(panel) {
       var rect   = btn.getBoundingClientRect();
       var finalX = Math.min(Math.max(rect.left+rect.width/2-128,8),window.innerWidth-264);
       var finalY = Math.max(rect.top-8,0);
+      document.querySelectorAll('.pl-bar-selected').forEach(function(el){ el.classList.remove('pl-bar-selected'); el.style.outline=''; });
+      btn.style.outline='1.5px solid #000';
+      btn.classList.add('pl-bar-selected');
       var bubble = document.getElementById('pl-bubble');
       bubble.innerHTML='<div class="pl-bubble-inner">'
         +'<div style="font-size:11px;font-weight:700;color:#1e40af;margin-bottom:6px;">🔵 Cambio gomme programmato</div>'
@@ -4739,7 +4745,6 @@ function _attachPanelListeners(panel) {
         +'<div style="font-size:12px;color:#94a3b8;margin-bottom:10px;">📅 '+fmtDate(ti.dataProgrammata)+'</div>'
         +(ti.note?'<div style="font-size:12px;color:#475569;margin-bottom:10px;">'+escHtml(ti.note)+'</div>':'')
         +'<button class="bubble-tire-edita" data-tiid="'+tiid+'" style="width:100%;background:#1e40af;color:#fff;border:none;border-radius:7px;padding:9px;font-size:13px;font-weight:700;cursor:pointer;">Edita cambio gomme</button>'
-        +'<div class="pl-bubble-arrow"></div><div class="pl-bubble-arrow2"></div>'
         +'</div>';
       bubble.style.display='block';
       bubble.style.left=finalX+'px';
@@ -4748,12 +4753,17 @@ function _attachPanelListeners(panel) {
     });
   });
 
+  function _closeBubble() {
+    var bubble = document.getElementById('pl-bubble');
+    if (bubble) bubble.style.display='none';
+    document.querySelectorAll('.pl-bar-selected').forEach(function(el){ el.classList.remove('pl-bar-selected'); el.style.outline=''; });
+  }
+
   // Barre ANOMALIA DA CHECK (senza intervento) → apre maschera anomalie del check specifico
   panel.querySelectorAll('.pl-bar-checkanom').forEach(function(btn) {
     btn.addEventListener('click', function(e) {
       e.stopPropagation();
-      var bubble = document.getElementById('pl-bubble');
-      if (bubble) bubble.style.display='none';
+      _closeBubble();
       openCheckAnomalieFromPlanner(btn.dataset.checkanomCid, btn.dataset.checkanomVid);
     });
   });
@@ -4762,8 +4772,7 @@ function _attachPanelListeners(panel) {
   panel.querySelectorAll('.pl-bar-segnalazione').forEach(function(btn) {
     btn.addEventListener('click', function(e) {
       e.stopPropagation();
-      var bubble = document.getElementById('pl-bubble');
-      if (bubble) bubble.style.display='none';
+      _closeBubble();
       openSegnalazioneDetail(btn.dataset.segnId);
     });
   });
@@ -4774,7 +4783,7 @@ function _attachPanelListeners(panel) {
     overlay.addEventListener('click', function(e) {
       if (e.target.closest('.pl-bar')) return;
       var bubble = document.getElementById('pl-bubble');
-      if (bubble && bubble.style.display !== 'none') { bubble.style.display='none'; return; }
+      if (bubble && bubble.style.display !== 'none') { _closeBubble(); return; }
       overlay.style.pointerEvents = 'none';
       var el = document.elementFromPoint(e.clientX, e.clientY);
       overlay.style.pointerEvents = '';
@@ -4874,10 +4883,11 @@ function openPlanner(year, month) {
       var bm=e.target.closest('.bubble-mod');
       var ba=e.target.closest('.bubble-ann');
       var bt=e.target.closest('.bubble-tire-edita');
-      if (bc) openChiusuraForm(bc.dataset.iid,bc.dataset.vid,true);
-      if (bm) openInterventionForm(bm.dataset.vid,bm.dataset.iid);
-      if (ba) annullaIntervento(ba.dataset.iid,ba.dataset.vid,true);
-      if (bt){ document.getElementById('pl-bubble').style.display='none'; openEditCambioGomme(bt.dataset.tiid); }
+      function clearBubble(){ document.getElementById('pl-bubble').style.display='none'; document.querySelectorAll('.pl-bar-selected').forEach(function(el){el.classList.remove('pl-bar-selected');el.style.outline='';}); }
+      if (bc){ clearBubble(); openChiusuraForm(bc.dataset.iid,bc.dataset.vid,true); }
+      if (bm){ clearBubble(); openInterventionForm(bm.dataset.vid,bm.dataset.iid,true); }
+      if (ba){ clearBubble(); annullaIntervento(ba.dataset.iid,ba.dataset.vid,true); }
+      if (bt){ clearBubble(); openEditCambioGomme(bt.dataset.tiid); }
     });
 
     document.getElementById('pl-prev')?.addEventListener('click', function(){ _plannerSwipe(false); });
@@ -5065,10 +5075,11 @@ function _plannerSwipe(goNext) {
         var bm=e.target.closest('.bubble-mod');
         var ba=e.target.closest('.bubble-ann');
         var bt=e.target.closest('.bubble-tire-edita');
-        if (bc) openChiusuraForm(bc.dataset.iid,bc.dataset.vid,true);
-        if (bm) openInterventionForm(bm.dataset.vid,bm.dataset.iid);
-        if (ba) annullaIntervento(ba.dataset.iid,ba.dataset.vid,true);
-        if (bt){ document.getElementById('pl-bubble').style.display='none'; openEditCambioGomme(bt.dataset.tiid); }
+        function clearBubble(){ document.getElementById('pl-bubble').style.display='none'; document.querySelectorAll('.pl-bar-selected').forEach(function(el){el.classList.remove('pl-bar-selected');el.style.outline='';}); }
+        if (bc){ clearBubble(); openChiusuraForm(bc.dataset.iid,bc.dataset.vid,true); }
+        if (bm){ clearBubble(); openInterventionForm(bm.dataset.vid,bm.dataset.iid,true); }
+        if (ba){ clearBubble(); annullaIntervento(ba.dataset.iid,ba.dataset.vid,true); }
+        if (bt){ clearBubble(); openEditCambioGomme(bt.dataset.tiid); }
       });
 
       document.getElementById('pl-prev')?.addEventListener('click', function(){ _plannerSwipe(false); });
