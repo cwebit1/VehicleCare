@@ -5211,11 +5211,30 @@ function openCheckAnomalieFromPlanner(checkId, vehicleId) {
   });
 
   if (anomSenzaInt.length === 0) {
+    // Tutte le anomalie hanno un intervento collegato — mostra il riepilogo
+    var risolteHtml = anom.map(function(a){
+      var intCollegato = interventions.find(function(i){ return i.checkId===checkId && i.descrizione && i.descrizione.startsWith(a.voce); });
+      var statoColor = intCollegato && intCollegato.stato==='chiuso' ? '#16a34a' : '#dc2626';
+      var statoLbl   = intCollegato ? (intCollegato.stato==='chiuso'?'✅ Chiuso':'🔧 In lavorazione') : '';
+      var sup = intCollegato && intCollegato.fornitoreId ? DB.suppliers().find(function(s){ return s.id===intCollegato.fornitoreId; }) : null;
+      return '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;margin-bottom:8px;">'
+        +'<div style="font-size:12px;font-weight:700;color:#b91c1c;margin-bottom:4px;">⚠️ '+escHtml(a.voce)+(a.note?' — <span style="font-style:italic;font-weight:400;">'+escHtml(a.note)+'</span>':'')+'</div>'
+        +(intCollegato
+          ? '<div style="font-size:12px;color:#334155;margin-bottom:2px;">'+escHtml(intCollegato.descrizione||'')+'</div>'
+          + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px;">'
+          + '<span style="font-size:11px;font-weight:700;color:'+statoColor+';">'+statoLbl+'</span>'
+          + '<span style="font-size:11px;color:#94a3b8;">'+fmtDate(intCollegato.dataApertura)+'</span>'
+          + (sup ? '<span style="font-size:11px;color:#64748b;">🏠 '+escHtml(sup.nome)+'</span>' : '')
+          + (intCollegato.noteChiusura ? '<div style="font-size:11px;color:#64748b;width:100%;margin-top:2px;font-style:italic;">'+escHtml(intCollegato.noteChiusura)+'</div>' : '')
+          + '</div>'
+          : '<div style="font-size:11px;color:#94a3b8;">Nessun intervento trovato</div>')
+        +'</div>';
+    }).join('');
     openModal2('Anomalie — ' + (v ? v.targa : ''),
-      '<div style="background:#dcfce7;border-radius:8px;padding:14px;text-align:center;font-size:14px;color:#15803d;font-weight:700;">'
-      + '✅ Tutti gli interventi sono già stati creati per questo check.'
-      + '</div>'
-      + '<button onclick="closeModal2()" style="width:100%;background:#f1f5f9;color:#475569;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;margin-top:12px;">Chiudi</button>'
+      '<div style="background:#dcfce7;border:1px solid #bbf7d0;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:13px;color:#15803d;font-weight:700;">'
+      + '✅ Tutte le anomalie hanno un intervento collegato</div>'
+      + risolteHtml
+      + '<button onclick="closeModal2()" style="width:100%;background:#f1f5f9;color:#475569;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;margin-top:4px;">Chiudi</button>'
     );
     return;
   }
