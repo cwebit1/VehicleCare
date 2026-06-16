@@ -142,6 +142,21 @@ body{display:flex;flex-direction:column;height:100dvh;}
 #modal-close{background:#dc2626;border:none;color:#fff;padding:0;cursor:pointer;font-size:16px;font-weight:900;line-height:1;width:32px;height:32px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:1px 2px 0 #991b1b;}
 #modal-body{overflow-y:auto;padding:0 16px 20px;flex:1;}
 
+/* ── SECONDO LIVELLO MODALE (sopra il planner) ── */
+#modal-overlay-2{display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:300;align-items:flex-end;justify-content:center;backdrop-filter:blur(2px);}
+#modal-overlay-2.active{display:flex;}
+#modal-box-2{background:#fff;border-radius:20px 20px 0 0;width:100%;max-height:92dvh;display:flex;flex-direction:column;animation:slideUp .25s ease;}
+#modal-handle-2{width:40px;height:4px;background:#e2e8f0;border-radius:2px;margin:10px auto 0;}
+#modal-header-2{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;}
+#modal-header-2.hidden{display:none;}
+#modal-title-2{font-size:17px;font-weight:700;}
+#modal-close-2{background:#dc2626;border:none;color:#fff;padding:0;cursor:pointer;font-size:16px;font-weight:900;line-height:1;width:32px;height:32px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:1px 2px 0 #991b1b;}
+#modal-body-2{overflow-y:auto;padding:0 16px 20px;flex:1;}
+body.dark #modal-box-2{background:#2a2a2a;}
+body.dark #modal-handle-2{background:#3a3a3a;}
+body.dark #modal-title-2{color:#e0e0e0;}
+body.dark #modal-close-2{background:#dc2626;color:#fff;}
+
 /* ── FORMS ── */
 .form-group{margin-bottom:14px;}
 .form-group.inline{display:flex;align-items:center;gap:10px;}
@@ -494,6 +509,18 @@ body.dark .backup-banner-text{color:#fcd34d;}
   </div>
 </div>
 
+<!-- SECONDO LIVELLO MODALE — per finestre apribili sopra il planner senza chiuderlo -->
+<div id="modal-overlay-2" onclick="handleOverlay2Click(event)">
+  <div id="modal-box-2">
+    <div id="modal-handle-2"></div>
+    <div id="modal-header-2">
+      <div id="modal-title-2"></div>
+      <button id="modal-close-2" onclick="closeModal2()">×</button>
+    </div>
+    <div id="modal-body-2"></div>
+  </div>
+</div>
+
 <!-- FRAME STAMPA CHECK -->
 <div id="check-print-frame" style="display:none;"></div>
 
@@ -710,6 +737,24 @@ function closeModal(){
 }
 function handleOverlayClick(e){
   if(e.target===document.getElementById('modal-overlay')) closeModal();
+}
+
+// ── SECONDO LIVELLO MODALE ──
+// Usato per finestre (es. anomalie check, dettaglio segnalazione) che devono apparire
+// SOPRA il planner senza chiuderlo: chiudendo questo livello, il planner resta apribile sotto.
+function openModal2(title, bodyHtml){
+  document.getElementById('modal-title-2').textContent = title;
+  document.getElementById('modal-body-2').innerHTML = bodyHtml;
+  document.getElementById('modal-overlay-2').classList.add('active');
+  document.getElementById('modal-body-2').scrollTop=0;
+  const hdr=document.getElementById('modal-header-2');
+  hdr.classList.toggle('hidden', !title);
+}
+function closeModal2(){
+  document.getElementById('modal-overlay-2').classList.remove('active');
+}
+function handleOverlay2Click(e){
+  if(e.target===document.getElementById('modal-overlay-2')) closeModal2();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1431,7 +1476,11 @@ function openSegnalazioneForm(vehicleId, editId){
   const v = DB.vehicles().find(x=>x.id===vehicleId);
   const settings = DB.settings();
   const editing = editId ? DB.segnalazioni().find(x=>x.id===editId) : null;
-  openModal((editing?'📢 Modifica Segnalazione — ':'📢 Nuova Segnalazione — ')+(v?v.targa:''),
+  // La modifica (editId presente) viene sempre invocata dal dettaglio segnalazione (layer 2,
+  // sopra il planner). La creazione di una nuova segnalazione usa il layer 1 normale.
+  const _openModal  = editing ? openModal2  : openModal;
+  const _closeModal = editing ? 'closeModal2()' : 'closeModal()';
+  _openModal((editing?'📢 Modifica Segnalazione — ':'📢 Nuova Segnalazione — ')+(v?v.targa:''),
     '<div class="form-group"><label class="form-label">Problema *</label>'
     +'<textarea class="form-input" id="segn-problema" rows="3" placeholder="Descrivi il problema riscontrato…">'+escHtml(editing?editing.problema:'')+'</textarea></div>'
     +'<div class="form-group"><label class="form-label">Note aggiuntive</label>'
@@ -1443,7 +1492,7 @@ function openSegnalazioneForm(vehicleId, editId){
     +'<div class="form-group inline"><label class="form-label">Data</label>'
     +'<input class="form-input" id="segn-data" type="date" value="'+(editing?(editing.data||today()):today())+'"></div>'
     +'<div class="btn-row">'
-    +'<button class="btn btn-secondary" onclick="closeModal()">Annulla</button>'
+    +'<button class="btn btn-secondary" onclick="'+_closeModal+'">Annulla</button>'
     +'<button class="btn btn-primary" id="btn-save-segn">'+(editing?'Salva modifiche':'Invia segnalazione')+'</button>'
     +'</div>'
   );
@@ -1462,10 +1511,10 @@ function saveSegnalazione(vehicleId, editId){
   const segnalazioni = DB.segnalazioni();
   if(editId){
     const idx = segnalazioni.findIndex(x=>x.id===editId);
-    if(idx===-1){ toast('Segnalazione non trovata','error'); closeModal(); return; }
+    if(idx===-1){ toast('Segnalazione non trovata','error'); closeModal2(); return; }
     segnalazioni[idx] = { ...segnalazioni[idx], problema, note, operatore, km, data: (dataEl?dataEl.value:segnalazioni[idx].data)||segnalazioni[idx].data };
     DB.saveSegnalazioni(segnalazioni);
-    closeModal();
+    closeModal2();
     toast('Segnalazione aggiornata','success');
     renderAlerts();
     renderMain();
@@ -1490,14 +1539,14 @@ function openSegnalazioneDetail(segnalazioneId){
   if(!s) return;
   const v = DB.vehicles().find(x=>x.id===s.vehicleId);
   const avanzata = DB.settings().gestioneAvanzata;
-  openModal('📢 Segnalazione — '+(v?v.targa:''),
+  openModal2('📢 Segnalazione — '+(v?v.targa:''),
     '<div style="background:#fff0f0;border:1px solid #fca5a5;border-radius:10px;padding:14px;margin-bottom:10px;">'
     +'<div style="font-size:13px;font-weight:700;color:#b91c1c;margin-bottom:6px;">'+escHtml(s.problema)+'</div>'
     +(s.note?'<div style="font-size:12px;color:#7c2d12;margin-bottom:6px;">'+escHtml(s.note)+'</div>':'')
     +'<div style="font-size:11px;color:#9a3412;">📅 '+fmtDate(s.data)+(s.km?' · 🛣️ '+Number(s.km).toLocaleString('it-IT')+' km':'')+(s.operatore?' · 👤 '+escHtml(s.operatore):'')+'</div>'
     +'</div>'
     +'<div class="btn-row">'
-    +'<button class="btn btn-secondary" onclick="closeModal()">Chiudi</button>'
+    +'<button class="btn btn-secondary" onclick="closeModal2()">Chiudi</button>'
     +(avanzata?'<button id="btn-segn-edit" class="btn" style="background:#f1f5f9;color:#475569;">✏️ Modifica</button>':'')
     +'<button id="btn-segn-int" class="btn btn-primary">+ Intervento</button>'
     +'<button id="btn-segn-ris" class="btn" style="background:#16a34a;color:#fff;">✓ Risolto</button>'
@@ -1505,17 +1554,14 @@ function openSegnalazioneDetail(segnalazioneId){
   );
   if(avanzata){
     document.getElementById('btn-segn-edit').onclick = function(){
-      closeModal();
       openSegnalazioneForm(s.vehicleId, s.id);
     };
   }
   document.getElementById('btn-segn-int').onclick = function(){
-    closeModal();
     openInterventionFromSegnalazione(s);
   };
   document.getElementById('btn-segn-ris').onclick = function(){
-    closeModal();
-    risolviSegnalazione(s);
+    risolviSegnalazione(s, true);
   };
 }
 
@@ -1529,7 +1575,7 @@ function openInterventionFromAnomaliaCheck(checkId, vehicleId, voce, note, km){
   }
   const suppliers = DB.suppliers().filter(sup=>sup.attivo);
   const suppliersOptions = suppliers.map(sup=>`<option value="${sup.id}">${escHtml(sup.nome)} (${escHtml(sup.tipo)})</option>`).join('');
-  openModal('Nuovo Intervento — '+(v?.targa||''), `
+  openModal2('Nuovo Intervento — '+(v?.targa||''), `
     <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:#c2410c;">
       ⚠️ Anomalia da check: <strong>${escHtml(voce)}</strong></div>
     <div class="form-group"><label class="form-label">Descrizione problema *</label>
@@ -1563,7 +1609,7 @@ function openInterventionFromAnomaliaCheck(checkId, vehicleId, voce, note, km){
         <textarea class="form-input" id="int-note-ch" rows="2" placeholder="Cosa è stato fatto…"></textarea></div>
     </div>
     <div class="btn-row">
-      <button class="btn btn-secondary" onclick="closeModal()">Annulla</button>
+      <button class="btn btn-secondary" onclick="closeModal2()">Annulla</button>
       <button class="btn btn-primary" id="btn-save-int-anom">Crea intervento</button>
     </div>
   `);
@@ -1580,7 +1626,7 @@ function openInterventionFromAnomaliaCheck(checkId, vehicleId, voce, note, km){
       const ints = DB.interventions();
       if(ints.some(i=>i.checkId===checkId && i.descrizione && i.descrizione.startsWith(voce))){
         toast('Intervento già esistente per questa anomalia');
-        closeModal();
+        closeModal2();
         return;
       }
       ints.push({
@@ -1597,7 +1643,7 @@ function openInterventionFromAnomaliaCheck(checkId, vehicleId, voce, note, km){
         createdAt: nowISO()
       });
       DB.saveInterventions(ints);
-      closeModal();
+      closeModal2();
       toast('Intervento creato','success');
       renderAlerts();
       renderMain();
@@ -1609,7 +1655,7 @@ function openInterventionFromSegnalazione(s){
   const v = DB.vehicles().find(x=>x.id===s.vehicleId);
   const suppliers = DB.suppliers().filter(sup=>sup.attivo);
   const suppliersOptions = suppliers.map(sup=>`<option value="${sup.id}">${escHtml(sup.nome)} (${escHtml(sup.tipo)})</option>`).join('');
-  openModal('Nuovo Intervento — '+(v?.targa||''), `
+  openModal2('Nuovo Intervento — '+(v?.targa||''), `
     <div style="background:#fff0f0;border:1px solid #fca5a5;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:#b91c1c;">
       📢 Segnalazione: <strong>${escHtml(s.problema)}</strong></div>
     <div class="form-group"><label class="form-label">Descrizione problema *</label>
@@ -1643,7 +1689,7 @@ function openInterventionFromSegnalazione(s){
         <textarea class="form-input" id="int-note-ch" rows="2" placeholder="Cosa è stato fatto…"></textarea></div>
     </div>
     <div class="btn-row">
-      <button class="btn btn-secondary" onclick="closeModal()">Annulla</button>
+      <button class="btn btn-secondary" onclick="closeModal2()">Annulla</button>
       <button class="btn btn-primary" id="btn-save-int-segn">Crea intervento</button>
     </div>
   `);
@@ -1672,7 +1718,7 @@ function openInterventionFromSegnalazione(s){
         createdAt: nowISO()
       });
       DB.saveInterventions(interventions);
-      closeModal();
+      closeModal2();
       toast('Intervento creato','success');
       renderAlerts();
       renderMain();
@@ -1698,8 +1744,10 @@ function createInterventionFromSegnalazione(s){
   renderMain();
 }
 
-function risolviSegnalazione(s){
-  openModal('✓ Segna come risolto',
+function risolviSegnalazione(s, useLayer2){
+  const _openModal  = useLayer2 ? openModal2  : openModal;
+  const _closeFnName = useLayer2 ? 'closeModal2()' : 'closeModal()';
+  _openModal('✓ Segna come risolto',
     '<div style="background:#fff0f0;border:1px solid #fca5a5;border-radius:8px;padding:10px 12px;margin-bottom:14px;">'
     +'<div style="font-size:12px;color:#b91c1c;font-weight:700;margin-bottom:2px;">SEGNALAZIONE</div>'
     +'<div style="font-size:14px;color:#1e293b;font-weight:600;">'+escHtml(s.problema)+'</div>'
@@ -1707,7 +1755,7 @@ function risolviSegnalazione(s){
     +'<div class="form-group"><label class="form-label">Come è stata risolta? (opzionale)</label>'
     +'<textarea class="form-input" id="ris-segn-note" rows="3" placeholder="Es: controllato, non necessita intervento…"></textarea></div>'
     +'<div class="btn-row">'
-    +'<button class="btn btn-secondary" onclick="closeModal()">Annulla</button>'
+    +'<button class="btn btn-secondary" onclick="'+_closeFnName+'">Annulla</button>'
     +'<button id="btn-save-ris-segn" class="btn" style="background:#16a34a;color:#fff;font-weight:700;">Segna risolto</button>'
     +'</div>'
   );
@@ -1726,7 +1774,7 @@ function risolviSegnalazione(s){
       createdAt: nowISO()
     });
     DB.saveInterventions(interventions);
-    closeModal();
+    if(useLayer2) closeModal2(); else closeModal();
     toast('Segnalazione risolta','success');
     renderAlerts();
     renderMain();
@@ -1947,7 +1995,9 @@ function openChiusuraForm(intId, vehicleId, fromPlanner){
   const v=DB.vehicles().find(x=>x.id===vehicleId);
   if(!i){ toast('Intervento non trovato','error'); return; }
   window._chiusuraFromPlanner = fromPlanner||false;
-  openModal('Chiudi intervento — '+(v?.targa||''),`
+  const _openM = fromPlanner ? openModal2 : openModal;
+  const _closeBtn = fromPlanner ? 'closeModal2()' : 'closeModal()';
+  _openM('Chiudi intervento — '+(v?.targa||''),`
     <div style="background:#fee2e2;border-radius:8px;padding:10px 12px;margin-bottom:14px;">
       <div style="font-size:12px;color:#b91c1c;font-weight:700;margin-bottom:2px;">INTERVENTO APERTO</div>
       <div style="font-size:14px;color:#1e293b;font-weight:600;">${escHtml(i.descrizione||'')}</div>
@@ -1960,7 +2010,7 @@ function openChiusuraForm(intId, vehicleId, fromPlanner){
     <div class="form-group"><label class="form-label">Note chiusura *</label>
       <textarea class="form-input" id="ch-note" rows="3" placeholder="Cosa è stato fatto, pezzi sostituiti…"></textarea></div>
     <div class="btn-row">
-      <button class="btn btn-secondary" onclick="closeModal()${fromPlanner?';openPlanner()':''}">Annulla</button>
+      <button class="btn btn-secondary" onclick="${_closeBtn}">Annulla</button>
       <button class="btn btn-success" onclick="saveChiusura('${intId}','${vehicleId}')" style="background:#16a34a;color:#fff;">Chiudi intervento</button>
     </div>
   `);
@@ -1984,7 +2034,7 @@ function saveChiusura(intId, vehicleId){
     }
   }
   DB.saveInterventions(interventions);
-  closeModal();
+  if(window._chiusuraFromPlanner) closeModal2(); else closeModal();
   toast('Intervento chiuso','success');
   renderAlerts();
   renderMain();
@@ -2027,17 +2077,18 @@ function saveAnnullaIntervento(intId, vehicleId, fromPlanner){
 // ═══════════════════════════════════════════════════════
 //  INTERVENTI
 // ═══════════════════════════════════════════════════════
-function openInterventionForm(vehicleId, intId){
+function openInterventionForm(vehicleId, intId, fromPlanner){
   const v=DB.vehicles().find(x=>x.id===vehicleId);
   const interventions=DB.interventions();
   const existing=intId?interventions.find(i=>i.id===intId):null;
   const suppliers=DB.suppliers().filter(s=>s.attivo);
-
   const suppliersOptions=suppliers.map(s=>`<option value="${s.id}" ${existing?.fornitoreId===s.id?'selected':''}>${escHtml(s.nome)} (${escHtml(s.tipo)})</option>`).join('');
   const chiusuraDisplay=existing?.stato==='chiuso'?'':'display:none';
-
+  window._interventoFromPlanner = fromPlanner||false;
   window._preInterventoDesc = null;
-  openModal(intId?'Modifica Intervento':'Nuovo Intervento — '+(v?.targa||''), `
+  const _openM = fromPlanner ? openModal2 : openModal;
+  const _closeBtn = fromPlanner ? 'closeModal2()' : 'closeModal()';
+  _openM(intId?'Modifica Intervento':'Nuovo Intervento — '+(v?.targa||''), `
     <div class="form-group"><label class="form-label">Descrizione problema *</label>
       <textarea class="form-input" id="int-desc" rows="3" placeholder="Descrivi il problema o l'intervento…">${escHtml(existing?.descrizione||(window._preInterventoDesc||''))}</textarea></div>
     <div class="form-group inline"><label class="form-label">Data apertura</label>
@@ -2067,7 +2118,7 @@ function openInterventionForm(vehicleId, intId){
         <textarea class="form-input" id="int-note-ch" rows="2" placeholder="Cosa è stato fatto…">${escHtml(existing?.noteChiusura||'')}</textarea></div>
     </div>
     <div class="btn-row">
-      <button class="btn btn-secondary" onclick="closeModal()">Annulla</button>
+      <button class="btn btn-secondary" onclick="${_closeBtn}">Annulla</button>
       <button class="btn btn-primary" onclick="saveIntervention('${vehicleId}','${intId||''}')">Salva</button>
     </div>
   `);
@@ -2104,7 +2155,7 @@ function saveIntervention(vehicleId, intId){
     toast('Intervento creato','success');
   }
   DB.saveInterventions(interventions);
-  closeModal();
+  if(window._interventoFromPlanner) closeModal2(); else closeModal();
   renderMain();
   renderAlerts();
 }
@@ -4731,7 +4782,7 @@ function _attachPanelListeners(panel) {
       var vrow = el.closest('.pl-vrow');
       if (vrow && (vrow.classList.contains('ck-ok')||vrow.classList.contains('ck-anom'))) {
         var checkId=vrow.dataset.checkId, vehicleId=vrow.dataset.vehicleId;
-        if (checkId && vehicleId) openCheckViewer(checkId, vehicleId);
+        if (checkId && vehicleId) openCheckDetailFromPlanner(checkId, vehicleId);
         return;
       }
       var cell = el.closest('.pl-cell[data-date]');
@@ -4747,7 +4798,7 @@ function _attachPanelListeners(panel) {
     el.addEventListener('click', function(){ openChiusuraForm(this.dataset.iid,this.dataset.vid,true); });
   });
   panel.querySelectorAll('.pl-btn-mod').forEach(function(el){
-    el.addEventListener('click', function(){ openInterventionForm(this.dataset.vid,this.dataset.iid); });
+    el.addEventListener('click', function(){ openInterventionForm(this.dataset.vid,this.dataset.iid,true); });
   });
 }
 
@@ -5089,7 +5140,7 @@ function openCheckDetailFromPlanner(checkId, vehicleId) {
   if (!check) return;
   var anom = check.items ? check.items.filter(function(i) { return i.val === 'anomalia'; }) : [];
   var items = check.items || [];
-  openModal('Check — ' + (v ? v.targa : ''),
+  openModal2('Check — ' + (v ? v.targa : ''),
     '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">'
     + (v ? renderTargaHtml(v.targa) : '')
     + '<div style="font-size:13px;color:#64748b;">'
@@ -5142,11 +5193,11 @@ function openCheckAnomalieFromPlanner(checkId, vehicleId) {
   });
 
   if (anomSenzaInt.length === 0) {
-    openModal('Anomalie — ' + (v ? v.targa : ''),
+    openModal2('Anomalie — ' + (v ? v.targa : ''),
       '<div style="background:#dcfce7;border-radius:8px;padding:14px;text-align:center;font-size:14px;color:#15803d;font-weight:700;">'
       + '✅ Tutti gli interventi sono già stati creati per questo check.'
       + '</div>'
-      + '<button onclick="closeModal()" style="width:100%;background:#f1f5f9;color:#475569;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;margin-top:12px;">Chiudi</button>'
+      + '<button onclick="closeModal2()" style="width:100%;background:#f1f5f9;color:#475569;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;margin-top:12px;">Chiudi</button>'
     );
     return;
   }
@@ -5169,7 +5220,7 @@ function openCheckAnomalieFromPlanner(checkId, vehicleId) {
       + '</div>';
   }).join('');
 
-  openModal('Anomalie check — ' + (v ? v.targa : ''),
+  openModal2('Anomalie check — ' + (v ? v.targa : ''),
     '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">'
     + (v ? renderTargaHtml(v.targa) : '')
     + '<div style="font-size:13px;color:#64748b;">' + fmtDate(check.data) + '</div>'
@@ -5222,7 +5273,7 @@ function plannerNewIntervention(year, month, day) {
   if (!vehicles.length) { toast('Nessun veicolo attivo','error'); return; }
   var suppOpts = '<option value="">— Nessun fornitore —</option>'
     + suppliers.map(function(s) { return '<option value="' + s.id + '">' + escHtml(s.nome) + ' (' + escHtml(s.tipo) + ')</option>'; }).join('');
-  openModal('Nuovo intervento — ' + day + '/' + (month+1) + '/' + year,
+  openModal2('Nuovo intervento — ' + day + '/' + (month+1) + '/' + year,
     '<div class="form-group"><label class="form-label">Veicolo</label>'
     + '<select class="form-select" id="pni-veh">'
     + vehicles.map(function(v) { return '<option value="' + v.id + '">' + escHtml(v.targa) + ' — ' + escHtml(v.nome) + '</option>'; }).join('')
@@ -5234,7 +5285,7 @@ function plannerNewIntervention(year, month, day) {
     + '<div class="form-group"><label class="form-label">Data apertura</label>'
     + '<input class="form-input" id="pni-data" type="date" value="' + dateStr + '"></div>'
     + '<div class="btn-row">'
-    + '<button class="btn btn-secondary" onclick="openPlanner()">Annulla</button>'
+    + '<button class="btn btn-secondary" onclick="closeModal2()">Annulla</button>'
     + '<button class="btn btn-primary" onclick="savePlannerIntervention()">Crea</button>'
     + '</div>'
   );
@@ -5258,7 +5309,7 @@ function savePlannerIntervention() {
   DB.saveInterventions(interventions);
   toast('Intervento creato','success');
   renderAlerts();
-  openPlanner();
+  closeModal2();
 }
 
 function showDayPlan(year, month, day) { openPlanner(year, month); }
