@@ -2086,6 +2086,7 @@ function openInterventionForm(vehicleId, intId, fromPlanner){
   const suppliersOptions=suppliers.map(s=>`<option value="${s.id}" ${existing?.fornitoreId===s.id?'selected':''}>${escHtml(s.nome)} (${escHtml(s.tipo)})</option>`).join('');
   const chiusuraDisplay=existing?.stato==='chiuso'?'':'display:none';
   window._interventoFromPlanner = fromPlanner||false;
+  window._interventoFromStorico = fromPlanner ? null : vehicleId;
   window._preInterventoDesc = null;
   const _openM = fromPlanner ? openModal2 : openModal;
   const _closeBtn = fromPlanner ? 'closeModal2()' : 'closeModal()';
@@ -2163,7 +2164,9 @@ function saveIntervention(vehicleId, intId){
     closeModal();
     renderMain();
     renderAlerts();
+    if(window._interventoFromStorico) openHistory(window._interventoFromStorico);
   }
+  window._interventoFromStorico = null;
 }
 
 // ═══════════════════════════════════════════════════════
