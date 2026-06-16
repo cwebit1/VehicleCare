@@ -4506,38 +4506,36 @@ function _buildMonthPanel(Y, M) {
     segments.push({ int:{id:ti.id,vehicleId:ti.vehicleId,_isTireInt:true,_tireIntId:ti.id}, row:Math.floor(cellIdx/PL_COLS), colStart:cellIdx%PL_COLS, colEnd:cellIdx%PL_COLS, span:1, isFirst:true });
   });
 
-  // Raggruppa i segmenti per (riga calendario, veicolo): l'altezza della riga viene
-  // divisa per il numero di STORIE distinte presenti in quella riga per quel veicolo.
-  // Segmenti con lo stesso _storyId (es. anomalia + intervento collegato) condividono la stessa fascia.
+  // Prima passata: calcola tutte le storie distinte per veicolo (su tutto il mese)
+  // in modo che ogni fascia mantenga sempre la stessa posizione verticale in tutte le settimane.
+  var vehicleStories = {}; // vehicleId → { storyId → laneIndex }
+  segments.forEach(function(seg) {
+    var vid = seg.int.vehicleId;
+    var sid = seg.int._storyId || ('unique_'+Math.random());
+    if (!vehicleStories[vid]) vehicleStories[vid] = {};
+    if (!(sid in vehicleStories[vid])) {
+      vehicleStories[vid][sid] = Object.keys(vehicleStories[vid]).length;
+    }
+  });
+
+  // Seconda passata: assegna lane e altezza a ogni segmento usando il max del veicolo
   var segGroups = {};
   segments.forEach(function(seg) {
     var key = seg.row + '_' + seg.int.vehicleId;
     if (!segGroups[key]) segGroups[key] = [];
     segGroups[key].push(seg);
   });
-  Object.keys(segGroups).forEach(function(key) {
-    var group = segGroups[key];
-    // ordina per colonna di inizio così la prima fascia corrisponde alla prima storia visiva
-    group.sort(function(a,b){ return a.colStart - b.colStart; });
-    // assegna un indice di fascia per ogni _storyId, nell'ordine di prima apparizione
-    var storyLane = {};
-    var nextLane = 0;
-    group.forEach(function(seg){
-      var sid = seg.int._storyId || ('seg_'+seg.row+'_'+seg.colStart+'_'+seg.colEnd+'_'+Math.random());
-      if (!(sid in storyLane)) { storyLane[sid] = nextLane++; }
-    });
-    var n = nextLane;
-    group.forEach(function(seg){
-      var sid = seg.int._storyId || null;
-      var idx = sid!==null ? storyLane[sid] : 0;
-      var fullLaneH = PL_ROW_H / n;
-      // 1px di gap totale tra fasce adiacenti (solo se ci sono più fasce):
-      // tolto solo dall'altezza, nessun offset aggiuntivo sul top.
-      var gap = n > 1 ? 1 : 0;
-      seg._laneH = fullLaneH - gap;
-      seg._laneTop = idx * fullLaneH;
-      seg._laneCount = n;
-    });
+  segments.forEach(function(seg) {
+    var vid = seg.int.vehicleId;
+    var sid = seg.int._storyId || null;
+    var stories = vehicleStories[vid] || {};
+    var n = Math.max(1, Object.keys(stories).length);
+    var idx = (sid !== null && sid in stories) ? stories[sid] : 0;
+    var fullLaneH = PL_ROW_H / n;
+    var gap = n > 1 ? 1 : 0;
+    seg._laneH   = fullLaneH - gap;
+    seg._laneTop = idx * fullLaneH;
+    seg._laneCount = n;
   });
 
   // Etichetta targa: una sola per riga/veicolo, indipendente dal numero di fasce.
