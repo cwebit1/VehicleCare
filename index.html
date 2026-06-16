@@ -1625,7 +1625,7 @@ function openInterventionFromAnomaliaCheck(checkId, vehicleId, voce, note, km){
       if(!desc){ toast('Inserisci una descrizione','error'); return; }
       const stato = document.getElementById('int-stato').value;
       const ints = DB.interventions();
-      if(ints.some(i=>i.checkId===checkId && i.descrizione && i.descrizione.startsWith(voce))){
+      if(ints.some(i=>i.checkId===checkId && i.descrizione && i.descrizione.startsWith(voce) && i.stato!=='annullato')){
         toast('Intervento già esistente per questa anomalia');
         closeModal2();
         return;
@@ -1969,7 +1969,7 @@ function _createAnomalyInterventions(){
 function createSingleIntervention(vehicleId, checkId, voce, note, km){
   const interventions=DB.interventions();
   // Evita duplicati
-  if(interventions.some(i=>i.checkId===checkId && i.descrizione.startsWith(voce))){
+  if(interventions.some(i=>i.checkId===checkId && i.descrizione.startsWith(voce) && i.stato!=='annullato')){
     toast('Intervento già esistente per questa anomalia');
     return;
   }
@@ -2512,7 +2512,7 @@ function openHistory(vehicleId){
           const allInterventions=DB.interventions();
           const anom=c.items?.filter(i=>i.val==='anomalia')||[];
           const anomSenzaInt=anom.filter(a=>
-            !allInterventions.some(i=>i.checkId===c.id && i.descrizione.startsWith(a.voce))
+            !allInterventions.some(i=>i.checkId===c.id && i.descrizione.startsWith(a.voce) && i.stato!=='annullato')
           );
           // Costruisci HTML anomalie senza backtick annidati
           let anomHtml='';
