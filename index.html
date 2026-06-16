@@ -2156,9 +2156,14 @@ function saveIntervention(vehicleId, intId){
     toast('Intervento creato','success');
   }
   DB.saveInterventions(interventions);
-  if(window._interventoFromPlanner) closeModal2(); else closeModal();
-  renderMain();
-  renderAlerts();
+  if(window._interventoFromPlanner){
+    closeModal2();
+    openPlanner();
+  } else {
+    closeModal();
+    renderMain();
+    renderAlerts();
+  }
 }
 
 // ═══════════════════════════════════════════════════════
