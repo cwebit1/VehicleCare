@@ -752,6 +752,7 @@ function openModal2(title, bodyHtml){
 }
 function closeModal2(){
   document.getElementById('modal-overlay-2').classList.remove('active');
+  document.querySelectorAll('.pl-bar-selected').forEach(function(el){ el.classList.remove('pl-bar-selected'); el.style.outline=''; });
 }
 function handleOverlay2Click(e){
   if(e.target===document.getElementById('modal-overlay-2')) closeModal2();
@@ -4764,6 +4765,9 @@ function _attachPanelListeners(panel) {
     btn.addEventListener('click', function(e) {
       e.stopPropagation();
       _closeBubble();
+      document.querySelectorAll('.pl-bar-selected').forEach(function(el){ el.classList.remove('pl-bar-selected'); el.style.outline=''; });
+      btn.style.outline='1.5px solid #000';
+      btn.classList.add('pl-bar-selected');
       openCheckAnomalieFromPlanner(btn.dataset.checkanomCid, btn.dataset.checkanomVid);
     });
   });
@@ -4773,6 +4777,9 @@ function _attachPanelListeners(panel) {
     btn.addEventListener('click', function(e) {
       e.stopPropagation();
       _closeBubble();
+      document.querySelectorAll('.pl-bar-selected').forEach(function(el){ el.classList.remove('pl-bar-selected'); el.style.outline=''; });
+      btn.style.outline='1.5px solid #000';
+      btn.classList.add('pl-bar-selected');
       openSegnalazioneDetail(btn.dataset.segnId);
     });
   });
