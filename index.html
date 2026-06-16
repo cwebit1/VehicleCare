@@ -5203,12 +5203,17 @@ function openCheckAnomalieFromPlanner(checkId, vehicleId) {
   var anom = check.items ? check.items.filter(function(i) { return i.val === 'anomalia'; }) : [];
   var interventions = DB.interventions();
 
+  console.log('[DEBUG] checkId:', checkId, 'anomalie:', anom.map(function(a){return a.voce;}));
+  console.log('[DEBUG] interventi collegati:', interventions.filter(function(i){ return i.checkId===checkId; }).map(function(i){ return {desc:i.descrizione, stato:i.stato}; }));
+
   // Calcola anomalie ancora senza intervento ATTIVO (gli annullati non contano)
   var anomSenzaInt = anom.filter(function(a) {
     return !interventions.some(function(i) {
       return i.checkId === checkId && i.descrizione && i.descrizione.startsWith(a.voce) && i.stato !== 'annullato';
     });
   });
+
+  console.log('[DEBUG] anomSenzaInt:', anomSenzaInt.map(function(a){return a.voce;}));
 
   if (anomSenzaInt.length === 0) {
     // Tutte le anomalie hanno un intervento collegato — mostra il riepilogo
