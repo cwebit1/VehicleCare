@@ -5203,17 +5203,17 @@ function openCheckAnomalieFromPlanner(checkId, vehicleId) {
   var anom = check.items ? check.items.filter(function(i) { return i.val === 'anomalia'; }) : [];
   var interventions = DB.interventions();
 
-  // Calcola anomalie ancora senza intervento
+  // Calcola anomalie ancora senza intervento ATTIVO (gli annullati non contano)
   var anomSenzaInt = anom.filter(function(a) {
     return !interventions.some(function(i) {
-      return i.checkId === checkId && i.descrizione && i.descrizione.startsWith(a.voce);
+      return i.checkId === checkId && i.descrizione && i.descrizione.startsWith(a.voce) && i.stato !== 'annullato';
     });
   });
 
   if (anomSenzaInt.length === 0) {
     // Tutte le anomalie hanno un intervento collegato — mostra il riepilogo
     var risolteHtml = anom.map(function(a){
-      var intCollegato = interventions.find(function(i){ return i.checkId===checkId && i.descrizione && i.descrizione.startsWith(a.voce); });
+      var intCollegato = interventions.find(function(i){ return i.checkId===checkId && i.descrizione && i.descrizione.startsWith(a.voce) && i.stato!=='annullato'; });
       var statoColor = intCollegato && intCollegato.stato==='chiuso' ? '#16a34a' : '#dc2626';
       var statoLbl   = intCollegato ? (intCollegato.stato==='chiuso'?'✅ Chiuso':'🔧 In lavorazione') : '';
       var sup = intCollegato && intCollegato.fornitoreId ? DB.suppliers().find(function(s){ return s.id===intCollegato.fornitoreId; }) : null;
