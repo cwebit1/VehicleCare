@@ -2499,6 +2499,7 @@ function stampaCheck(checkId){
 // ═══════════════════════════════════════════════════════
 function openHistory(vehicleId){
   _currentHistoryVehicleId = vehicleId;
+  const v=DB.vehicles().find(x=>x.id===vehicleId);
   const checks=DB.checks().filter(c=>c.vehicleId===vehicleId);
   const interventions=DB.interventions().filter(i=>i.vehicleId===vehicleId);
   const tires=DB.tires().filter(t=>t.vehicleId===vehicleId);
