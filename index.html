@@ -734,6 +734,7 @@ function openModal(title, bodyHtml){
 }
 function closeModal(){
   document.getElementById('modal-overlay').classList.remove('active');
+  _currentHistoryVehicleId = null;
 }
 function handleOverlayClick(e){
   if(e.target===document.getElementById('modal-overlay')) closeModal();
@@ -1124,6 +1125,29 @@ function renderFab(){
 function fabAction(){
   if(currentTab==='gestione') openVehicleForm();
   else if(currentTab==='fornitori') openSupplierForm();
+}
+
+// ── REFRESH CENTRALIZZATO ──
+// Chiamare sempre dopo ogni salvataggio dati.
+// Aggiorna automaticamente: dashboard, alert, planner (se aperto), storico (se aperto).
+var _currentHistoryVehicleId = null; // traccia quale storico è aperto
+
+function refreshAll() {
+  renderAlerts();
+  renderMain();
+  // Se il planner è aperto (modal layer-1 con header nascosto e classe planner), lo ricostruisce
+  const overlay = document.getElementById('modal-overlay');
+  if (overlay && overlay.classList.contains('active')) {
+    const box = document.getElementById('modal-box');
+    if (box && box.querySelector('.pl-month-nav')) {
+      openPlanner(_plannerYear, _plannerMonth);
+      return;
+    }
+    // Se lo storico è aperto, lo riapre aggiornato
+    if (_currentHistoryVehicleId) {
+      openHistory(_currentHistoryVehicleId);
+    }
+  }
 }
 
 function renderMain(){
@@ -1517,8 +1541,7 @@ function saveSegnalazione(vehicleId, editId){
     DB.saveSegnalazioni(segnalazioni);
     closeModal2();
     toast('Segnalazione aggiornata','success');
-    renderAlerts();
-    renderMain();
+    refreshAll();
     return;
   }
   segnalazioni.push({
@@ -1530,8 +1553,7 @@ function saveSegnalazione(vehicleId, editId){
   DB.saveSegnalazioni(segnalazioni);
   closeModal();
   toast('Segnalazione inviata','success');
-  renderAlerts();
-  renderMain();
+  refreshAll();
 }
 
 function openSegnalazioneDetail(segnalazioneId){
@@ -1646,10 +1668,7 @@ function openInterventionFromAnomaliaCheck(checkId, vehicleId, voce, note, km){
       DB.saveInterventions(ints);
       closeModal2();
       toast('Intervento creato','success');
-      renderAlerts();
-      renderMain();
-      if(!window._anomFromPlanner) openHistory(vehicleId);
-      window._anomFromPlanner = false;
+      refreshAll();
     };
   },10);
 }
@@ -1723,8 +1742,7 @@ function openInterventionFromSegnalazione(s){
       DB.saveInterventions(interventions);
       closeModal2();
       toast('Intervento creato','success');
-      renderAlerts();
-      renderMain();
+      refreshAll();
     };
   },10);
 }
@@ -1779,8 +1797,7 @@ function risolviSegnalazione(s, useLayer2){
     DB.saveInterventions(interventions);
     if(useLayer2) closeModal2(); else closeModal();
     toast('Segnalazione risolta','success');
-    renderAlerts();
-    renderMain();
+    refreshAll();
   };
 }
 
@@ -1872,9 +1889,8 @@ function saveCheck(vehicleId, editCheckId){
     checks[idx] = { ...checks[idx], data:date, operatore:op, km:parseInt(km), items, note:notes };
     DB.saveChecks(checks);
     closeModal();
-    renderMain();
-    renderAlerts();
     toast('✅ Check aggiornato','success');
+    refreshAll();
     return;
   }
 
@@ -1894,8 +1910,7 @@ function saveCheck(vehicleId, editCheckId){
   if(vidx>-1){ vehicles[vidx].km=km; vehicles[vidx].ultimoCheck=date; DB.saveVehicles(vehicles); }
 
   closeModal();
-  renderMain();
-  renderAlerts();
+  refreshAll();
 
   // Dopo il salvataggio, proponi interventi per anomalie (se presenti)
   if(anomalie.length>0){
@@ -1963,8 +1978,7 @@ function _createAnomalyInterventions(){
   window._pendingAnomalies=null;
   closeModal();
   toast(`${toCreate.length} intervento${toCreate.length!==1?'i':''} creato${toCreate.length!==1?'i':''}`, 'success');
-  renderAlerts();
-  renderMain();
+  refreshAll();
 }
 
 // Crea un singolo intervento da anomalia check — chiamato dallo storico in qualsiasi momento
@@ -1985,9 +1999,7 @@ function createSingleIntervention(vehicleId, checkId, voce, note, km){
   });
   DB.saveInterventions(interventions);
   toast('Intervento creato','success');
-  renderAlerts();
-  // Riapri lo storico aggiornato
-  openHistory(vehicleId);
+  refreshAll();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2038,10 +2050,9 @@ function saveChiusura(intId, vehicleId){
   }
   DB.saveInterventions(interventions);
   if(window._chiusuraFromPlanner) closeModal2(); else closeModal();
+  window._chiusuraFromPlanner = false;
   toast('Intervento chiuso','success');
-  renderAlerts();
-  renderMain();
-  if(window._chiusuraFromPlanner){ window._chiusuraFromPlanner=false; openPlanner(); }
+  refreshAll();
 }
 
 function annullaIntervento(intId, vehicleId, fromPlanner){
@@ -2071,9 +2082,7 @@ function saveAnnullaIntervento(intId, vehicleId, fromPlanner){
   DB.saveInterventions(interventions);
   closeModal();
   toast('Intervento annullato','success');
-  renderAlerts();
-  renderMain();
-  if(fromPlanner) openPlanner();
+  refreshAll();
 }
 
 
@@ -2159,16 +2168,10 @@ function saveIntervention(vehicleId, intId){
     toast('Intervento creato','success');
   }
   DB.saveInterventions(interventions);
-  if(window._interventoFromPlanner){
-    closeModal2();
-    openPlanner();
-  } else {
-    closeModal();
-    renderMain();
-    renderAlerts();
-    if(window._interventoFromStorico) openHistory(window._interventoFromStorico);
-  }
+  if(window._interventoFromPlanner) closeModal2(); else closeModal();
+  window._interventoFromPlanner = false;
   window._interventoFromStorico = null;
+  refreshAll();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2495,7 +2498,7 @@ function stampaCheck(checkId){
 //  STORICO VEICOLO
 // ═══════════════════════════════════════════════════════
 function openHistory(vehicleId){
-  const v=DB.vehicles().find(x=>x.id===vehicleId);
+  _currentHistoryVehicleId = vehicleId;
   const checks=DB.checks().filter(c=>c.vehicleId===vehicleId);
   const interventions=DB.interventions().filter(i=>i.vehicleId===vehicleId);
   const tires=DB.tires().filter(t=>t.vehicleId===vehicleId);
@@ -2680,8 +2683,7 @@ function saveRisolviAnomalia(vehicleId, checkId, voce, km){
   DB.saveInterventions(interventions);
   closeModal();
   toast('Anomalia segnata come risolta','success');
-  renderAlerts();
-  openHistory(vehicleId);
+  refreshAll();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -5352,8 +5354,8 @@ function savePlannerIntervention() {
   });
   DB.saveInterventions(interventions);
   toast('Intervento creato','success');
-  renderAlerts();
   closeModal2();
+  refreshAll();
 }
 
 function showDayPlan(year, month, day) { openPlanner(year, month); }
@@ -5531,8 +5533,7 @@ function confirmEliminaIntervento(intId){
   DB.saveInterventions(DB.interventions().filter(x=>x.id!==intId));
   closeModal();
   toast('Intervento eliminato','success');
-  renderMain();
-  renderAlerts();
+  refreshAll();
 }
 
 function modificaCambioGomme(intId){
@@ -5687,8 +5688,8 @@ function _doEliminaCheck(checkId){
   const checks = DB.checks().filter(x=>x.id!==checkId);
   DB.saveChecks(checks);
   closeModal();
-  renderMain();
   toast('Check eliminato','success');
+  refreshAll();
 }
 
 function confirmResetAll(){
