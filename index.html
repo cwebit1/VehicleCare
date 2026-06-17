@@ -1648,8 +1648,8 @@ function openInterventionFromAnomaliaCheck(checkId, vehicleId, voce, note, km){
       toast('Intervento creato','success');
       renderAlerts();
       renderMain();
-      // Se aperto dallo storico (non dal planner), riapri lo storico aggiornato
-      if(!_fromPlanner) openHistory(vehicleId);
+      if(!window._anomFromPlanner) openHistory(vehicleId);
+      window._anomFromPlanner = false;
     };
   },10);
 }
@@ -2500,10 +2500,6 @@ function openHistory(vehicleId){
   const interventions=DB.interventions().filter(i=>i.vehicleId===vehicleId);
   const tires=DB.tires().filter(t=>t.vehicleId===vehicleId);
   const segnalazioni=DB.segnalazioni().filter(s=>s.vehicleId===vehicleId);
-
-  console.log('[STORICO] vehicleId:', vehicleId);
-  console.log('[STORICO] tutti interventi DB:', DB.interventions().map(i=>({id:i.id,vid:i.vehicleId,desc:i.descrizione,stato:i.stato,checkId:i.checkId})));
-  console.log('[STORICO] interventi filtrati per veicolo:', interventions.map(i=>({id:i.id,desc:i.descrizione,stato:i.stato,checkId:i.checkId})));
   const events=[
     ...checks.map(c=>({type:'check',date:c.data,data:c})),
     ...interventions.map(i=>({type:'intervento',date:i.dataApertura,data:i})),
@@ -5218,17 +5214,12 @@ function openCheckAnomalieFromPlanner(checkId, vehicleId) {
   var anom = check.items ? check.items.filter(function(i) { return i.val === 'anomalia'; }) : [];
   var interventions = DB.interventions();
 
-  console.log('[DEBUG] checkId:', checkId, 'anomalie:', anom.map(function(a){return a.voce;}));
-  console.log('[DEBUG] interventi collegati:', interventions.filter(function(i){ return i.checkId===checkId; }).map(function(i){ return {desc:i.descrizione, stato:i.stato}; }));
-
   // Calcola anomalie ancora senza intervento ATTIVO (gli annullati non contano)
   var anomSenzaInt = anom.filter(function(a) {
     return !interventions.some(function(i) {
       return i.checkId === checkId && i.descrizione && i.descrizione.startsWith(a.voce) && i.stato !== 'annullato';
     });
   });
-
-  console.log('[DEBUG] anomSenzaInt:', anomSenzaInt.map(function(a){return a.voce;}));
 
   if (anomSenzaInt.length === 0) {
     // Tutte le anomalie hanno un intervento collegato — mostra il riepilogo
