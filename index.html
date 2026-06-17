@@ -1648,6 +1648,8 @@ function openInterventionFromAnomaliaCheck(checkId, vehicleId, voce, note, km){
       toast('Intervento creato','success');
       renderAlerts();
       renderMain();
+      // Se aperto dallo storico (non dal planner), riapri lo storico aggiornato
+      if(!_fromPlanner) openHistory(vehicleId);
     };
   },10);
 }
@@ -4774,6 +4776,7 @@ function _attachPanelListeners(panel) {
       document.querySelectorAll('.pl-bar-selected').forEach(function(el){ el.classList.remove('pl-bar-selected'); el.style.outline=''; });
       btn.style.outline='1.5px solid #000';
       btn.classList.add('pl-bar-selected');
+      window._anomFromPlanner = true;
       openCheckAnomalieFromPlanner(btn.dataset.checkanomCid, btn.dataset.checkanomVid);
     });
   });
@@ -5202,6 +5205,10 @@ function openCheckDetailFromPlanner(checkId, vehicleId) {
   }, 30);
 }
 function openCheckAnomalieFromPlanner(checkId, vehicleId) {
+  // Se non impostato dal planner, siamo nel contesto storico
+  if(!window._anomFromPlanner) window._anomFromPlanner = false;
+  var _fromPlanner = window._anomFromPlanner;
+  window._anomFromPlanner = false;
   var check = DB.checks().find(function(c) { return c.id === checkId; });
   var v = DB.vehicles().find(function(x) { return x.id === vehicleId; });
   if (!check) return;
