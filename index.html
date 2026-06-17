@@ -2499,9 +2499,11 @@ function openHistory(vehicleId){
   const checks=DB.checks().filter(c=>c.vehicleId===vehicleId);
   const interventions=DB.interventions().filter(i=>i.vehicleId===vehicleId);
   const tires=DB.tires().filter(t=>t.vehicleId===vehicleId);
-
-  // Merge e ordina per data
   const segnalazioni=DB.segnalazioni().filter(s=>s.vehicleId===vehicleId);
+
+  console.log('[STORICO] vehicleId:', vehicleId);
+  console.log('[STORICO] tutti interventi DB:', DB.interventions().map(i=>({id:i.id,vid:i.vehicleId,desc:i.descrizione,stato:i.stato,checkId:i.checkId})));
+  console.log('[STORICO] interventi filtrati per veicolo:', interventions.map(i=>({id:i.id,desc:i.descrizione,stato:i.stato,checkId:i.checkId})));
   const events=[
     ...checks.map(c=>({type:'check',date:c.data,data:c})),
     ...interventions.map(i=>({type:'intervento',date:i.dataApertura,data:i})),
