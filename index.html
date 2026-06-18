@@ -902,13 +902,13 @@ function openAnomalieModal(vehicleId){
     const vStr = escHtml(a.voce).replace(/'/g,"\'");
     const nStr = escHtml(a.note||'').replace(/'/g,"\'");
     const noteHtml = a.note ? '<br><span style="color:#9a3412;font-style:italic;">'+escHtml(a.note)+'</span>' : '';
-    return '<div id="anom-row-'+c.id+'-'+escHtml(a.voce).replace(/\W/g,'_')+'" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:6px;">'
-      +'<div style="font-size:13px;color:#7c2d12;flex:1;"><strong>'+escHtml(a.voce)+'</strong>'+noteHtml
+    return '<div id="anom-row-'+c.id+'-'+escHtml(a.voce).replace(/\W/g,'_')+'" style="margin-bottom:10px;">'
+      +'<div style="font-size:13px;color:#7c2d12;margin-bottom:5px;"><strong>'+escHtml(a.voce)+'</strong>'+noteHtml
       +'<div style="font-size:11px;color:#9a3412;margin-top:2px;">'+fmtDate(c.data)+' · '+fmtKM(c.km)+'</div>'
       +'</div>'
-      +'<div style="display:flex;gap:6px;flex-shrink:0;">'
-      +'<button data-action="intervento" data-vid="'+vehicleId+'" data-cid="'+c.id+'" data-voce="'+vStr+'" data-note="'+nStr+'" data-km="'+c.km+'" style="background:#1e40af;color:#fff;border:none;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;">+ Intervento</button>'
-      +'<button data-action="risolto" data-vid="'+vehicleId+'" data-cid="'+c.id+'" data-voce="'+vStr+'" data-km="'+c.km+'" style="background:#16a34a;color:#fff;border:none;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;">✓ Risolto</button>'
+      +'<div style="display:flex;gap:6px;">'
+      +'<button data-action="intervento" data-vid="'+vehicleId+'" data-cid="'+c.id+'" data-voce="'+vStr+'" data-note="'+nStr+'" data-km="'+c.km+'" style="flex:1;background:#1e40af;color:#fff;border:none;border-radius:8px;padding:9px 8px;font-size:12px;font-weight:700;cursor:pointer;">+ Intervento</button>'
+      +'<button data-action="risolto" data-vid="'+vehicleId+'" data-cid="'+c.id+'" data-voce="'+vStr+'" data-km="'+c.km+'" style="flex:1;background:#16a34a;color:#fff;border:none;border-radius:8px;padding:9px 8px;font-size:12px;font-weight:700;cursor:pointer;">✓ Risolto</button>'
       +'</div></div>';
   }).join('');
 
@@ -2539,11 +2539,11 @@ function openHistory(vehicleId){
                 const vStr=escHtml(a.voce).replace(/'/g,"\\'");
                 const nStr=escHtml(a.note||'').replace(/'/g,"\\'");
                 const noteHtml=a.note?'<br><span style="color:#9a3412;font-style:italic;">'+escHtml(a.note)+'</span>':'';
-                return '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:6px;">'
-                  +'<div style="font-size:12px;color:#7c2d12;flex:1;">'+escHtml(a.voce)+noteHtml+'</div>'
-                  +'<div style="display:flex;gap:4px;flex-shrink:0;">'
-                  +'<button onclick="createSingleIntervention(\''+vehicleId+'\',\''+c.id+'\',\''+vStr+'\',\''+nStr+'\','+c.km+')" style="background:#1e40af;color:#fff;border:none;border-radius:7px;padding:6px 8px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">+ Intervento</button>'
-                  +'<button onclick="risolviAnomalia(\''+vehicleId+'\',\''+c.id+'\',\''+vStr+'\','+c.km+')" style="background:#16a34a;color:#fff;border:none;border-radius:7px;padding:6px 8px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">✓ Risolto</button>'
+                return '<div style="margin-bottom:8px;">'
+                  +'<div style="font-size:12px;color:#7c2d12;margin-bottom:5px;">'+escHtml(a.voce)+noteHtml+'</div>'
+                  +'<div style="display:flex;gap:4px;">'
+                  +'<button onclick="createSingleIntervention(\''+vehicleId+'\',\''+c.id+'\',\''+vStr+'\',\''+nStr+'\','+c.km+')" style="flex:1;background:#1e40af;color:#fff;border:none;border-radius:7px;padding:7px 6px;font-size:11px;font-weight:700;cursor:pointer;">+ Intervento</button>'
+                  +'<button onclick="risolviAnomalia(\''+vehicleId+'\',\''+c.id+'\',\''+vStr+'\','+c.km+')" style="flex:1;background:#16a34a;color:#fff;border:none;border-radius:7px;padding:7px 6px;font-size:11px;font-weight:700;cursor:pointer;">✓ Risolto</button>'
                   +'</div></div>';
               }).join('')
               +'</div>';
@@ -4315,6 +4315,7 @@ const EV_COLORS = {
   intervento: '#f87171',
   gomme:      '#60a5fa',
   annullato:  '#facc15',
+  annullatoBar: '#fca5a5',
   segnalazione: '#facc15',
 };
 
@@ -4609,9 +4610,13 @@ function _buildMonthPanel(Y, M) {
         +'<span class="pl-bar-lbl">'+lbl+'</span></button>';
     } else {
       var sup = seg.int.fornitoreId ? suppliers.find(function(s){ return s.id===seg.int.fornitoreId; }) : null;
-      var color = seg.int.stato==='annullato' ? EV_COLORS.annullato : (sup && sup.tipo==='Gommista') ? EV_COLORS.gomme : EV_COLORS.intervento;
+      var isAnn = seg.int.stato==='annullato';
+      var color = isAnn ? EV_COLORS.annullatoBar : (sup && sup.tipo==='Gommista') ? EV_COLORS.gomme : EV_COLORS.intervento;
+      var bgStyle = isAnn
+        ? 'background:'+color+';background-image:repeating-linear-gradient(135deg,rgba(0,0,0,.18) 0px,rgba(0,0,0,.18) 2px,transparent 2px,transparent 7px);'
+        : 'background:'+color+';';
       barsHtml += '<button class="pl-bar"'
-        +' style="left:calc('+left+'% + 1px);width:calc('+width+'% - 2px);top:'+rowTop+'px;height:'+barH+'px;background:'+color+';"'
+        +' style="left:calc('+left+'% + 1px);width:calc('+width+'% - 2px);top:'+rowTop+'px;height:'+barH+'px;'+bgStyle+'"'
         +' data-iid="'+seg.int.id+'" data-vid="'+seg.int.vehicleId+'">'
         +'<span class="pl-bar-lbl">'+lbl+'</span></button>';
     }
@@ -4871,7 +4876,7 @@ function openPlanner(year, month) {
     +'<div class="pl-leg-item"><div class="pl-leg-dot" style="background:'+EV_COLORS.checkAnom+'"></div>Check anomalia</div>'
     +'<div class="pl-leg-item"><div class="pl-leg-dot" style="background:'+EV_COLORS.intervento+'"></div>Intervento</div>'
     +'<div class="pl-leg-item"><div class="pl-leg-dot" style="background:'+EV_COLORS.gomme+'"></div>Gomme</div>'
-    +'<div class="pl-leg-item"><div class="pl-leg-dot" style="background:'+EV_COLORS.annullato+'"></div>Annullato</div>'
+    +'<div class="pl-leg-item"><div class="pl-leg-dot" style="background:'+EV_COLORS.annullatoBar+';background-image:repeating-linear-gradient(135deg,rgba(0,0,0,.18) 0px,rgba(0,0,0,.18) 2px,transparent 2px,transparent 7px);"></div>Annullato</div>'
     +'</div>';
 
   var dowHdr = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom']
@@ -5036,7 +5041,7 @@ function _plannerSwipe(goNext) {
     +'<div class="pl-leg-item"><div class="pl-leg-dot" style="background:'+EV_COLORS.checkAnom+'"></div>Check anomalia</div>'
     +'<div class="pl-leg-item"><div class="pl-leg-dot" style="background:'+EV_COLORS.intervento+'"></div>Intervento</div>'
     +'<div class="pl-leg-item"><div class="pl-leg-dot" style="background:'+EV_COLORS.gomme+'"></div>Gomme</div>'
-    +'<div class="pl-leg-item"><div class="pl-leg-dot" style="background:'+EV_COLORS.annullato+'"></div>Annullato</div>'
+    +'<div class="pl-leg-item"><div class="pl-leg-dot" style="background:'+EV_COLORS.annullatoBar+';background-image:repeating-linear-gradient(135deg,rgba(0,0,0,.18) 0px,rgba(0,0,0,.18) 2px,transparent 2px,transparent 7px);"></div>Annullato</div>'
     +'</div>'
     +'<div class="pl-dow-hdr">'+['Lun','Mar','Mer','Gio','Ven','Sab','Dom'].map(function(d){ return '<div class="pl-dow">'+d+'</div>'; }).join('')+'</div>'
     +'<div id="pl-cur-panel">'
