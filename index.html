@@ -4336,6 +4336,7 @@ function _buildMonthPanel(Y, M) {
   var vehicles      = DB.vehicles().filter(function(v){ return !v.venduto; });
   var checks        = DB.checks();
   var interventions = DB.interventions();
+  var suppliers     = DB.suppliers();
 
   // Mappa check del mese
   var checkMap = {};
@@ -4605,7 +4606,8 @@ function _buildMonthPanel(Y, M) {
         +' data-segn-id="'+seg.int._segnalazioneId+'">'
         +'<span class="pl-bar-lbl">'+lbl+'</span></button>';
     } else {
-      var color = seg.int.stato==='annullato' ? EV_COLORS.annullato : EV_COLORS.intervento;
+      var sup = seg.int.fornitoreId ? suppliers.find(function(s){ return s.id===seg.int.fornitoreId; }) : null;
+      var color = seg.int.stato==='annullato' ? EV_COLORS.annullato : (sup && sup.tipo==='Gommista') ? EV_COLORS.gomme : EV_COLORS.intervento;
       barsHtml += '<button class="pl-bar"'
         +' style="left:calc('+left+'% + 1px);width:calc('+width+'% - 2px);top:'+rowTop+'px;height:'+barH+'px;background:'+color+';"'
         +' data-iid="'+seg.int.id+'" data-vid="'+seg.int.vehicleId+'">'
@@ -4866,7 +4868,7 @@ function openPlanner(year, month) {
     +'<div class="pl-leg-item"><div class="pl-leg-dot" style="background:'+EV_COLORS.checkOk+'"></div>Check OK</div>'
     +'<div class="pl-leg-item"><div class="pl-leg-dot" style="background:'+EV_COLORS.checkAnom+'"></div>Check anomalia</div>'
     +'<div class="pl-leg-item"><div class="pl-leg-dot" style="background:'+EV_COLORS.intervento+'"></div>Intervento</div>'
-    +'<div class="pl-leg-item"><div class="pl-leg-dot" style="background:'+EV_COLORS.gomme+'"></div>Cambio gomme</div>'
+    +'<div class="pl-leg-item"><div class="pl-leg-dot" style="background:'+EV_COLORS.gomme+'"></div>Gommista / Cambio gomme</div>'
     +'<div class="pl-leg-item"><div class="pl-leg-dot" style="background:'+EV_COLORS.annullato+'"></div>Annullato</div>'
     +'</div>';
 
@@ -5031,7 +5033,7 @@ function _plannerSwipe(goNext) {
     +'<div class="pl-leg-item"><div class="pl-leg-dot" style="background:'+EV_COLORS.checkOk+'"></div>Check OK</div>'
     +'<div class="pl-leg-item"><div class="pl-leg-dot" style="background:'+EV_COLORS.checkAnom+'"></div>Check anomalia</div>'
     +'<div class="pl-leg-item"><div class="pl-leg-dot" style="background:'+EV_COLORS.intervento+'"></div>Intervento</div>'
-    +'<div class="pl-leg-item"><div class="pl-leg-dot" style="background:'+EV_COLORS.gomme+'"></div>Cambio gomme</div>'
+    +'<div class="pl-leg-item"><div class="pl-leg-dot" style="background:'+EV_COLORS.gomme+'"></div>Gommista / Cambio gomme</div>'
     +'<div class="pl-leg-item"><div class="pl-leg-dot" style="background:'+EV_COLORS.annullato+'"></div>Annullato</div>'
     +'</div>'
     +'<div class="pl-dow-hdr">'+['Lun','Mar','Mer','Gio','Ven','Sab','Dom'].map(function(d){ return '<div class="pl-dow">'+d+'</div>'; }).join('')+'</div>'
