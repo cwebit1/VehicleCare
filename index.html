@@ -2506,7 +2506,7 @@ function openHistory(vehicleId){
   const segnalazioni=DB.segnalazioni().filter(s=>s.vehicleId===vehicleId);
   const events=[
     ...checks.map(c=>({type:'check',date:c.data,data:c})),
-    ...interventions.map(i=>({type:'intervento',date:i.dataApertura,data:i})),
+    ...interventions.map(i=>({type:'intervento',date:i.dataChiusura||i.dataApertura,data:i})),
     ...tires.map(t=>({type:'gomme',date:t.dataMontaggio,data:t})),
     ...segnalazioni.map(s=>({type:'segnalazione',date:s.data,data:s}))
   ].sort((a,b)=>new Date(b.date)-new Date(a.date));
