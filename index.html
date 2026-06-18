@@ -5265,21 +5265,19 @@ function openCheckAnomalieFromPlanner(checkId, vehicleId) {
   }
 
   var rows = anomSenzaInt.map(function(a) {
-    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;margin-bottom:8px;">'
-      + '<div style="flex:1;">'
-      + '<div style="font-size:13px;font-weight:700;color:#c2410c;">⚠️ ' + escHtml(a.voce) + '</div>'
-      + (a.note ? '<div style="font-size:11px;color:#9a3412;margin-top:2px;">' + escHtml(a.note) + '</div>' : '')
-      + '</div>'
-      + '<div style="display:flex;gap:6px;flex-shrink:0;">'
+    return '<div style="padding:10px 12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;margin-bottom:8px;">'
+      + '<div style="font-size:13px;font-weight:700;color:#c2410c;margin-bottom:6px;">⚠️ ' + escHtml(a.voce) + '</div>'
+      + (a.note ? '<div style="font-size:11px;color:#9a3412;margin-bottom:6px;">' + escHtml(a.note) + '</div>' : '')
+      + '<div style="display:flex;gap:6px;">'
       + '<button class="crea-int-anom"'
       + ' data-cid="' + checkId + '" data-vid="' + vehicleId + '"'
       + ' data-voce="' + escHtml(a.voce) + '" data-note="' + escHtml(a.note||'') + '" data-km="' + (check.km||0) + '"'
-      + ' style="background:#1e40af;color:#fff;border:none;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">'
+      + ' style="flex:1;background:#1e40af;color:#fff;border:none;border-radius:8px;padding:9px 8px;font-size:12px;font-weight:700;cursor:pointer;">'
       + '+ Intervento</button>'
       + '<button class="risolvi-anom"'
       + ' data-vid="' + vehicleId + '" data-cid="' + checkId + '"'
       + ' data-voce="' + escHtml(a.voce) + '" data-km="' + (check.km||0) + '"'
-      + ' style="background:#16a34a;color:#fff;border:none;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">'
+      + ' style="flex:1;background:#16a34a;color:#fff;border:none;border-radius:8px;padding:9px 8px;font-size:12px;font-weight:700;cursor:pointer;">'
       + '✓ Risolto</button>'
       + '</div>'
       + '</div>';
