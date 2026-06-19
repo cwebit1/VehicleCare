@@ -2398,6 +2398,11 @@ function stampaCheckModulo(checkId){
     // ── 3. Voci check ──
     const anomalieTesto = [];
     c.items && c.items.forEach(function(it){
+      if(it.val === 'non_presente'){
+        const m = MODULO_MAP[it.voce];
+        if(m) drawNote('NON PRESENTE', m.yt, m.yb);
+        return;
+      }
       const m = MODULO_MAP[it.voce];
       if(!m){
         // Livello olio/liquidi: se anomalia → aggiungi alle anomalie testo
@@ -2489,10 +2494,11 @@ function stampaCheck(checkId){
 
   const righe = (c.items||[]).map(it => {
     const isAnom = it.val === 'anomalia';
+    const isNP   = it.val === 'non_presente';
     return `<tr${isAnom?' class="cpr-anom"':''}>
       <td>${escHtml(it.voce)}</td>
-      <td class="${isAnom?'cpr-an':'cpr-ok'}">${isAnom?'⚠ Anomalia':'✓ OK'}</td>
-      <td>${escHtml(it.note||'')}</td>
+      <td class="${isAnom?'cpr-an':isNP?'':'cpr-ok'}" style="${isNP?'color:#888;font-style:italic;':''}">${isAnom?'⚠ Anomalia':isNP?'— Non presente':'✓ OK'}</td>
+      <td>${isNP?'':escHtml(it.note||'')}</td>
     </tr>`;
   }).join('');
 
