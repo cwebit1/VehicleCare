@@ -1227,6 +1227,11 @@ async function renderGestioneVeicoli(container){
           + '</div>'
           + '</div>'
           + '<div style="display:flex;gap:6px;margin-top:10px;">'
+          + '<button onclick="openDocuments(&quot;'+vid+'&quot;)" style="flex:1;background:#fffbeb;color:#92400e;border:none;border-radius:8px;padding:9px 6px;font-size:12px;font-weight:700;cursor:pointer;">📄 Documenti</button>'
+          + '<button onclick="openHistory(&quot;'+vid+'&quot;)" style="flex:1;background:#f0f9ff;color:#0369a1;border:none;border-radius:8px;padding:9px 6px;font-size:12px;font-weight:700;cursor:pointer;">🕐 Storico</button>'
+          + '<button onclick="switchTab(&quot;gomme&quot;)" style="flex:1;background:#f0fdf4;color:#166534;border:none;border-radius:8px;padding:9px 6px;font-size:12px;font-weight:700;cursor:pointer;">🔵 Gomme</button>'
+          + '</div>'
+          + '<div style="display:flex;gap:6px;margin-top:6px;">'
           + '<button onclick="openVehicleForm(&quot;'+vid+'&quot;)" style="flex:1;background:#dbeafe;color:#1e40af;border:none;border-radius:8px;padding:9px 6px;font-size:12px;font-weight:700;cursor:pointer;">✏️ Modifica</button>'
           + '<button onclick="gestioneToggleVenduto(&quot;'+vid+'&quot;,'+(!isVenduto)+')" style="flex:1;background:'+vendiColor+';color:'+vendiTextCol+';border:none;border-radius:8px;padding:9px 6px;font-size:12px;font-weight:700;cursor:pointer;">'+vendiLabel+'</button>'
           + '<button onclick="deleteVehicle(&quot;'+vid+'&quot;)" style="flex:1;background:#fee2e2;color:#b91c1c;border:none;border-radius:8px;padding:9px 6px;font-size:12px;font-weight:700;cursor:pointer;">🗑️ Elimina</button>'
@@ -1355,6 +1360,20 @@ function renderVehicleCard(v, photo){
         </div>
       </div>
     </div>
+    <div class="vehicle-actions" style="border-bottom:1px solid #f1f5f9;padding-bottom:8px;margin-bottom:2px;">
+      <button class="vact-btn" onclick="openDocuments('${v.id}')" style="background:#fffbeb;color:#92400e;border-color:#fde68a;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Documenti
+      </button>
+      <button class="vact-btn" onclick="openHistory('${v.id}')" style="background:#f0f9ff;color:#0369a1;border-color:#bae6fd;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Storico
+      </button>
+      <button class="vact-btn" onclick="switchTab('gomme')" style="background:#f0fdf4;color:#166534;border-color:#86efac;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+        Gomme
+      </button>
+    </div>
     <div class="vehicle-actions">
       ${!v.venduto?`
       <button class="vact-btn" style="background:#fff0f0;color:#b91c1c;border-color:#fca5a5;" onclick="openSegnalazioneForm('${v.id}')">
@@ -1369,14 +1388,6 @@ function renderVehicleCard(v, photo){
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
         Intervento
       </button>`:''}
-      <button class="vact-btn" onclick="openHistory('${v.id}')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        Storico
-      </button>
-      <button class="vact-btn amber" onclick="openDocuments('${v.id}')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-        Documenti
-      </button>
     </div>
   </div>`;
 }
@@ -1404,6 +1415,8 @@ function openVehicleForm(id){
       <input class="form-input" id="vf-km" type="number" value="${v.km||''}" placeholder="0" min="0"></div>
     <div class="form-group inline"><label class="form-label">Scadenza revisione</label>
       <input class="form-input" id="vf-revisione" type="date" value="${v.scadenzaRevisione||''}"></div>
+    <div class="form-checkbox"><input type="checkbox" id="vf-spazzole-post" ${v.spazzolePosteriori?'checked':''}><label for="vf-spazzole-post" style="font-size:14px;font-weight:500;">Presente spazzole posteriori</label></div>
+    <div class="form-checkbox"><input type="checkbox" id="vf-lavavetri-post" ${v.lavavetriPosteriori?'checked':''}><label for="vf-lavavetri-post" style="font-size:14px;font-weight:500;">Presente lavavetri posteriore</label></div>
     <div class="form-checkbox"><input type="checkbox" id="vf-sollevatore" ${v.sollevatore?'checked':''}><label for="vf-sollevatore" style="font-size:14px;font-weight:500;">Presente sollevatore</label></div>
     <div class="form-checkbox"><input type="checkbox" id="vf-pedana" ${v.pedana?'checked':''}><label for="vf-pedana" style="font-size:14px;font-weight:500;">Presente pedana</label></div>
     <div class="form-group"><label class="form-label">Note</label>
@@ -1431,6 +1444,8 @@ function saveVehicle(id){
     scadenzaRevisione:document.getElementById('vf-revisione').value||null,
     sollevatore:document.getElementById('vf-sollevatore').checked,
     pedana:document.getElementById('vf-pedana').checked,
+    spazzolePosteriori:document.getElementById('vf-spazzole-post').checked,
+    lavavetriPosteriori:document.getElementById('vf-lavavetri-post').checked,
     note:document.getElementById('vf-note').value.trim(),
   };
 
@@ -1816,6 +1831,15 @@ function openCheckForm(vehicleId, editCheckId){
   }
   const settings=DB.settings();
 
+  // Mappa voce → presente sul veicolo (se non in mappa = sempre presente)
+  const vocePresente = {
+    'Spazzole posteriori':               !!v.spazzolePosteriori,
+    'Lavavetri posteriori':              !!v.lavavetriPosteriori,
+    'Sollevatore':                       !!v.sollevatore,
+    'Pedana':                            !!v.pedana,
+    'Dispositivi ritenzione carrozzine': !!(v.sollevatore || v.pedana),
+  };
+
   openModal(`${editingCheck?'Modifica check':'Check'} — ${v.targa}`, `
     <div class="form-group inline">
       <label class="form-label">KM attuali *</label>
@@ -1832,16 +1856,23 @@ function openCheckForm(vehicleId, editCheckId){
     <div class="divider"></div>
     <div class="section-title">Voci di controllo</div>
     <div id="check-voci-list">
-      ${CHECK_VOCI.map((voce,i)=>`
-        <div class="check-item" id="chk-row-${i}">
+      ${CHECK_VOCI.map((voce,i)=>{
+        const presente = voce in vocePresente ? vocePresente[voce] : true;
+        if(!presente){
+          return `<div class="check-item" id="chk-row-${i}">
+            <div class="check-label">${escHtml(voce)}</div>
+            <div class="check-toggle"><span style="font-weight:700;font-size:13px;color:#000;">NON PRESENTE</span></div>
+          </div>`;
+        }
+        return `<div class="check-item" id="chk-row-${i}">
           <div class="check-label">${escHtml(voce)}</div>
           <div class="check-toggle">
             <button class="ctgl ok ${checkItems[voce].val==='ok'?'active':''}" onclick="setCheck(${i},'ok','${escHtml(voce)}')" id="chk-ok-${i}">OK</button>
             <button class="ctgl anom ${checkItems[voce].val==='anomalia'?'active':''}" onclick="setCheck(${i},'anomalia','${escHtml(voce)}')" id="chk-an-${i}">⚠️</button>
           </div>
         </div>
-        <textarea class="check-note ${checkItems[voce].val==='anomalia'?'show':''}" id="chk-note-${i}" placeholder="Note per ${escHtml(voce)}…" oninput="checkItems['${escHtml(voce)}'].note=this.value">${escHtml(checkItems[voce].note||'')}</textarea>
-      `).join('')}
+        <textarea class="check-note ${checkItems[voce].val==='anomalia'?'show':''}" id="chk-note-${i}" placeholder="Note per ${escHtml(voce)}…" oninput="checkItems['${escHtml(voce)}'].note=this.value">${escHtml(checkItems[voce].note||'')}</textarea>`;
+      }).join('')}
     </div>
     <div class="divider"></div>
     <div class="form-group">
@@ -1868,6 +1899,7 @@ function setCheck(idx, val, voce){
 }
 
 function saveCheck(vehicleId, editCheckId){
+  const v=DB.vehicles().find(x=>x.id===vehicleId)||{};
   const km=document.getElementById('ck-km').value;
   if(!km){ toast('Inserisci i KM','error'); return; }
   const op=document.getElementById('ck-op').value.trim()||DB.settings().operator||'Operatore';
@@ -1875,7 +1907,16 @@ function saveCheck(vehicleId, editCheckId){
   const notes=document.getElementById('ck-notes').value.trim();
 
   // Costruisci items — leggi anche le note attuali dai textarea (mobile fix)
+  const _vpSave = {
+    'Spazzole posteriori':               !!v.spazzolePosteriori,
+    'Lavavetri posteriori':              !!v.lavavetriPosteriori,
+    'Sollevatore':                       !!v.sollevatore,
+    'Pedana':                            !!v.pedana,
+    'Dispositivi ritenzione carrozzine': !!(v.sollevatore || v.pedana),
+  };
   const items=CHECK_VOCI.map((voce,i)=>{
+    const presente = voce in _vpSave ? _vpSave[voce] : true;
+    if(!presente) return {voce, val:'non_presente', note:'NON PRESENTE'};
     const noteEl=document.getElementById('chk-note-'+i);
     const noteVal=noteEl?noteEl.value.trim():'';
     const ci=checkItems[voce]||{val:'',note:''};
