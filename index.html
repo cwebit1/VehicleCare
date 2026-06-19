@@ -2227,7 +2227,18 @@ function openCheckViewer(checkId, vehicleId){
   const total = allChecks.length;
   const pos = idx + 1; // 1=più vecchio, total=più recente
 
-  const anom = c.items ? c.items.filter(i => i.val === 'anomalia') : [];
+  // Override runtime: voci NON PRESENTE basate sui flag attuali del veicolo
+  const _vpView = {
+    'Spazzole posteriori':               !!v.spazzolePosteriori,
+    'Lavavetri posteriori':              !!v.lavavetriPosteriori,
+    'Sollevatore':                       !!v.sollevatore,
+    'Pedana':                            !!v.pedana,
+    'Dispositivi ritenzione carrozzine': !!(v.sollevatore || v.pedana),
+  };
+  const itemsEff = (c.items||[]).map(it =>
+    (it.voce in _vpView && !_vpView[it.voce]) ? {...it, val:'non_presente'} : it
+  );
+  const anom = itemsEff.filter(i => i.val === 'anomalia');
   // ‹ = precedente (più vecchio) = idx-1
   // › = successivo (più recente) = idx+1
   const prevId = idx > 0       ? allChecks[idx-1].id : null;
@@ -2241,13 +2252,14 @@ function openCheckViewer(checkId, vehicleId){
     ? '<div style="background:#fee2e2;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:#b91c1c;font-weight:700;">⚠️ ' + anom.length + ' anomali' + (anom.length===1?'a':'e') + ': ' + anom.map(a=>escHtml(a.voce)).join(', ') + '</div>'
     : '<div style="background:#dcfce7;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:#15803d;font-weight:700;">✅ Nessuna anomalia</div>';
 
-  const righeHtml = (c.items||[]).map(function(it){
+  const righeHtml = itemsEff.map(function(it){
     const isAnom = it.val === 'anomalia';
+    const isNP   = it.val === 'non_presente';
     return '<div style="display:flex;align-items:flex-start;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f1f5f9;gap:8px;">'
-      + '<span style="font-size:13px;color:' + (isAnom?'#b91c1c':'#475569') + ';font-weight:' + (isAnom?700:400) + ';flex:1;">' + escHtml(it.voce) + '</span>'
-      + '<span style="font-size:12px;font-weight:700;color:' + (isAnom?'#b91c1c':'#16a34a') + ';white-space:nowrap;">' + (isAnom?'⚠️ Anomalia':'✅ OK') + '</span>'
+      + '<span style="font-size:13px;color:' + (isAnom?'#b91c1c':isNP?'#94a3b8':'#475569') + ';font-weight:' + (isAnom?700:400) + ';flex:1;">' + escHtml(it.voce) + '</span>'
+      + '<span style="font-size:12px;font-weight:700;color:' + (isAnom?'#b91c1c':isNP?'#000':'#16a34a') + ';white-space:nowrap;">' + (isAnom?'⚠️ Anomalia':isNP?'NON PRESENTE':'✅ OK') + '</span>'
       + '</div>'
-      + (it.note ? '<div style="font-size:11px;color:#64748b;padding:2px 0 6px;font-style:italic;">' + escHtml(it.note) + '</div>' : '');
+      + (it.note && !isNP ? '<div style="font-size:11px;color:#64748b;padding:2px 0 6px;font-style:italic;">' + escHtml(it.note) + '</div>' : '');
   }).join('');
 
   const anomBtn = anom.length > 0
@@ -2333,18 +2345,6 @@ function stampaCheckModulo(checkId){
   const sfondo = DB.settings().pdfBg;
   if(!sfondo){ toast('Carica prima il modulo in Impostazioni','error'); return; }
 
-  // Override runtime: voci NON PRESENTE basate sui flag attuali del veicolo
-  const _vpPrint = {
-    'Spazzole posteriori':               !!v.spazzolePosteriori,
-    'Lavavetri posteriori':              !!v.lavavetriPosteriori,
-    'Sollevatore':                       !!v.sollevatore,
-    'Pedana':                            !!v.pedana,
-    'Dispositivi ritenzione carrozzine': !!(v.sollevatore || v.pedana),
-  };
-  const itemsEff = (c.items||[]).map(it =>
-    (it.voce in _vpPrint && !_vpPrint[it.voce]) ? {...it, val:'non_presente'} : it
-  );
-
   // Canvas 800x1101
   const canvas = document.createElement('canvas');
   canvas.width = 800; canvas.height = 1101;
@@ -2409,7 +2409,7 @@ function stampaCheckModulo(checkId){
 
     // ── 3. Voci check ──
     const anomalieTesto = [];
-    itemsEff.forEach(function(it){
+    c.items && c.items.forEach(function(it){
       if(it.val === 'non_presente'){
         const m = MODULO_MAP[it.voce];
         if(m) drawNote('NON PRESENTE', m.yt, m.yb);
@@ -2501,23 +2501,10 @@ function stampaCheck(checkId){
   const c = DB.checks().find(x => x.id === checkId);
   if(!c){ toast('Check non trovato','error'); return; }
   const v = DB.vehicles().find(x => x.id === c.vehicleId);
-
-  // Override runtime: voci NON PRESENTE basate sui flag attuali del veicolo
-  const _vpPrint = {
-    'Spazzole posteriori':               !!v.spazzolePosteriori,
-    'Lavavetri posteriori':              !!v.lavavetriPosteriori,
-    'Sollevatore':                       !!v.sollevatore,
-    'Pedana':                            !!v.pedana,
-    'Dispositivi ritenzione carrozzine': !!(v.sollevatore || v.pedana),
-  };
-  const itemsEff = (c.items||[]).map(it =>
-    (it.voce in _vpPrint && !_vpPrint[it.voce]) ? {...it, val:'non_presente'} : it
-  );
-
-  const anom = itemsEff.filter(i => i.val === 'anomalia');
+  const anom = c.items ? c.items.filter(i => i.val === 'anomalia') : [];
   const now = new Date().toLocaleString('it-IT');
 
-  const righe = itemsEff.map(it => {
+  const righe = (c.items||[]).map(it => {
     const isAnom = it.val === 'anomalia';
     const isNP   = it.val === 'non_presente';
     return `<tr${isAnom?' class="cpr-anom"':''}>
