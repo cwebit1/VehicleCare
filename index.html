@@ -2506,11 +2506,13 @@ function openHistory(vehicleId){
   const interventions=DB.interventions().filter(i=>i.vehicleId===vehicleId);
   const tires=DB.tires().filter(t=>t.vehicleId===vehicleId);
   const segnalazioni=DB.segnalazioni().filter(s=>s.vehicleId===vehicleId);
+  const tireIntsAnn=(DB.tireInterventions()||[]).filter(ti=>ti.vehicleId===vehicleId&&ti.stato==='annullato');
   const events=[
     ...checks.map(c=>({type:'check',date:c.data,data:c})),
     ...interventions.map(i=>({type:'intervento',date:i.dataChiusura||i.dataApertura,data:i})),
     ...tires.map(t=>({type:'gomme',date:t.dataMontaggio,data:t})),
-    ...segnalazioni.map(s=>({type:'segnalazione',date:s.data,data:s}))
+    ...segnalazioni.map(s=>({type:'segnalazione',date:s.data,data:s})),
+    ...tireIntsAnn.map(ti=>({type:'tireann',date:ti.dataProgrammata,data:ti}))
   ].sort((a,b)=>new Date(b.date)-new Date(a.date));
 
   const timelineHtml=events.length===0
@@ -2608,6 +2610,16 @@ function openHistory(vehicleId){
             +(s.note?'<div class="tl-desc" style="color:#64748b;">'+escHtml(s.note)+'</div>':'')
             +boxHtml
             +(editBtnHtml?'<div style="margin-top:8px;">'+editBtnHtml+'</div>':'')
+            +'</div></div>';
+        } else if(ev.type==='tireann'){
+          const ti=ev.data;
+          return '<div class="tl-item">'
+            +'<div class="tl-dot red"></div>'
+            +'<div class="tl-date">'+fmtDate(ti.dataProgrammata)+'</div>'
+            +'<div class="tl-card">'
+            +'<div class="tl-type" style="color:#b91c1c;text-decoration:line-through;">🔵 Cambio gomme programmato</div>'
+            +'<div style="margin-top:4px;"><span style="display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;background:#fee2e2;color:#b91c1c;">✕ Annullato</span></div>'
+            +(ti.note?'<div class="tl-desc" style="color:#64748b;margin-top:4px;">'+escHtml(ti.note)+'</div>':'')
             +'</div></div>';
         } else {
           const t=ev.data;
@@ -3581,13 +3593,25 @@ function saveEditCambioGomme(intId, vehicleId){
 }
 
 function annullaTireIntervento(intId){
+  openModal('Annulla cambio gomme',`
+    <div style="background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:10px 12px;margin-bottom:14px;">
+      <div style="font-size:12px;color:#854d0e;font-weight:700;margin-bottom:2px;">ANNULLAMENTO CAMBIO GOMME</div>
+      <div style="font-size:13px;color:#713f12;">Il cambio gomme resterà visibile nel planner e nello storico come traccia.</div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="closeModal()">Indietro</button>
+      <button class="btn" onclick="confirmAnnullaTireIntervento('${intId}')" style="background:#ca8a04;color:#fff;border:none;border-radius:10px;padding:13px 18px;font-size:15px;font-weight:600;cursor:pointer;width:100%;margin-top:6px;">Conferma annullamento</button>
+    </div>
+  `);
+}
+function confirmAnnullaTireIntervento(intId){
   const tireInts = DB.tireInterventions();
   const idx = tireInts.findIndex(x=>x.id===intId);
   if(idx>-1){ tireInts[idx].stato='annullato'; }
   DB.saveTireInterventions(tireInts);
   closeModal();
-  toast('Intervento annullato');
-  renderMain();
+  toast('Cambio gomme annullato');
+  refreshAll();
 }
 
 // Mantenuti per compatibilità con storico veicolo
@@ -4520,14 +4544,14 @@ function _buildMonthPanel(Y, M) {
 
   // Gomme programmate
   var tireInts = DB.tireInterventions();
-  tireInts.filter(function(ti){ return ti.stato==='programmato'; }).forEach(function(ti){
+  tireInts.filter(function(ti){ return ti.stato==='programmato' || ti.stato==='annullato'; }).forEach(function(ti){
     var dp = ti.dataProgrammata;
     if (!dp || dp < mStart || dp > mEnd) return;
     var vIdx = vehicles.findIndex(function(v){ return v.id===ti.vehicleId; });
     if (vIdx===-1) return;
     var g = parseInt(dp.slice(8,10));
     var cellIdx = startDayOfWeek + (g-1);
-    segments.push({ int:{id:ti.id,vehicleId:ti.vehicleId,_isTireInt:true,_tireIntId:ti.id}, row:Math.floor(cellIdx/PL_COLS), colStart:cellIdx%PL_COLS, colEnd:cellIdx%PL_COLS, span:1, isFirst:true });
+    segments.push({ int:{id:ti.id,vehicleId:ti.vehicleId,_isTireInt:true,_tireIntId:ti.id,stato:ti.stato}, row:Math.floor(cellIdx/PL_COLS), colStart:cellIdx%PL_COLS, colEnd:cellIdx%PL_COLS, span:1, isFirst:true });
   });
 
   // Prima passata: calcola tutte le storie distinte per veicolo (su tutto il mese)
@@ -4594,8 +4618,12 @@ function _buildMonthPanel(Y, M) {
     var barH = seg._laneH;
     var lbl  = '';
     if (seg.int._isTireInt) {
+      var isTireAnn = seg.int.stato==='annullato';
+      var tireBgStyle = isTireAnn
+        ? 'background:'+EV_COLORS.annullatoBar+';background-image:repeating-linear-gradient(135deg,rgba(0,0,0,.18) 0px,rgba(0,0,0,.18) 2px,transparent 2px,transparent 7px);'
+        : 'background:'+EV_COLORS.gomme+';';
       barsHtml += '<button class="pl-bar pl-bar-tire"'
-        +' style="left:calc('+left+'% + 1px);width:calc('+width+'% - 2px);top:'+rowTop+'px;height:'+barH+'px;background:'+EV_COLORS.gomme+';"'
+        +' style="left:calc('+left+'% + 1px);width:calc('+width+'% - 2px);top:'+rowTop+'px;height:'+barH+'px;'+tireBgStyle+'"'
         +' data-tiid="'+seg.int._tireIntId+'" data-vid="'+seg.int.vehicleId+'">'
         +'<span class="pl-bar-lbl">'+lbl+'</span></button>';
     } else if (seg.int._isCheckAnom) {
