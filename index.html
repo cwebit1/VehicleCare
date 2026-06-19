@@ -1374,6 +1374,14 @@ function renderVehicleCard(v, photo){
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
         Intervento
       </button>`:''}
+      <button class="vact-btn" onclick="openHistory('${v.id}')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Storico
+      </button>
+      <button class="vact-btn amber" onclick="openDocuments('${v.id}')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Documenti
+      </button>
     </div>
   </div>`;
 }
@@ -1817,7 +1825,6 @@ function openCheckForm(vehicleId, editCheckId){
   }
   const settings=DB.settings();
 
-  // Mappa voce → presente sul veicolo (se non in mappa = sempre presente)
   const vocePresente = {
     'Spazzole posteriori':               !!v.spazzolePosteriori,
     'Lavavetri posteriori':              !!v.lavavetriPosteriori,
@@ -1844,20 +1851,20 @@ function openCheckForm(vehicleId, editCheckId){
     <div id="check-voci-list">
       ${CHECK_VOCI.map((voce,i)=>{
         const presente = voce in vocePresente ? vocePresente[voce] : true;
-        if(!presente){
-          return `<div class="check-item" id="chk-row-${i}">
+        if(!presente) return `
+          <div class="check-item" id="chk-row-${i}">
             <div class="check-label">${escHtml(voce)}</div>
             <div class="check-toggle"><span style="font-weight:700;font-size:13px;color:#000;">NON PRESENTE</span></div>
           </div>`;
-        }
-        return `<div class="check-item" id="chk-row-${i}">
-          <div class="check-label">${escHtml(voce)}</div>
-          <div class="check-toggle">
-            <button class="ctgl ok ${checkItems[voce].val==='ok'?'active':''}" onclick="setCheck(${i},'ok','${escHtml(voce)}')" id="chk-ok-${i}">OK</button>
-            <button class="ctgl anom ${checkItems[voce].val==='anomalia'?'active':''}" onclick="setCheck(${i},'anomalia','${escHtml(voce)}')" id="chk-an-${i}">⚠️</button>
+        return `
+          <div class="check-item" id="chk-row-${i}">
+            <div class="check-label">${escHtml(voce)}</div>
+            <div class="check-toggle">
+              <button class="ctgl ok ${checkItems[voce].val==='ok'?'active':''}" onclick="setCheck(${i},'ok','${escHtml(voce)}')" id="chk-ok-${i}">OK</button>
+              <button class="ctgl anom ${checkItems[voce].val==='anomalia'?'active':''}" onclick="setCheck(${i},'anomalia','${escHtml(voce)}')" id="chk-an-${i}">⚠️</button>
+            </div>
           </div>
-        </div>
-        <textarea class="check-note ${checkItems[voce].val==='anomalia'?'show':''}" id="chk-note-${i}" placeholder="Note per ${escHtml(voce)}…" oninput="checkItems['${escHtml(voce)}'].note=this.value">${escHtml(checkItems[voce].note||'')}</textarea>`;
+          <textarea class="check-note ${checkItems[voce].val==='anomalia'?'show':''}" id="chk-note-${i}" placeholder="Note per ${escHtml(voce)}…" oninput="checkItems['${escHtml(voce)}'].note=this.value">${escHtml(checkItems[voce].note||'')}</textarea>`;
       }).join('')}
     </div>
     <div class="divider"></div>
@@ -1892,16 +1899,17 @@ function saveCheck(vehicleId, editCheckId){
   const date=document.getElementById('ck-date').value||today();
   const notes=document.getElementById('ck-notes').value.trim();
 
-  // Costruisci items — leggi anche le note attuali dai textarea (mobile fix)
-  const _vpSave = {
+  const _vp = {
     'Spazzole posteriori':               !!v.spazzolePosteriori,
     'Lavavetri posteriori':              !!v.lavavetriPosteriori,
     'Sollevatore':                       !!v.sollevatore,
     'Pedana':                            !!v.pedana,
     'Dispositivi ritenzione carrozzine': !!(v.sollevatore || v.pedana),
   };
+
+  // Costruisci items — leggi anche le note attuali dai textarea (mobile fix)
   const items=CHECK_VOCI.map((voce,i)=>{
-    const presente = voce in _vpSave ? _vpSave[voce] : true;
+    const presente = voce in _vp ? _vp[voce] : true;
     if(!presente) return {voce, val:'non_presente', note:'NON PRESENTE'};
     const noteEl=document.getElementById('chk-note-'+i);
     const noteVal=noteEl?noteEl.value.trim():'';
