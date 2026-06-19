@@ -2345,6 +2345,17 @@ function stampaCheckModulo(checkId){
   const sfondo = DB.settings().pdfBg;
   if(!sfondo){ toast('Carica prima il modulo in Impostazioni','error'); return; }
 
+  const _vpPrint = {
+    'Spazzole posteriori':               !!v.spazzolePosteriori,
+    'Lavavetri posteriori':              !!v.lavavetriPosteriori,
+    'Sollevatore':                       !!v.sollevatore,
+    'Pedana':                            !!v.pedana,
+    'Dispositivi ritenzione carrozzine': !!(v.sollevatore || v.pedana),
+  };
+  const itemsEffMod = (c.items||[]).map(it =>
+    (it.voce in _vpPrint && !_vpPrint[it.voce]) ? {...it, val:'non_presente'} : it
+  );
+
   // Canvas 800x1101
   const canvas = document.createElement('canvas');
   canvas.width = 800; canvas.height = 1101;
@@ -2409,7 +2420,7 @@ function stampaCheckModulo(checkId){
 
     // ── 3. Voci check ──
     const anomalieTesto = [];
-    c.items && c.items.forEach(function(it){
+    itemsEffMod.forEach(function(it){
       if(it.val === 'non_presente'){
         const m = MODULO_MAP[it.voce];
         if(m) drawNote('NON PRESENTE', m.yt, m.yb);
@@ -2501,10 +2512,20 @@ function stampaCheck(checkId){
   const c = DB.checks().find(x => x.id === checkId);
   if(!c){ toast('Check non trovato','error'); return; }
   const v = DB.vehicles().find(x => x.id === c.vehicleId);
-  const anom = c.items ? c.items.filter(i => i.val === 'anomalia') : [];
+  const _vpS = {
+    'Spazzole posteriori':               !!v.spazzolePosteriori,
+    'Lavavetri posteriori':              !!v.lavavetriPosteriori,
+    'Sollevatore':                       !!v.sollevatore,
+    'Pedana':                            !!v.pedana,
+    'Dispositivi ritenzione carrozzine': !!(v.sollevatore || v.pedana),
+  };
+  const itemsEffS = (c.items||[]).map(it =>
+    (it.voce in _vpS && !_vpS[it.voce]) ? {...it, val:'non_presente'} : it
+  );
+  const anom = itemsEffS.filter(i => i.val === 'anomalia');
   const now = new Date().toLocaleString('it-IT');
 
-  const righe = (c.items||[]).map(it => {
+  const righe = itemsEffS.map(it => {
     const isAnom = it.val === 'anomalia';
     const isNP   = it.val === 'non_presente';
     return `<tr${isAnom?' class="cpr-anom"':''}>
