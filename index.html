@@ -4713,23 +4713,26 @@ function _buildMonthPanel(Y, M) {
     segGroups[key].push(seg);
   });
 
-  // Etichetta targa: mostrata se isFirst=true OPPURE se è l'inizio di una nuova settimana (colStart=0)
+  // Etichetta targa: una per ogni segmento che è inizio reale (isFirst) o inizio settimana (colStart=0)
   var colWidthPct = 100 / PL_COLS;
   var targaLabelsHtml = '';
   Object.keys(segGroups).forEach(function(key) {
     var group = segGroups[key];
     if (!group.length) return;
-    var first = group[0];
-    var vIdx = vehicles.findIndex(function(v){ return v.id===first.int.vehicleId; });
+    var vid = group[0].int.vehicleId;
+    var vIdx = vehicles.findIndex(function(v){ return v.id===vid; });
     if (vIdx===-1) return;
-    if (!first.isFirst && first.colStart !== 0) return; // mostra targa se inizio reale o inizio settimana
     var v = vehicles[vIdx];
-    var left = first.colStart * colWidthPct;
-    var width= first.span    * colWidthPct;
-    var rowTop = first.row * (cellH + PL_CELL_GAP) + PL_HDR_H + vIdx * (PL_ROW_H + PL_ROW_GAP);
-    targaLabelsHtml += '<div class="pl-bar-lbl pl-targa-lbl"'
-      +' style="position:absolute;left:calc('+left+'% + 4px);width:calc('+width+'% - 8px);top:'+rowTop+'px;height:'+PL_ROW_H+'px;pointer-events:none;display:flex;align-items:center;z-index:3;">'
-      +escHtml(v.targa)+'</div>';
+    // Mostra targa su ogni segmento che è inizio reale o continuazione a inizio settimana
+    group.forEach(function(seg) {
+      if (!seg.isFirst && seg.colStart !== 0) return;
+      var left   = seg.colStart * colWidthPct;
+      var width  = seg.span * colWidthPct;
+      var rowTop = seg.row * (cellH + PL_CELL_GAP) + PL_HDR_H + vIdx * (PL_ROW_H + PL_ROW_GAP);
+      targaLabelsHtml += '<div class="pl-bar-lbl pl-targa-lbl"'
+        +' style="position:absolute;left:calc('+left+'% + 4px);width:calc('+width+'% - 8px);top:'+rowTop+'px;height:'+PL_ROW_H+'px;pointer-events:none;display:flex;align-items:center;z-index:3;">'
+        +escHtml(v.targa)+'</div>';
+    });
   });
 
   // Barre overlay HTML
