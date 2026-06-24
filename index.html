@@ -4635,72 +4635,67 @@ function _buildMonthPanel(Y, M) {
     segments.push({ int:{id:ti.id,vehicleId:ti.vehicleId,_isTireInt:true,_tireIntId:ti.id,stato:ti.stato}, row:Math.floor(cellIdx/PL_COLS), colStart:cellIdx%PL_COLS, colEnd:cellIdx%PL_COLS, span:1, isFirst:true });
   });
 
-  // ── INTERVAL SCHEDULING: corsie fisse per tutta la durata del segmento ──
-  // Per ogni veicolo, ordina i segmenti per colStart e assegna la prima corsia
-  // libera. La corsia è mantenuta fissa per tutta la durata del segmento.
-  // Il numero di corsie visibile in un giorno = corsia più alta attiva + 1.
+  // ── INTERVAL SCHEDULING GLOBALE PER VEICOLO ──
+  // La corsia è assegnata per storyId globalmente (non per riga/settimana).
+  // Ogni storia mantiene la stessa corsia per tutta la durata, anche su settimane diverse.
 
-  // Raggruppa segmenti per riga×veicolo
-  var segGroups = {};
+  // 1. Raggruppa per vehicleId globalmente
+  var vehicleSegs = {};
   segments.forEach(function(seg) {
-    var key = seg.row + '_' + seg.int.vehicleId;
-    if (!segGroups[key]) segGroups[key] = [];
-    segGroups[key].push(seg);
+    var vid = seg.int.vehicleId;
+    if (!vehicleSegs[vid]) vehicleSegs[vid] = [];
+    vehicleSegs[vid].push(seg);
   });
 
-  // Per ogni gruppo riga×veicolo, assegna corsie con interval scheduling
-  Object.keys(segGroups).forEach(function(key) {
-    var group = segGroups[key];
-    // Ordina per colStart
-    group.sort(function(a,b){ return a.colStart - b.colStart; });
-    // laneEnd[i] = colEnd dell'ultimo segmento assegnato alla corsia i
-    var laneEnd = [];
-    group.forEach(function(seg) {
-      // Trova la prima corsia libera (il cui laneEnd < colStart del segmento)
-      var lane = -1;
-      for (var i = 0; i < laneEnd.length; i++) {
-        if (laneEnd[i] < seg.colStart) { lane = i; break; }
+  // 2. Per ogni veicolo assegna corsie per storyId con interval scheduling globale
+  Object.keys(vehicleSegs).forEach(function(vid) {
+    var vsegs = vehicleSegs[vid];
+    // Raggruppa per storyId trovando colonna assoluta start/end
+    var stories = {};
+    vsegs.forEach(function(seg) {
+      var sid = seg.int._storyId || ('u_' + seg.int.id);
+      var absStart = seg.row * PL_COLS + seg.colStart;
+      var absEnd   = seg.row * PL_COLS + seg.colEnd;
+      if (!stories[sid]) {
+        stories[sid] = { absStart: absStart, absEnd: absEnd, segs: [] };
+      } else {
+        if (absStart < stories[sid].absStart) stories[sid].absStart = absStart;
+        if (absEnd   > stories[sid].absEnd)   stories[sid].absEnd   = absEnd;
       }
-      if (lane === -1) { lane = laneEnd.length; laneEnd.push(-1); }
-      laneEnd[lane] = seg.colEnd;
-      seg._lane = lane;
+      stories[sid].segs.push(seg);
     });
-    var totalLanes = laneEnd.length;
-
-    // Per ogni cella del giorno, calcola quante corsie sono attive
-    // (= corsia più alta tra i segmenti attivi in quel giorno + 1)
-    // e assegna _laneCount per cella a ogni segmento.
-    // Poi assegna _laneH e _laneTop in base al _laneCount della cella specifica.
-    group.forEach(function(seg) {
-      seg._totalLanes = totalLanes;
-      // _isLastDay: vero per il segmento nell'ultimo giorno di un intervento chiuso
-      seg._isLastDay = (seg.colEnd === seg.colStart) ? false :
-        (seg.int.stato === 'chiuso' && seg.colEnd === seg.colEnd);
+    // Ordina le storie per absStart e assegna corsie
+    var storyList = Object.keys(stories).map(function(sid) {
+      return { sid: sid, absStart: stories[sid].absStart, absEnd: stories[sid].absEnd, segs: stories[sid].segs };
+    });
+    storyList.sort(function(a,b){ return a.absStart - b.absStart; });
+    var laneAbsEnd = [];
+    storyList.forEach(function(story) {
+      var lane = -1;
+      for (var i = 0; i < laneAbsEnd.length; i++) {
+        if (laneAbsEnd[i] < story.absStart) { lane = i; break; }
+      }
+      if (lane === -1) { lane = laneAbsEnd.length; laneAbsEnd.push(-1); }
+      laneAbsEnd[lane] = story.absEnd;
+      story.segs.forEach(function(seg) { seg._lane = lane; });
     });
   });
 
-  // Calcola _laneCount per ogni cella (colonna) di ogni segmento
-  // = quante corsie sono occupate in quella colonna per quel veicolo in quella riga
-  var cellMaxLane = {}; // key row_col_vid → max lane attiva
+  // 3. cellMaxLane: corsia più alta attiva per ogni cella row_col_vid
+  var cellMaxLane = {};
   segments.forEach(function(seg) {
     for (var col = seg.colStart; col <= seg.colEnd; col++) {
       var k = seg.row + '_' + col + '_' + seg.int.vehicleId;
-      if (!(k in cellMaxLane) || cellMaxLane[k] < seg._lane) {
-        cellMaxLane[k] = seg._lane;
-      }
+      if (!(k in cellMaxLane) || cellMaxLane[k] < seg._lane) cellMaxLane[k] = seg._lane;
     }
   });
 
-  // Assegna _laneH, _laneTop, _laneCount a ogni segmento
-  // Usa il _laneCount della cella di partenza (colStart) per determinare
-  // l'altezza — rimane costante per tutta la barra.
+  // 4. Assegna _laneH, _laneTop, _laneCount
   segments.forEach(function(seg) {
-    var k = seg.row + '_' + seg.colStart + '_' + seg.int.vehicleId;
-    var n = Math.max(1, (cellMaxLane[k] !== undefined ? cellMaxLane[k] : 0) + 1);
-    // Usa il massimo n tra tutte le celle del segmento per non restringere la barra
+    var n = 1;
     for (var col = seg.colStart; col <= seg.colEnd; col++) {
-      var kk = seg.row + '_' + col + '_' + seg.int.vehicleId;
-      var nn = Math.max(1, (cellMaxLane[kk] !== undefined ? cellMaxLane[kk] : 0) + 1);
+      var k = seg.row + '_' + col + '_' + seg.int.vehicleId;
+      var nn = (cellMaxLane[k] !== undefined ? cellMaxLane[k] : 0) + 1;
       if (nn > n) n = nn;
     }
     var fullLaneH = PL_ROW_H / n;
@@ -4710,10 +4705,15 @@ function _buildMonthPanel(Y, M) {
     seg._laneCount = n;
   });
 
-  // segGroups già calcolato sopra — usato per le etichette targa
+  // segGroups per riga×veicolo — usato per le etichette targa
+  var segGroups = {};
+  segments.forEach(function(seg) {
+    var key = seg.row + '_' + seg.int.vehicleId;
+    if (!segGroups[key]) segGroups[key] = [];
+    segGroups[key].push(seg);
+  });
 
-  // Etichetta targa: una sola per riga/veicolo, indipendente dal numero di fasce.
-  // Viene mostrata sopra il primo segmento (in ordine di colonna) di quella riga/veicolo.
+  // Etichetta targa: mostrata se isFirst=true OPPURE se è l'inizio di una nuova settimana (colStart=0)
   var colWidthPct = 100 / PL_COLS;
   var targaLabelsHtml = '';
   Object.keys(segGroups).forEach(function(key) {
@@ -4722,7 +4722,7 @@ function _buildMonthPanel(Y, M) {
     var first = group[0];
     var vIdx = vehicles.findIndex(function(v){ return v.id===first.int.vehicleId; });
     if (vIdx===-1) return;
-    if (!first.isFirst) return; // mostra la targa solo se il primo segmento è l'inizio reale della traccia
+    if (!first.isFirst && first.colStart !== 0) return; // mostra targa se inizio reale o inizio settimana
     var v = vehicles[vIdx];
     var left = first.colStart * colWidthPct;
     var width= first.span    * colWidthPct;
