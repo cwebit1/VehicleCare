@@ -4513,11 +4513,11 @@ function _buildMonthPanel(Y, M) {
       if (g.riga === cur.riga && g.colonna === cur.colEnd + 1) {
         cur.colEnd = g.colonna;
       } else {
-        segments.push({ int: item, row: cur.riga, colStart: cur.colStart, colEnd: cur.colEnd, span: cur.colEnd - cur.colStart + 1, isFirst: cur.isFirst });
+        segments.push({ int: item, row: cur.riga, colStart: cur.colStart, colEnd: cur.colEnd, span: cur.colEnd - cur.colStart + 1, isFirst: cur.isFirst, isLast: false });
         cur = { riga: g.riga, colStart: g.colonna, colEnd: g.colonna, isFirst: false };
       }
     }
-    segments.push({ int: item, row: cur.riga, colStart: cur.colStart, colEnd: cur.colEnd, span: cur.colEnd - cur.colStart + 1, isFirst: cur.isFirst });
+    segments.push({ int: item, row: cur.riga, colStart: cur.colStart, colEnd: cur.colEnd, span: cur.colEnd - cur.colStart + 1, isFirst: cur.isFirst, isLast: true });
   }
 
   var segnalazioniById = {};
@@ -4751,7 +4751,7 @@ function _buildMonthPanel(Y, M) {
     } else {
       var sup = seg.int.fornitoreId ? suppliers.find(function(s){ return s.id===seg.int.fornitoreId; }) : null;
       var isAnn = seg.int.stato==='annullato';
-      var isChiusoLastDay = seg.int.stato==='chiuso' && seg.colStart===seg.colEnd && seg.int.dataChiusura;
+      var isChiusoLastDay = seg.int.stato==='chiuso' && seg.isLast !== false;
       var color = isAnn ? EV_COLORS.annullatoBar : (sup && sup.tipo==='Gommista') ? EV_COLORS.gomme : EV_COLORS.intervento;
       var bgStyle = isAnn
         ? 'background:'+color+';background-image:repeating-linear-gradient(135deg,rgba(0,0,0,.18) 0px,rgba(0,0,0,.18) 2px,transparent 2px,transparent 7px);'
