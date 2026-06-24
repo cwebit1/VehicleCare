@@ -4768,16 +4768,22 @@ function _buildMonthPanel(Y, M) {
     } else {
       var sup = seg.int.fornitoreId ? suppliers.find(function(s){ return s.id===seg.int.fornitoreId; }) : null;
       var isAnn = seg.int.stato==='annullato';
-      var isChiusoLastDay = seg.int.stato==='chiuso' && seg.isLast !== false;
+      var isChiuso = seg.int.stato==='chiuso' && seg.isLast;
       var color = isAnn ? EV_COLORS.annullatoBar : (sup && sup.tipo==='Gommista') ? EV_COLORS.gomme : EV_COLORS.intervento;
       var bgStyle = isAnn
         ? 'background:'+color+';background-image:repeating-linear-gradient(135deg,rgba(0,0,0,.18) 0px,rgba(0,0,0,.18) 2px,transparent 2px,transparent 7px);'
-        : isChiusoLastDay
-          ? 'background:linear-gradient(to right,'+color+',#4ade80);'
-          : 'background:'+color+';';
-      barsHtml += '<button class="pl-bar"'
-        +' style="left:calc('+left+'% + 1px);width:calc('+width+'% - 2px);top:'+rowTop+'px;height:'+barH+'px;'+bgStyle+'"'
+        : 'background:'+color+';';
+      // Overlay gradiente trasparente→verde solo sull'ultima cella del giorno di chiusura
+      var overlayHtml = '';
+      if (isChiuso) {
+        // larghezza di una cella in percentuale rispetto alla barra totale
+        var oneCellPct = seg.span > 0 ? (1 / seg.span * 100) : 100;
+        overlayHtml = '<div style="position:absolute;top:0;right:0;width:'+oneCellPct+'%;height:100%;'
+          +'background:linear-gradient(to right,transparent,#4ade80);border-radius:0 4px 4px 0;pointer-events:none;"></div>';
+      }
+      barsHtml += '<button class="pl-bar" style="position:relative;left:calc('+left+'% + 1px);width:calc('+width+'% - 2px);top:'+rowTop+'px;height:'+barH+'px;'+bgStyle+'"'
         +' data-iid="'+seg.int.id+'" data-vid="'+seg.int.vehicleId+'">'
+        +overlayHtml
         +'<span class="pl-bar-lbl">'+lbl+'</span></button>';
     }
   });
