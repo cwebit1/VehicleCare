@@ -754,8 +754,6 @@ function openModal2(title, bodyHtml){
 function closeModal2(){
   document.getElementById('modal-overlay-2').classList.remove('active');
   document.querySelectorAll('.pl-bar-selected').forEach(function(el){ el.classList.remove('pl-bar-selected'); el.style.outline=''; });
-  // Refresh planner se è aperto nel modal-1
-  setTimeout(function(){ _refreshPlannerIfOpen(); }, 50);
 }
 function handleOverlay2Click(e){
   if(e.target===document.getElementById('modal-overlay-2')) closeModal2();
@@ -1148,18 +1146,6 @@ function refreshAll() {
     // Se lo storico è aperto, lo riapre aggiornato
     if (_currentHistoryVehicleId) {
       openHistory(_currentHistoryVehicleId);
-    }
-  }
-}
-
-function _refreshPlannerIfOpen() {
-  const overlay2 = document.getElementById('modal-overlay-2');
-  if (overlay2 && overlay2.classList.contains('active')) return; // modal layer-2 aperto, non toccare planner
-  const overlay = document.getElementById('modal-overlay');
-  if (overlay && overlay.classList.contains('active')) {
-    const box = document.getElementById('modal-box');
-    if (box && box.querySelector('.pl-month-nav')) {
-      openPlanner(_plannerYear, _plannerMonth);
     }
   }
 }
@@ -4417,7 +4403,7 @@ const PL_COLS     = 7;
 const EV_COLORS = {
   checkOk:    '#4ade80',
   checkAnom:  '#fb923c',
-  intervento: '#dc2626',
+  intervento: '#f87171',
   gomme:      '#60a5fa',
   annullato:  '#facc15',
   annullatoBar: '#fca5a5',
@@ -4527,11 +4513,11 @@ function _buildMonthPanel(Y, M) {
       if (g.riga === cur.riga && g.colonna === cur.colEnd + 1) {
         cur.colEnd = g.colonna;
       } else {
-        segments.push({ int: item, row: cur.riga, colStart: cur.colStart, colEnd: cur.colEnd, span: cur.colEnd - cur.colStart + 1, isFirst: cur.isFirst, isLast: false });
+        segments.push({ int: item, row: cur.riga, colStart: cur.colStart, colEnd: cur.colEnd, span: cur.colEnd - cur.colStart + 1, isFirst: cur.isFirst });
         cur = { riga: g.riga, colStart: g.colonna, colEnd: g.colonna, isFirst: false };
       }
     }
-    segments.push({ int: item, row: cur.riga, colStart: cur.colStart, colEnd: cur.colEnd, span: cur.colEnd - cur.colStart + 1, isFirst: cur.isFirst, isLast: true });
+    segments.push({ int: item, row: cur.riga, colStart: cur.colStart, colEnd: cur.colEnd, span: cur.colEnd - cur.colStart + 1, isFirst: cur.isFirst });
   }
 
   var segnalazioniById = {};
@@ -4635,66 +4621,56 @@ function _buildMonthPanel(Y, M) {
     segments.push({ int:{id:ti.id,vehicleId:ti.vehicleId,_isTireInt:true,_tireIntId:ti.id,stato:ti.stato}, row:Math.floor(cellIdx/PL_COLS), colStart:cellIdx%PL_COLS, colEnd:cellIdx%PL_COLS, span:1, isFirst:true });
   });
 
-  // ── ASSEGNAZIONE CORSIE FISSE PER VEICOLO ──
-  // Prima passata: per ogni veicolo raccoglie tutte le storyId distinte
-  // e assegna un indice fisso (0,1,2...) stabile per tutto il mese.
+  // Prima passata: calcola tutte le storie distinte per veicolo (su tutto il mese)
+  // in modo che ogni fascia mantenga sempre la stessa posizione verticale in tutte le settimane.
   var vehicleStories = {}; // vehicleId → { storyId → laneIndex }
   segments.forEach(function(seg) {
     var vid = seg.int.vehicleId;
-    var sid = seg.int._storyId || ('u_' + seg.int.id);
+    var sid = seg.int._storyId || ('unique_'+Math.random());
     if (!vehicleStories[vid]) vehicleStories[vid] = {};
     if (!(sid in vehicleStories[vid])) {
       vehicleStories[vid][sid] = Object.keys(vehicleStories[vid]).length;
     }
   });
 
-  // Seconda passata: assegna _lane, _laneH, _laneTop, _laneCount usando n fisso per veicolo
-  segments.forEach(function(seg) {
-    var vid = seg.int.vehicleId;
-    var sid = seg.int._storyId || ('u_' + seg.int.id);
-    var stories = vehicleStories[vid] || {};
-    var n = Math.max(1, Object.keys(stories).length);
-    var idx = (sid in stories) ? stories[sid] : 0;
-    var fullLaneH = PL_ROW_H / n;
-    var gap = n > 1 ? 1 : 0;
-    seg._lane      = idx;
-    seg._laneH     = fullLaneH - gap;
-    seg._laneTop   = idx * fullLaneH;
-    seg._laneCount = n;
-  });
-
-  // segGroups per riga×veicolo — usato per le etichette targa
+  // Seconda passata: assegna lane e altezza a ogni segmento usando il max del veicolo
   var segGroups = {};
   segments.forEach(function(seg) {
     var key = seg.row + '_' + seg.int.vehicleId;
     if (!segGroups[key]) segGroups[key] = [];
     segGroups[key].push(seg);
   });
+  segments.forEach(function(seg) {
+    var vid = seg.int.vehicleId;
+    var sid = seg.int._storyId || null;
+    var stories = vehicleStories[vid] || {};
+    var n = Math.max(1, Object.keys(stories).length);
+    var idx = (sid !== null && sid in stories) ? stories[sid] : 0;
+    var fullLaneH = PL_ROW_H / n;
+    var gap = n > 1 ? 1 : 0;
+    seg._laneH   = fullLaneH - gap;
+    seg._laneTop = idx * fullLaneH;
+    seg._laneCount = n;
+  });
 
-  // Etichetta targa: una per ogni segmento che è inizio reale (isFirst) o inizio settimana (colStart=0)
+  // Etichetta targa: una sola per riga/veicolo, indipendente dal numero di fasce.
+  // Viene mostrata sopra il primo segmento (in ordine di colonna) di quella riga/veicolo.
   var colWidthPct = 100 / PL_COLS;
   var targaLabelsHtml = '';
   Object.keys(segGroups).forEach(function(key) {
     var group = segGroups[key];
     if (!group.length) return;
-    var vid = group[0].int.vehicleId;
-    var vIdx = vehicles.findIndex(function(v){ return v.id===vid; });
+    var first = group[0];
+    var vIdx = vehicles.findIndex(function(v){ return v.id===first.int.vehicleId; });
     if (vIdx===-1) return;
+    if (!first.isFirst) return; // mostra la targa solo se il primo segmento è l'inizio reale della traccia
     var v = vehicles[vIdx];
-    // Mostra targa una volta per riga/veicolo: lane 0, su isFirst o colStart===0
-    var shownRows = {};
-    group.filter(function(seg){ return seg._lane === 0; }).forEach(function(seg) {
-      if (!seg.isFirst && seg.colStart !== 0) return;
-      var rk = seg.row;
-      if (shownRows[rk]) return;
-      shownRows[rk] = true;
-      var left   = seg.colStart * colWidthPct;
-      var width  = seg.span * colWidthPct;
-      var rowTop = seg.row * (cellH + PL_CELL_GAP) + PL_HDR_H + vIdx * (PL_ROW_H + PL_ROW_GAP);
-      targaLabelsHtml += '<div class="pl-bar-lbl pl-targa-lbl"'
-        +' style="position:absolute;left:calc('+left+'% + 4px);width:calc('+width+'% - 8px);top:'+rowTop+'px;height:'+PL_ROW_H+'px;pointer-events:none;display:flex;align-items:center;z-index:3;">'
-        +escHtml(v.targa)+'</div>';
-    });
+    var left = first.colStart * colWidthPct;
+    var width= first.span    * colWidthPct;
+    var rowTop = first.row * (cellH + PL_CELL_GAP) + PL_HDR_H + vIdx * (PL_ROW_H + PL_ROW_GAP);
+    targaLabelsHtml += '<div class="pl-bar-lbl pl-targa-lbl"'
+      +' style="position:absolute;left:calc('+left+'% + 4px);width:calc('+width+'% - 8px);top:'+rowTop+'px;height:'+PL_ROW_H+'px;pointer-events:none;display:flex;align-items:center;z-index:3;">'
+      +escHtml(v.targa)+'</div>';
   });
 
   // Barre overlay HTML
@@ -4730,22 +4706,13 @@ function _buildMonthPanel(Y, M) {
     } else {
       var sup = seg.int.fornitoreId ? suppliers.find(function(s){ return s.id===seg.int.fornitoreId; }) : null;
       var isAnn = seg.int.stato==='annullato';
-      var isChiuso = seg.int.stato==='chiuso' && seg.isLast;
       var color = isAnn ? EV_COLORS.annullatoBar : (sup && sup.tipo==='Gommista') ? EV_COLORS.gomme : EV_COLORS.intervento;
       var bgStyle = isAnn
         ? 'background:'+color+';background-image:repeating-linear-gradient(135deg,rgba(0,0,0,.18) 0px,rgba(0,0,0,.18) 2px,transparent 2px,transparent 7px);'
         : 'background:'+color+';';
-      // Overlay gradiente trasparente→verde solo sull'ultima cella del giorno di chiusura
-      var overlayHtml = '';
-      if (isChiuso) {
-        // larghezza di una cella in percentuale rispetto alla barra totale
-        var oneCellPct = seg.span > 0 ? (1 / seg.span * 100) : 100;
-        overlayHtml = '<div style="position:absolute;top:0;right:0;width:'+oneCellPct+'%;height:100%;'
-          +'background:linear-gradient(to right,transparent,#4ade80);border-radius:0 4px 4px 0;pointer-events:none;"></div>';
-      }
-      barsHtml += '<button class="pl-bar" style="position:relative;left:calc('+left+'% + 1px);width:calc('+width+'% - 2px);top:'+rowTop+'px;height:'+barH+'px;'+bgStyle+'"'
+      barsHtml += '<button class="pl-bar"'
+        +' style="left:calc('+left+'% + 1px);width:calc('+width+'% - 2px);top:'+rowTop+'px;height:'+barH+'px;'+bgStyle+'"'
         +' data-iid="'+seg.int.id+'" data-vid="'+seg.int.vehicleId+'">'
-        +overlayHtml
         +'<span class="pl-bar-lbl">'+lbl+'</span></button>';
     }
   });
