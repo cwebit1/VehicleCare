@@ -4417,7 +4417,7 @@ const PL_COLS     = 7;
 const EV_COLORS = {
   checkOk:    '#4ade80',
   checkAnom:  '#fb923c',
-  intervento: '#f87171',
+  intervento: '#dc2626',
   gomme:      '#60a5fa',
   annullato:  '#facc15',
   annullatoBar: '#fca5a5',
@@ -4635,73 +4635,31 @@ function _buildMonthPanel(Y, M) {
     segments.push({ int:{id:ti.id,vehicleId:ti.vehicleId,_isTireInt:true,_tireIntId:ti.id,stato:ti.stato}, row:Math.floor(cellIdx/PL_COLS), colStart:cellIdx%PL_COLS, colEnd:cellIdx%PL_COLS, span:1, isFirst:true });
   });
 
-  // ── INTERVAL SCHEDULING GLOBALE PER VEICOLO ──
-  // La corsia è assegnata per storyId globalmente (non per riga/settimana).
-  // Ogni storia mantiene la stessa corsia per tutta la durata, anche su settimane diverse.
-
-  // 1. Raggruppa per vehicleId globalmente
-  var vehicleSegs = {};
+  // ── ASSEGNAZIONE CORSIE FISSE PER VEICOLO ──
+  // Prima passata: per ogni veicolo raccoglie tutte le storyId distinte
+  // e assegna un indice fisso (0,1,2...) stabile per tutto il mese.
+  var vehicleStories = {}; // vehicleId → { storyId → laneIndex }
   segments.forEach(function(seg) {
     var vid = seg.int.vehicleId;
-    if (!vehicleSegs[vid]) vehicleSegs[vid] = [];
-    vehicleSegs[vid].push(seg);
-  });
-
-  // 2. Per ogni veicolo assegna corsie per storyId con interval scheduling globale
-  Object.keys(vehicleSegs).forEach(function(vid) {
-    var vsegs = vehicleSegs[vid];
-    // Raggruppa per storyId trovando colonna assoluta start/end
-    var stories = {};
-    vsegs.forEach(function(seg) {
-      var sid = seg.int._storyId || ('u_' + seg.int.id);
-      var absStart = seg.row * PL_COLS + seg.colStart;
-      var absEnd   = seg.row * PL_COLS + seg.colEnd;
-      if (!stories[sid]) {
-        stories[sid] = { absStart: absStart, absEnd: absEnd, segs: [] };
-      } else {
-        if (absStart < stories[sid].absStart) stories[sid].absStart = absStart;
-        if (absEnd   > stories[sid].absEnd)   stories[sid].absEnd   = absEnd;
-      }
-      stories[sid].segs.push(seg);
-    });
-    // Ordina le storie per absStart e assegna corsie
-    var storyList = Object.keys(stories).map(function(sid) {
-      return { sid: sid, absStart: stories[sid].absStart, absEnd: stories[sid].absEnd, segs: stories[sid].segs };
-    });
-    storyList.sort(function(a,b){ return a.absStart - b.absStart; });
-    var laneAbsEnd = [];
-    storyList.forEach(function(story) {
-      var lane = -1;
-      for (var i = 0; i < laneAbsEnd.length; i++) {
-        if (laneAbsEnd[i] < story.absStart) { lane = i; break; }
-      }
-      if (lane === -1) { lane = laneAbsEnd.length; laneAbsEnd.push(-1); }
-      laneAbsEnd[lane] = story.absEnd;
-      story.segs.forEach(function(seg) { seg._lane = lane; });
-    });
-  });
-
-  // 3. cellMaxLane: corsia più alta attiva per ogni cella row_col_vid
-  var cellMaxLane = {};
-  segments.forEach(function(seg) {
-    for (var col = seg.colStart; col <= seg.colEnd; col++) {
-      var k = seg.row + '_' + col + '_' + seg.int.vehicleId;
-      if (!(k in cellMaxLane) || cellMaxLane[k] < seg._lane) cellMaxLane[k] = seg._lane;
+    var sid = seg.int._storyId || ('u_' + seg.int.id);
+    if (!vehicleStories[vid]) vehicleStories[vid] = {};
+    if (!(sid in vehicleStories[vid])) {
+      vehicleStories[vid][sid] = Object.keys(vehicleStories[vid]).length;
     }
   });
 
-  // 4. Assegna _laneH, _laneTop, _laneCount
+  // Seconda passata: assegna _lane, _laneH, _laneTop, _laneCount usando n fisso per veicolo
   segments.forEach(function(seg) {
-    var n = 1;
-    for (var col = seg.colStart; col <= seg.colEnd; col++) {
-      var k = seg.row + '_' + col + '_' + seg.int.vehicleId;
-      var nn = (cellMaxLane[k] !== undefined ? cellMaxLane[k] : 0) + 1;
-      if (nn > n) n = nn;
-    }
+    var vid = seg.int.vehicleId;
+    var sid = seg.int._storyId || ('u_' + seg.int.id);
+    var stories = vehicleStories[vid] || {};
+    var n = Math.max(1, Object.keys(stories).length);
+    var idx = (sid in stories) ? stories[sid] : 0;
     var fullLaneH = PL_ROW_H / n;
     var gap = n > 1 ? 1 : 0;
+    seg._lane      = idx;
     seg._laneH     = fullLaneH - gap;
-    seg._laneTop   = (seg._lane || 0) * fullLaneH;
+    seg._laneTop   = idx * fullLaneH;
     seg._laneCount = n;
   });
 
@@ -4723,9 +4681,13 @@ function _buildMonthPanel(Y, M) {
     var vIdx = vehicles.findIndex(function(v){ return v.id===vid; });
     if (vIdx===-1) return;
     var v = vehicles[vIdx];
-    // Mostra targa su ogni segmento che è inizio reale o continuazione a inizio settimana
-    group.forEach(function(seg) {
+    // Mostra targa una volta per riga/veicolo: lane 0, su isFirst o colStart===0
+    var shownRows = {};
+    group.filter(function(seg){ return seg._lane === 0; }).forEach(function(seg) {
       if (!seg.isFirst && seg.colStart !== 0) return;
+      var rk = seg.row;
+      if (shownRows[rk]) return;
+      shownRows[rk] = true;
       var left   = seg.colStart * colWidthPct;
       var width  = seg.span * colWidthPct;
       var rowTop = seg.row * (cellH + PL_CELL_GAP) + PL_HDR_H + vIdx * (PL_ROW_H + PL_ROW_GAP);
