@@ -2391,6 +2391,7 @@ function stampaCheck(checkId){
 // ═══════════════════════════════════════════════════════
 function openHistory(vehicleId){
   const v=DB.vehicles().find(x=>x.id===vehicleId);
+  const avanzata=DB.settings().gestioneAvanzata;
   const checks=DB.checks().filter(c=>c.vehicleId===vehicleId);
   const interventions=DB.interventions().filter(i=>i.vehicleId===vehicleId);
   const tires=DB.tires().filter(t=>t.vehicleId===vehicleId);
@@ -2450,6 +2451,7 @@ function openHistory(vehicleId){
             +(c.note?'<div class="tl-desc" style="margin-top:4px;color:#64748b;">'+escHtml(c.note)+'</div>':'')
             +'<div style="margin-top:8px;">'
             +'<button onclick="openCheckViewer(\''+c.id+'\',\''+vehicleId+'\')" style="background:#1e40af;color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">📋 Apri check</button>'
+            +(avanzata?'<button onclick="eliminaCheck(\''+c.id+'\')" style="background:#fee2e2;color:#b91c1c;border:none;border-radius:7px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">🗑️ Elimina</button>':'')
             +'</div>'
             +anomBoxHtml
             +'</div></div>';
@@ -2469,6 +2471,7 @@ function openHistory(vehicleId){
                 ${i.stato!=='chiuso'&&i.stato!=='annullato'?`<button style="flex:1;background:#16a34a;color:#fff;border:none;border-radius:8px;padding:9px 10px;font-size:12px;font-weight:700;cursor:pointer;" onclick="openChiusuraForm('${i.id}','${i.vehicleId}')">✅ Chiudi</button>`:''}
                 ${i.stato!=='chiuso'&&i.stato!=='annullato'?`<button style="background:#ca8a04;color:#fff;border:none;border-radius:8px;padding:9px 10px;font-size:12px;font-weight:600;cursor:pointer;" onclick="annullaIntervento('${i.id}','${i.vehicleId}')">✕ Annulla</button>`:''}
                 <button style="background:#f1f5f9;color:#475569;border:none;border-radius:8px;padding:9px 10px;font-size:12px;font-weight:600;cursor:pointer;" onclick="openInterventionForm('${i.vehicleId}','${i.id}')">Modifica</button>
+                ${avanzata?`<button style="background:#fee2e2;color:#b91c1c;border:none;border-radius:8px;padding:9px 10px;font-size:12px;font-weight:700;cursor:pointer;" onclick="eliminaIntervento('${i.id}')">🗑️ Elimina</button>`:''}
               </div>
             </div>
           </div>`;
@@ -2494,6 +2497,7 @@ function openHistory(vehicleId){
             +'<div class="tl-desc" style="margin-top:4px;font-weight:600;">'+escHtml(s.problema)+'</div>'
             +(s.note?'<div class="tl-desc" style="color:#64748b;">'+escHtml(s.note)+'</div>':'')
             +boxHtml
+            +(avanzata?'<div style="margin-top:6px;"><button onclick="eliminaSegnalazione(\''+s.id+'\')" style="background:#fee2e2;color:#b91c1c;border:none;border-radius:7px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">🗑️ Elimina</button></div>':'')
             +'</div></div>';
         } else {
           const t=ev.data;
@@ -2504,6 +2508,7 @@ function openHistory(vehicleId){
               <div class="tl-type" style="color:${t.stagione==='estate'?'#92400e':'#1e40af'};">🔵 Gomme ${t.stagione}</div>
               <div class="tl-desc">${escHtml(t.marca)} ${escHtml(t.modello||'')} ${escHtml(t.dimensione||'')} × ${t.quantita||4}</div>
               ${t.dataSmontaggio?`<div class="tl-desc" style="color:#64748b;">Smontate: ${fmtDate(t.dataSmontaggio)}</div>`:''}
+              ${avanzata?`<div style="margin-top:6px;"><button onclick="eliminaCambioGomme('${t.id}')" style="background:#fee2e2;color:#b91c1c;border:none;border-radius:7px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">🗑️ Elimina</button></div>`:''}
             </div>
           </div>`;
         }
@@ -5473,6 +5478,28 @@ function confirmEliminaCambioGomme(intId){
   toast('Cambio gomme eliminato','success');
   renderMain();
   renderAlerts();
+}
+
+function eliminaSegnalazione(segnId){
+  const s = DB.segnalazioni().find(x=>x.id===segnId);
+  if(!s){ toast('Segnalazione non trovata','error'); return; }
+  const v = DB.vehicles().find(x=>x.id===s.vehicleId);
+  openModal('🗑️ Elimina segnalazione',`
+    <p style="font-size:15px;color:#334155;margin-bottom:8px;">Stai per eliminare la segnalazione del <strong>${fmtDate(s.data)}</strong>${v?' per <strong>'+escHtml(v.targa)+'</strong>':''}.</p>
+    <p style="font-size:13px;color:#dc2626;margin-bottom:20px;">Questa operazione è irreversibile.</p>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="closeModal()">Annulla</button>
+      <button class="btn btn-danger" onclick="_doEliminaSegnalazione('${segnId}')">Elimina</button>
+    </div>
+  `);
+}
+
+function _doEliminaSegnalazione(segnId){
+  const segnalazioni = DB.segnalazioni().filter(x=>x.id!==segnId);
+  DB.saveSegnalazioni(segnalazioni);
+  closeModal();
+  renderMain();
+  toast('Segnalazione eliminata','success');
 }
 
 function eliminaCheck(checkId){
