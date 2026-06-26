@@ -1721,19 +1721,23 @@ function openCheckForm(vehicleId, editCheckId){
   if(!v){ toast('Veicolo non trovato','error'); return; }
   const editC = editCheckId ? DB.checks().find(x=>x.id===editCheckId) : null;
   
-  // Filtra voci non pertinenti al veicolo
-  const VOCI_FILTRATE = CHECK_VOCI.filter(voce => {
-    if(voce === 'Sollevatore' && !v.sollevatore) return false;
-    if(voce === 'Dispositivi ritenzione carrozzine' && !v.sollevatore && !v.pedana) return false;
-    if(voce === 'Spazzole posteriori' && !v.spazzolePost) return false;
-    if(voce === 'Lavavetri posteriori' && !v.spazzolePost) return false;
-    return true;
-  });
+  // Determina quali voci non sono presenti come dotazione del veicolo
+  const isNonPresente = (voce) => {
+    if(voce === 'Sollevatore' && !v.sollevatore) return true;
+    if(voce === 'Dispositivi ritenzione carrozzine' && !v.sollevatore && !v.pedana) return true;
+    if(voce === 'Spazzole posteriori' && !v.spazzolePost) return true;
+    if(voce === 'Lavavetri posteriori' && !v.spazzolePost) return true;
+    return false;
+  };
   
   checkItems={};
-  VOCI_FILTRATE.forEach(voce=>{
+  CHECK_VOCI.forEach(voce=>{
     const existing = editC && editC.items ? editC.items.find(i=>i.voce===voce) : null;
-    checkItems[voce]={ val: existing ? existing.val : '', note: existing ? (existing.note||'') : '' };
+    if(isNonPresente(voce)){
+      checkItems[voce]={ val: 'non_presente', note: '' };
+    } else {
+      checkItems[voce]={ val: existing ? existing.val : '', note: existing ? (existing.note||'') : '' };
+    }
   });
   const settings=DB.settings();
   const kmVal = editC ? (editC.km||'') : (v.km||'');
@@ -1758,8 +1762,15 @@ function openCheckForm(vehicleId, editCheckId){
     <div class="divider"></div>
     <div class="section-title">Voci di controllo</div>
     <div id="check-voci-list">
-      ${VOCI_FILTRATE.map((voce,i)=>{
+      ${CHECK_VOCI.map((voce,i)=>{
         const cur = checkItems[voce]||{val:'',note:''};
+        const np = isNonPresente(voce);
+        if(np){
+          return '<div class="check-item" id="chk-row-'+i+'" style="opacity:0.55;">'
+            +'<div class="check-label">'+escHtml(voce)+'</div>'
+            +'<div class="check-toggle"><span style="font-size:11px;font-weight:700;color:#94a3b8;background:#f1f5f9;border-radius:6px;padding:5px 8px;white-space:nowrap;">NON PRESENTE</span></div>'
+            +'</div>';
+        }
         return '<div class="check-item" id="chk-row-'+i+'">'
           +'<div class="check-label">'+escHtml(voce)+'</div>'
           +'<div class="check-toggle">'
@@ -1781,7 +1792,7 @@ function openCheckForm(vehicleId, editCheckId){
     <div style="height:10px;"></div>
   `);
   // Ripristina stato visivo bottoni se modifica
-  if(editC){ setTimeout(()=>{ CHECK_VOCI.forEach((voce,i)=>{ if(checkItems[voce]&&checkItems[voce].val) setCheck(i,checkItems[voce].val,voce); }); },30); }
+  if(editC){ setTimeout(()=>{ CHECK_VOCI.forEach((voce,i)=>{ if(checkItems[voce]&&checkItems[voce].val&&checkItems[voce].val!=='non_presente') setCheck(i,checkItems[voce].val,voce); }); },30); }
 }
 
 function setCheck(idx, val, voce){
@@ -2139,9 +2150,13 @@ function openCheckViewer(checkId, vehicleId){
 
   const righeHtml = (c.items||[]).map(function(it){
     const isAnom = it.val === 'anomalia';
-    return '<div style="display:flex;align-items:flex-start;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f1f5f9;gap:8px;">'
-      + '<span style="font-size:13px;color:' + (isAnom?'#b91c1c':'#475569') + ';font-weight:' + (isAnom?700:400) + ';flex:1;">' + escHtml(it.voce) + '</span>'
-      + '<span style="font-size:12px;font-weight:700;color:' + (isAnom?'#b91c1c':'#16a34a') + ';white-space:nowrap;">' + (isAnom?'⚠️ Anomalia':'✅ OK') + '</span>'
+    const isNP = it.val === 'non_presente';
+    const txtColor = isAnom?'#b91c1c':(isNP?'#94a3b8':'#475569');
+    const statoColor = isAnom?'#b91c1c':(isNP?'#94a3b8':'#16a34a');
+    const statoLbl = isAnom?'⚠️ Anomalia':(isNP?'NON PRESENTE':'✅ OK');
+    return '<div style="display:flex;align-items:flex-start;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f1f5f9;gap:8px;'+(isNP?'opacity:0.6;':'')+'">'
+      + '<span style="font-size:13px;color:' + txtColor + ';font-weight:' + (isAnom?700:400) + ';flex:1;">' + escHtml(it.voce) + '</span>'
+      + '<span style="font-size:12px;font-weight:700;color:' + statoColor + ';white-space:nowrap;">' + statoLbl + '</span>'
       + '</div>'
       + (it.note ? '<div style="font-size:11px;color:#64748b;padding:2px 0 6px;font-style:italic;">' + escHtml(it.note) + '</div>' : '');
   }).join('');
@@ -2305,6 +2320,9 @@ function stampaCheckModulo(checkId){
       if(it.val === 'anomalia'){
         drawX(m.neg[0], m.neg[1]);
         drawNote(it.note||'', m.yt, m.yb);
+      } else if(it.val === 'non_presente'){
+        // Voce non presente come dotazione: nessuna X, scrive NON PRESENTE nelle note
+        drawNote('NON PRESENTE', m.yt, m.yb);
       } else {
         drawX(m.pos[0], m.pos[1]);
       }
@@ -2385,9 +2403,10 @@ function stampaCheck(checkId){
 
   const righe = (c.items||[]).map(it => {
     const isAnom = it.val === 'anomalia';
+    const isNP = it.val === 'non_presente';
     return `<tr${isAnom?' class="cpr-anom"':''}>
-      <td>${escHtml(it.voce)}</td>
-      <td class="${isAnom?'cpr-an':'cpr-ok'}">${isAnom?'⚠ Anomalia':'✓ OK'}</td>
+      <td${isNP?' style="opacity:0.6;"':''}>${escHtml(it.voce)}</td>
+      <td class="${isAnom?'cpr-an':'cpr-ok'}">${isAnom?'⚠ Anomalia':(isNP?'NON PRESENTE':'✓ OK')}</td>
       <td>${escHtml(it.note||'')}</td>
     </tr>`;
   }).join('');
