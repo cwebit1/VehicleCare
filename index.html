@@ -1336,6 +1336,8 @@ function openVehicleForm(id){
       <input class="form-input" id="vf-revisione" type="date" value="${v.scadenzaRevisione||''}"></div>
     <div class="form-checkbox"><input type="checkbox" id="vf-sollevatore" ${v.sollevatore?'checked':''}><label for="vf-sollevatore" style="font-size:14px;font-weight:500;">Presente sollevatore</label></div>
     <div class="form-checkbox"><input type="checkbox" id="vf-pedana" ${v.pedana?'checked':''}><label for="vf-pedana" style="font-size:14px;font-weight:500;">Presente pedana</label></div>
+    <div class="form-checkbox"><input type="checkbox" id="vf-spazzolePost" ${v.spazzolePost?'checked':''}><label for="vf-spazzolePost" style="font-size:14px;font-weight:500;">Spazzole posteriori</label></div>
+    <div class="form-checkbox"><input type="checkbox" id="vf-lavavetriPost" ${v.lavavetriPost?'checked':''}><label for="vf-lavavetriPost" style="font-size:14px;font-weight:500;">Lavavetri posteriori</label></div>
     <div class="form-group"><label class="form-label">Note</label>
       <textarea class="form-input" id="vf-note" rows="2" placeholder="Note aggiuntive…">${escHtml(v.note||'')}</textarea></div>
     <div class="btn-row">
@@ -1361,6 +1363,8 @@ function saveVehicle(id){
     scadenzaRevisione:document.getElementById('vf-revisione').value||null,
     sollevatore:document.getElementById('vf-sollevatore').checked,
     pedana:document.getElementById('vf-pedana').checked,
+    spazzolePost:document.getElementById('vf-spazzolePost').checked,
+    lavavetriPost:document.getElementById('vf-lavavetriPost').checked,
     note:document.getElementById('vf-note').value.trim(),
   };
 
