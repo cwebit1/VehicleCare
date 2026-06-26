@@ -872,25 +872,33 @@ function openAnomalieModal(vehicleId){
 
   openModal('Anomalie — '+(v?v.targa:''), html);
 
-  // Event delegation — nessuna stringa JS inline
-  document.getElementById('modal-box').addEventListener('click', function handler(e){
-    const btn = e.target.closest('button[data-action]');
-    if(!btn) return;
-    const action = btn.dataset.action;
-    const vid    = btn.dataset.vid;
-    const cid    = btn.dataset.cid;
-    const voce   = btn.dataset.voce;
-    const note   = btn.dataset.note||'';
-    const km     = parseInt(btn.dataset.km)||null;
-    if(action==='intervento'){
-      closeModal();
-      createSingleIntervention(vid, cid, voce, note, km);
-    } else if(action==='risolto'){
-      closeModal();
-      risolviAnomalia(vid, cid, voce, km);
-    }
-    document.getElementById('modal-box').removeEventListener('click', handler);
-  });
+  // Event delegation — clona il nodo per azzerare eventuali listener accumulati (evita creazioni multiple)
+  setTimeout(function(){
+    var oldBox = document.getElementById('modal-box');
+    if(!oldBox) return;
+    var newBox = oldBox.cloneNode(true);
+    oldBox.parentNode.replaceChild(newBox, oldBox);
+    var consumed = false;
+    newBox.addEventListener('click', function(e){
+      const btn = e.target.closest('button[data-action]');
+      if(!btn) return;
+      if(consumed) return; // anti doppio-trigger
+      consumed = true;
+      const action = btn.dataset.action;
+      const vid    = btn.dataset.vid;
+      const cid    = btn.dataset.cid;
+      const voce   = btn.dataset.voce;
+      const note   = btn.dataset.note||'';
+      const km     = parseInt(btn.dataset.km)||null;
+      if(action==='intervento'){
+        closeModal();
+        createSingleIntervention(vid, cid, voce, note, km);
+      } else if(action==='risolto'){
+        closeModal();
+        risolviAnomalia(vid, cid, voce, km);
+      }
+    });
+  }, 10);
 }
 
 function mkChip(type, text, cb){
