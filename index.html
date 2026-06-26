@@ -4547,31 +4547,20 @@ function _attachPanelListeners(panel) {
       var v   = DB.vehicles().find(function(x){ return x.id===btn.dataset.vid; });
       var sup = int && int.fornitoreId ? DB.suppliers().find(function(x){ return x.id===int.fornitoreId; }) : null;
       if (!int) return;
-      var rect   = btn.getBoundingClientRect();
-      var finalX = Math.min(Math.max(rect.left+rect.width/2-128,8),window.innerWidth-264);
-      var finalY = Math.max(rect.top-8,0);
       var statoColor = int.stato==='chiuso'?'#16a34a':int.stato==='anomalia'?'#dc2626':'#d97706';
       var statoLbl   = int.stato==='chiuso'?'✅ Chiuso':int.stato==='anomalia'?'⚠️ Anomalia':'🔧 In lavorazione';
-      var bubble = document.getElementById('pl-bubble');
-      bubble.innerHTML='<div class="pl-bubble-inner">'
-        +'<div style="font-size:11px;font-weight:700;color:'+statoColor+';margin-bottom:6px;">'+statoLbl+'</div>'
-        +(v?'<div style="margin-bottom:4px;">'+renderTargaHtml(v.targa)+'</div>':'')
-        +(v?'<div style="font-size:12px;font-weight:600;color:#1e293b;margin-bottom:4px;">'+escHtml(v.nome)+'</div>':'')
-        +'<div style="font-size:12px;color:#334155;margin-bottom:4px;">'+escHtml(int.descrizione||'')+'</div>'
-        +(sup?'<div style="font-size:11px;color:#64748b;">🏠 '+escHtml(sup.nome)+'</div>':'')
-        +'<div style="font-size:11px;color:#94a3b8;margin-top:6px;">Dal '+fmtDate(int.dataApertura)+(int.kmApertura?' · '+fmtKM(int.kmApertura):'')+'</div>'
-        +(int.dataChiusura?'<div style="font-size:11px;color:#94a3b8;">Al '+fmtDate(int.dataChiusura)+'</div>':'')
-        +'<div style="display:flex;gap:6px;margin-top:10px;">'
-        +(int.stato!=='chiuso'&&int.stato!=='annullato'?'<button class="bubble-chiudi" data-iid="'+int.id+'" data-vid="'+int.vehicleId+'" style="flex:1;background:#16a34a;color:#fff;border:none;border-radius:7px;padding:8px;font-size:12px;font-weight:700;cursor:pointer;">Chiudi</button>':'')
-        +(int.stato!=='chiuso'&&int.stato!=='annullato'?'<button class="bubble-ann" data-iid="'+int.id+'" data-vid="'+int.vehicleId+'" style="background:#ca8a04;color:#fff;border:none;border-radius:7px;padding:8px;font-size:12px;font-weight:600;cursor:pointer;">✕ Annulla</button>':'')
-        +'<button class="bubble-mod" data-iid="'+int.id+'" data-vid="'+int.vehicleId+'" style="background:#f1f5f9;color:#475569;border:none;border-radius:7px;padding:8px;font-size:12px;font-weight:600;cursor:pointer;">Modifica</button>'
-        +'</div>'
-        +'<div class="pl-bubble-arrow"></div><div class="pl-bubble-arrow2"></div>'
+      var html = '<div style="font-size:13px;font-weight:700;color:'+statoColor+';margin-bottom:8px;">'+statoLbl+'</div>'
+        +(v?'<div style="margin-bottom:6px;">'+renderTargaHtml(v.targa)+'<span style="font-size:14px;font-weight:600;color:#1e293b;margin-left:8px;">'+escHtml(v.nome)+'</span></div>':'')
+        +'<div style="font-size:13px;color:#334155;margin-bottom:6px;">'+escHtml(int.descrizione||'')+'</div>'
+        +(sup?'<div style="font-size:12px;color:#64748b;margin-bottom:6px;">🏠 '+escHtml(sup.nome)+'</div>':'')
+        +'<div style="font-size:12px;color:#94a3b8;margin-bottom:4px;">📅 Dal '+fmtDate(int.dataApertura)+(int.kmApertura?' · '+fmtKM(int.kmApertura):'')+'</div>'
+        +(int.dataChiusura?'<div style="font-size:12px;color:#94a3b8;margin-bottom:12px;">📅 Al '+fmtDate(int.dataChiusura)+'</div>':'<div style="margin-bottom:12px;"></div>')
+        +'<div class="btn-row">'
+        +(int.stato!=='chiuso'&&int.stato!=='annullato'?'<button onclick="closeModal();chiudiIntervento(\''+int.id+'\',\''+int.vehicleId+'\')" style="flex:1;background:#16a34a;color:#fff;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;">✅ Chiudi</button>':'')
+        +(int.stato!=='chiuso'&&int.stato!=='annullato'?'<button onclick="closeModal();annullaIntervento(\''+int.id+'\',\''+int.vehicleId+'\')" style="background:#ca8a04;color:#fff;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;">✕ Annulla</button>':'')
+        +'<button onclick="closeModal();openInterventionForm(\''+int.vehicleId+'\',\''+int.id+'\')" style="background:#f1f5f9;color:#475569;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;">✏️ Modifica</button>'
         +'</div>';
-      bubble.style.display='block';
-      bubble.style.left=finalX+'px';
-      bubble.style.top=finalY+'px';
-      bubble.style.transform='translateY(-100%)';
+      openModal('🔧 Intervento', html);
     });
   });
 
@@ -4583,23 +4572,12 @@ function _attachPanelListeners(panel) {
       var ti   = DB.tireInterventions().find(function(x){ return x.id===tiid; });
       var v    = DB.vehicles().find(function(x){ return x.id===btn.dataset.vid; });
       if (!ti) return;
-      var rect   = btn.getBoundingClientRect();
-      var finalX = Math.min(Math.max(rect.left+rect.width/2-128,8),window.innerWidth-264);
-      var finalY = Math.max(rect.top-8,0);
-      var bubble = document.getElementById('pl-bubble');
-      bubble.innerHTML='<div class="pl-bubble-inner">'
-        +'<div style="font-size:11px;font-weight:700;color:#1e40af;margin-bottom:6px;">🔵 Cambio gomme programmato</div>'
-        +(v?'<div style="margin-bottom:4px;">'+renderTargaHtml(v.targa)+'</div>':'')
-        +(v?'<div style="font-size:12px;font-weight:600;color:#1e293b;margin-bottom:6px;">'+escHtml(v.nome)+'</div>':'')
-        +'<div style="font-size:12px;color:#94a3b8;margin-bottom:10px;">📅 '+fmtDate(ti.dataProgrammata)+'</div>'
-        +(ti.note?'<div style="font-size:12px;color:#475569;margin-bottom:10px;">'+escHtml(ti.note)+'</div>':'')
-        +'<button class="bubble-tire-edita" data-tiid="'+tiid+'" style="width:100%;background:#1e40af;color:#fff;border:none;border-radius:7px;padding:9px;font-size:13px;font-weight:700;cursor:pointer;">Edita cambio gomme</button>'
-        +'<div class="pl-bubble-arrow"></div><div class="pl-bubble-arrow2"></div>'
-        +'</div>';
-      bubble.style.display='block';
-      bubble.style.left=finalX+'px';
-      bubble.style.top=finalY+'px';
-      bubble.style.transform='translateY(-100%)';
+      var html2 = '<div style="font-size:13px;font-weight:700;color:#1e40af;margin-bottom:8px;">🔵 Cambio gomme programmato</div>'
+        +(v?'<div style="margin-bottom:6px;">'+renderTargaHtml(v.targa)+'<span style="font-size:14px;font-weight:600;color:#1e293b;margin-left:8px;">'+escHtml(v.nome)+'</span></div>':'')
+        +'<div style="font-size:12px;color:#94a3b8;margin-bottom:8px;">📅 '+fmtDate(ti.dataProgrammata)+'</div>'
+        +(ti.note?'<div style="font-size:13px;color:#475569;margin-bottom:12px;">'+escHtml(ti.note)+'</div>':'<div style="margin-bottom:12px;"></div>')
+        +'<div class="btn-row"><button onclick="closeModal();openEditCambioGomme(\''+tiid+'\')" style="flex:1;background:#1e40af;color:#fff;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;">✏️ Edita cambio gomme</button></div>';
+      openModal('🔵 Gomme', html2);
     });
   });
 
