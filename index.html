@@ -781,7 +781,7 @@ function renderAlerts(){
     (c.items||[]).forEach(function(item){
       if(item.val==='anomalia'){
         const alreadyHandled = interventions.some(function(i){
-          return i.checkId===c.id && i.descrizione && i.descrizione.includes(item.voce);
+          return i.checkId===c.id && i.descrizione.startsWith(item.voce);
         });
         if(!alreadyHandled){
           if(!anomByVehicle[c.vehicleId]) anomByVehicle[c.vehicleId]=0;
