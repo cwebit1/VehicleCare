@@ -1710,51 +1710,62 @@ function risolviSegnalazione(s){
   };
 }
 
-function openCheckForm(vehicleId){
+function openCheckForm(vehicleId, editCheckId){
   const v=DB.vehicles().find(x=>x.id===vehicleId);
   if(!v){ toast('Veicolo non trovato','error'); return; }
+  const editC = editCheckId ? DB.checks().find(x=>x.id===editCheckId) : null;
   checkItems={};
-  CHECK_VOCI.forEach(voce=>{ checkItems[voce]={val:'',note:''}; });
+  CHECK_VOCI.forEach(voce=>{
+    const existing = editC && editC.items ? editC.items.find(i=>i.voce===voce) : null;
+    checkItems[voce]={ val: existing ? existing.val : '', note: existing ? (existing.note||'') : '' };
+  });
   const settings=DB.settings();
+  const kmVal = editC ? (editC.km||'') : (v.km||'');
+  const opVal = editC ? (editC.operatore||'') : (settings.operator||'');
+  const dateVal = editC ? editC.data : today();
+  const saveLabel = editC ? 'Salva modifiche' : 'Salva check';
+  const saveCmd = editC ? `saveCheck('${vehicleId}','${editCheckId}')` : `saveCheck('${vehicleId}')`;
 
-  openModal(`Check — ${v.targa}`, `
+  openModal(`${editC?'Modifica':'Nuovo'} Check — ${v.targa}`, `
     <div class="form-group inline">
       <label class="form-label">KM attuali *</label>
-      <input class="form-input" id="ck-km" type="number" value="${v.km||''}" placeholder="KM veicolo" min="0">
+      <input class="form-input" id="ck-km" type="number" value="${kmVal}" placeholder="KM veicolo" min="0">
     </div>
     <div class="form-group inline">
       <label class="form-label">Operatore</label>
-      <input class="form-input" id="ck-op" value="${escHtml(settings.operator||'')}" placeholder="Nome operatore">
+      <input class="form-input" id="ck-op" value="${escHtml(opVal)}" placeholder="Nome operatore">
     </div>
     <div class="form-group inline">
       <label class="form-label">Data check</label>
-      <input class="form-input" id="ck-date" type="date" value="${today()}">
+      <input class="form-input" id="ck-date" type="date" value="${dateVal}">
     </div>
     <div class="divider"></div>
     <div class="section-title">Voci di controllo</div>
     <div id="check-voci-list">
-      ${CHECK_VOCI.map((voce,i)=>`
-        <div class="check-item" id="chk-row-${i}">
-          <div class="check-label">${escHtml(voce)}</div>
-          <div class="check-toggle">
-            <button class="ctgl ok" onclick="setCheck(${i},'ok','${escHtml(voce)}')" id="chk-ok-${i}">OK</button>
-            <button class="ctgl anom" onclick="setCheck(${i},'anomalia','${escHtml(voce)}')" id="chk-an-${i}">⚠️</button>
-          </div>
-        </div>
-        <textarea class="check-note" id="chk-note-${i}" placeholder="Note per ${escHtml(voce)}…" oninput="checkItems['${escHtml(voce)}'].note=this.value"></textarea>
-      `).join('')}
+      ${CHECK_VOCI.map((voce,i)=>{
+        const cur = checkItems[voce]||{val:'',note:''};
+        return '<div class="check-item" id="chk-row-'+i+'">'
+          +'<div class="check-label">'+escHtml(voce)+'</div>'
+          +'<div class="check-toggle">'
+          +'<button class="ctgl ok'+(cur.val==='ok'?' active':'')+'" onclick="setCheck('+i+',\'ok\',\''+escHtml(voce)+'\' )" id="chk-ok-'+i+'">OK</button>'
+          +'<button class="ctgl anom'+(cur.val==='anomalia'?' active':'')+'" onclick="setCheck('+i+',\'anomalia\',\''+escHtml(voce)+'\')" id="chk-an-'+i+'">⚠️</button>'
+          +'</div></div>'
+          +'<textarea class="check-note" id="chk-note-'+i+'" placeholder="Note per '+escHtml(voce)+'…" oninput="checkItems[\''+escHtml(voce)+'\'].note=this.value">'+escHtml(cur.note)+'</textarea>';
+      }).join('')}
     </div>
     <div class="divider"></div>
     <div class="form-group">
       <label class="form-label">Note generali</label>
-      <textarea class="form-input" id="ck-notes" rows="2" placeholder="Osservazioni generali…"></textarea>
+      <textarea class="form-input" id="ck-notes" rows="2" placeholder="Osservazioni generali…">${escHtml(editC&&editC.note?editC.note:'')}</textarea>
     </div>
     <div class="btn-row">
       <button class="btn btn-secondary" onclick="closeModal()">Annulla</button>
-      <button class="btn btn-primary" onclick="saveCheck('${vehicleId}')">Salva check</button>
+      <button class="btn btn-primary" onclick="${saveCmd}">${saveLabel}</button>
     </div>
     <div style="height:10px;"></div>
   `);
+  // Ripristina stato visivo bottoni se modifica
+  if(editC){ setTimeout(()=>{ CHECK_VOCI.forEach((voce,i)=>{ if(checkItems[voce]&&checkItems[voce].val) setCheck(i,checkItems[voce].val,voce); }); },30); }
 }
 
 function setCheck(idx, val, voce){
@@ -1768,7 +1779,7 @@ function setCheck(idx, val, voce){
   if(noteEl){ noteEl.classList.toggle('show', val==='anomalia'); }
 }
 
-function saveCheck(vehicleId){
+function saveCheck(vehicleId, editCheckId){
   const km=document.getElementById('ck-km').value;
   if(!km){ toast('Inserisci i KM','error'); return; }
   const op=document.getElementById('ck-op').value.trim()||DB.settings().operator||'Operatore';
@@ -1784,14 +1795,20 @@ function saveCheck(vehicleId){
   });
   const anomalie=items.filter(i=>i.val==='anomalia');
 
-  // SALVA SEMPRE il check prima di qualsiasi altra azione
-  const checkId=DB.uid();
-  const check={
-    id:checkId, vehicleId, data:date, operatore:op,
-    km:parseInt(km), items, note:notes, createdAt:nowISO()
-  };
   const checks=DB.checks();
-  checks.push(check);
+  let checkId;
+  if(editCheckId){
+    // Modifica check esistente
+    const idx=checks.findIndex(c=>c.id===editCheckId);
+    if(idx>-1){
+      checks[idx]={...checks[idx], data:date, operatore:op, km:parseInt(km), items, note:notes};
+      checkId=editCheckId;
+    } else { toast('Check non trovato','error'); return; }
+  } else {
+    // Nuovo check
+    checkId=DB.uid();
+    checks.push({ id:checkId, vehicleId, data:date, operatore:op, km:parseInt(km), items, note:notes, createdAt:nowISO() });
+  }
   DB.saveChecks(checks);
 
   // Aggiorna KM veicolo
@@ -1803,9 +1820,9 @@ function saveCheck(vehicleId){
   renderMain();
   renderAlerts();
 
-  // Dopo il salvataggio, proponi interventi per anomalie (se presenti)
-  if(anomalie.length>0){
-    // Salva pendingAnomalies globalmente — nessun JSON inline nei bottoni
+  if(editCheckId){
+    toast('✅ Check aggiornato','success');
+  } else if(anomalie.length>0){
     window._pendingAnomalies={ vehicleId, checkId, anomalie, km:parseInt(km) };
     setTimeout(()=>askCreateInterventions(), 350);
   } else {
@@ -4023,6 +4040,9 @@ function renderArchivio(container){
             <button onclick="stampaCheckModulo('${c.id}')" style="background:#f1f5f9;color:#475569;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">
               🖨️ Stampa
             </button>
+            ${avanzata?`<button onclick="openCheckForm('${c.vehicleId}','${c.id}')" style="background:#f1f5f9;color:#475569;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">
+              ✏️ Modifica
+            </button>`:''}
             ${avanzata?`<button onclick="eliminaCheck('${c.id}')" style="background:#fee2e2;color:#b91c1c;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">
               🗑️ Elimina
             </button>`:''}
