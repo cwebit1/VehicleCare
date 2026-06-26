@@ -2468,6 +2468,7 @@ function openHistory(vehicleId){
             +(c.note?'<div class="tl-desc" style="margin-top:4px;color:#64748b;">'+escHtml(c.note)+'</div>':'')
             +'<div style="margin-top:8px;">'
             +'<button onclick="openCheckViewer(\''+c.id+'\',\''+vehicleId+'\')" style="background:#1e40af;color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">📋 Apri check</button>'
+            +(avanzata?'<button onclick="openCheckForm(\''+vehicleId+'\',\''+c.id+'\')" style="background:#f1f5f9;color:#475569;border:none;border-radius:7px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;">✏️ Modifica</button>':'')
             +(avanzata?'<button onclick="eliminaCheck(\''+c.id+'\')" style="background:#fee2e2;color:#b91c1c;border:none;border-radius:7px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">🗑️ Elimina</button>':'')
             +'</div>'
             +anomBoxHtml
