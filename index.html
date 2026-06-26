@@ -1084,8 +1084,10 @@ function refreshAll(){
   // Aggiorna dashboard/tab corrente e alerts
   renderMain();
   renderAlerts();
-  // Se il planner è aperto, ridisegnalo mantenendo mese/anno correnti
-  if(document.getElementById('planner-wrap')){
+  // Riapre la vista attualmente aperta con dati freschi
+  if(window._openView === 'history' && window._openViewVehicle){
+    openHistory(window._openViewVehicle);
+  } else if(window._openView === 'planner' || document.getElementById('planner-wrap')){
     openPlanner(_plannerYear, _plannerMonth);
   }
 }
@@ -2461,6 +2463,7 @@ function stampaCheck(checkId){
 // ═══════════════════════════════════════════════════════
 function openHistory(vehicleId){
   const v=DB.vehicles().find(x=>x.id===vehicleId);
+  window._openView='history'; window._openViewVehicle=vehicleId;
   const avanzata=DB.settings().gestioneAvanzata;
   const checks=DB.checks().filter(c=>c.vehicleId===vehicleId);
   const interventions=DB.interventions().filter(i=>i.vehicleId===vehicleId);
@@ -4733,6 +4736,7 @@ function _attachPanelListeners(panel) {
 //     pronti per lo swipe.
 // ═══════════════════════════════════════════════════════
 function openPlanner(year, month) {
+  window._openView='planner';
   if (year  !== undefined) _plannerYear  = year;
   if (month !== undefined) _plannerMonth = month;
   if (_plannerMonth > 11) { _plannerMonth = 0;  _plannerYear++; }
@@ -5411,7 +5415,6 @@ function confirmEliminaIntervento(intId){
   closeModal();
   toast('Intervento eliminato','success');
   refreshAll();
-  if(vid) setTimeout(()=>openHistory(vid), 50);
 }
 
 function modificaCambioGomme(intId){
@@ -5547,7 +5550,6 @@ function confirmEliminaCambioGomme(intId){
   closeModal();
   toast('Cambio gomme eliminato','success');
   refreshAll();
-  if(vid) setTimeout(()=>openHistory(vid), 50);
 }
 
 function eliminaSegnalazione(segnId){
@@ -5572,7 +5574,6 @@ function _doEliminaSegnalazione(segnId){
   closeModal();
   toast('Segnalazione eliminata','success');
   refreshAll();
-  if(vid) setTimeout(()=>openHistory(vid), 50);
 }
 
 function eliminaCheck(checkId){
@@ -5597,7 +5598,6 @@ function _doEliminaCheck(checkId){
   closeModal();
   toast('Check eliminato','success');
   refreshAll();
-  if(vid) setTimeout(()=>openHistory(vid), 50);
 }
 
 function confirmResetAll(){
