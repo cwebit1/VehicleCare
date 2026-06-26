@@ -133,6 +133,14 @@ body{display:flex;flex-direction:column;height:100dvh;}
 /* ── MODAL ── */
 #modal-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:200;align-items:flex-end;justify-content:center;backdrop-filter:blur(2px);}
 #modal-overlay.active{display:flex;}
+#modal-overlay-2{display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:300;align-items:flex-end;justify-content:center;backdrop-filter:blur(2px);}
+#modal-overlay-2.active{display:flex;}
+#modal-box-2{background:#fff;border-radius:20px 20px 0 0;width:100%;max-height:92dvh;display:flex;flex-direction:column;animation:slideUp .25s ease;}
+#modal-header-2{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;}
+#modal-title-2{font-size:17px;font-weight:700;}
+#modal-close-2{background:#ef4444;color:#fff;border:none;border-radius:10px;width:36px;height:36px;font-size:20px;cursor:pointer;flex-shrink:0;}
+#modal-body-2{overflow-y:auto;padding:0 16px 20px;flex:1;}
+body.dark #modal-box-2{background:#2a2a2a;}
 #modal-box{background:#fff;border-radius:20px 20px 0 0;width:100%;max-height:92dvh;display:flex;flex-direction:column;animation:slideUp .25s ease;}
 @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
 #modal-handle{width:40px;height:4px;background:#e2e8f0;border-radius:2px;margin:10px auto 0;}
@@ -493,6 +501,16 @@ body.dark .backup-banner-text{color:#fcd34d;}
     <div id="modal-body"></div>
   </div>
 </div>
+<div id="modal-overlay-2" onclick="handleOverlay2Click(event)">
+  <div id="modal-box-2">
+    <div id="modal-handle"></div>
+    <div id="modal-header-2">
+      <div id="modal-title-2"></div>
+      <button id="modal-close-2" onclick="closeModal2()">×</button>
+    </div>
+    <div id="modal-body-2"></div>
+  </div>
+</div>
 
 <!-- FRAME STAMPA CHECK -->
 <div id="check-print-frame" style="display:none;"></div>
@@ -707,6 +725,28 @@ function openModal(title, bodyHtml){
 }
 function closeModal(){
   document.getElementById('modal-overlay').classList.remove('active');
+}
+function openModalSmart(title, bodyHtml){
+  // Se il planner è aperto, usa il secondo overlay per non chiuderlo
+  if(document.getElementById('planner-wrap')) return openModal2(title, bodyHtml);
+  return openModal(title, bodyHtml);
+}
+function closeModalSmart(){
+  if(document.getElementById('modal-overlay-2').classList.contains('active')) return closeModal2();
+  return closeModal();
+}
+function openModal2(title, bodyHtml){
+  document.getElementById('modal-title-2').textContent = title;
+  document.getElementById('modal-body-2').innerHTML = bodyHtml;
+  document.getElementById('modal-overlay-2').classList.add('active');
+  document.getElementById('modal-body-2').scrollTop=0;
+  document.getElementById('modal-header-2').style.display = title ? '' : 'none';
+}
+function closeModal2(){
+  document.getElementById('modal-overlay-2').classList.remove('active');
+}
+function handleOverlay2Click(e){
+  if(e.target===document.getElementById('modal-overlay-2')) closeModal2();
 }
 function handleOverlayClick(e){
   if(e.target===document.getElementById('modal-overlay')) closeModal();
@@ -1500,26 +1540,24 @@ function openSegnalazioneDetail(segnalazioneId){
   const s = segnalazioni.find(x=>x.id===segnalazioneId);
   if(!s) return;
   const v = DB.vehicles().find(x=>x.id===s.vehicleId);
-  openModal('📢 Segnalazione — '+(v?v.targa:''),
+  openModalSmart('📢 Segnalazione — '+(v?v.targa:''),
     '<div style="background:#fff0f0;border:1px solid #fca5a5;border-radius:10px;padding:14px;margin-bottom:10px;">'
     +'<div style="font-size:13px;font-weight:700;color:#b91c1c;margin-bottom:6px;">'+escHtml(s.problema)+'</div>'
     +(s.note?'<div style="font-size:12px;color:#7c2d12;margin-bottom:6px;">'+escHtml(s.note)+'</div>':'')
     +'<div style="font-size:11px;color:#9a3412;">📅 '+fmtDate(s.data)+(s.km?' · 🛣️ '+Number(s.km).toLocaleString('it-IT')+' km':'')+(s.operatore?' · 👤 '+escHtml(s.operatore):'')+'</div>'
     +'</div>'
     +'<div class="btn-row">'
-    +'<button class="btn btn-secondary" onclick="closeModal()">Chiudi</button>'
+    +'<button class="btn btn-secondary" onclick="closeModalSmart()">Chiudi</button>'
     +'<button id="btn-segn-int" class="btn btn-primary">+ Intervento</button>'
     +'<button id="btn-segn-ris" class="btn" style="background:#16a34a;color:#fff;">✓ Risolto</button>'
     +'</div>'
   );
-  document.getElementById('btn-segn-int').onclick = function(){
-    closeModal();
-    openInterventionFromSegnalazione(s);
-  };
-  document.getElementById('btn-segn-ris').onclick = function(){
-    closeModal();
-    risolviSegnalazione(s);
-  };
+  setTimeout(function(){
+    var bi=document.getElementById('btn-segn-int');
+    var br=document.getElementById('btn-segn-ris');
+    if(bi) bi.onclick = function(){ closeModalSmart(); setTimeout(function(){ openInterventionFromSegnalazione(s); }, 20); };
+    if(br) br.onclick = function(){ risolviSegnalazione(s); closeModalSmart(); refreshAll(); };
+  }, 20);
 }
 
 function openInterventionFromAnomaliaCheck(checkId, vehicleId, voce, note, km){
@@ -1532,7 +1570,7 @@ function openInterventionFromAnomaliaCheck(checkId, vehicleId, voce, note, km){
   }
   const suppliers = DB.suppliers().filter(sup=>sup.attivo);
   const suppliersOptions = suppliers.map(sup=>`<option value="${sup.id}">${escHtml(sup.nome)} (${escHtml(sup.tipo)})</option>`).join('');
-  openModal('Nuovo Intervento — '+(v?.targa||''), `
+  openModal2('Nuovo Intervento — '+(v?.targa||''), `
     <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:#c2410c;">
       ⚠️ Anomalia da check: <strong>${escHtml(voce)}</strong></div>
     <div class="form-group"><label class="form-label">Descrizione problema *</label>
@@ -1564,7 +1602,7 @@ function openInterventionFromAnomaliaCheck(checkId, vehicleId, voce, note, km){
         <textarea class="form-input" id="int-note-ch" rows="2" placeholder="Cosa è stato fatto…"></textarea></div>
     </div>
     <div class="btn-row">
-      <button class="btn btn-secondary" onclick="closeModal()">Annulla</button>
+      <button class="btn btn-secondary" onclick="closeModal2()">Annulla</button>
       <button class="btn btn-primary" id="btn-save-int-anom">Crea intervento</button>
     </div>
   `);
@@ -1581,7 +1619,7 @@ function openInterventionFromAnomaliaCheck(checkId, vehicleId, voce, note, km){
       const ints = DB.interventions();
       if(ints.some(i=>i.checkId===checkId && i.descrizione && i.descrizione.startsWith(voce))){
         toast('Intervento già esistente per questa anomalia');
-        closeModal();
+        closeModal2();
         return;
       }
       ints.push({
@@ -1598,10 +1636,9 @@ function openInterventionFromAnomaliaCheck(checkId, vehicleId, voce, note, km){
         createdAt: nowISO()
       });
       DB.saveInterventions(ints);
-      closeModal();
+      closeModal2();
       toast('Intervento creato','success');
-      renderAlerts();
-      renderMain();
+      refreshAll();
     };
   },10);
 }
@@ -1610,7 +1647,7 @@ function openInterventionFromSegnalazione(s){
   const v = DB.vehicles().find(x=>x.id===s.vehicleId);
   const suppliers = DB.suppliers().filter(sup=>sup.attivo);
   const suppliersOptions = suppliers.map(sup=>`<option value="${sup.id}">${escHtml(sup.nome)} (${escHtml(sup.tipo)})</option>`).join('');
-  openModal('Nuovo Intervento — '+(v?.targa||''), `
+  openModalSmart('Nuovo Intervento — '+(v?.targa||''), `
     <div style="background:#fff0f0;border:1px solid #fca5a5;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:#b91c1c;">
       📢 Segnalazione: <strong>${escHtml(s.problema)}</strong></div>
     <div class="form-group"><label class="form-label">Descrizione problema *</label>
@@ -1644,7 +1681,7 @@ function openInterventionFromSegnalazione(s){
         <textarea class="form-input" id="int-note-ch" rows="2" placeholder="Cosa è stato fatto…"></textarea></div>
     </div>
     <div class="btn-row">
-      <button class="btn btn-secondary" onclick="closeModal()">Annulla</button>
+      <button class="btn btn-secondary" onclick="closeModalSmart()">Annulla</button>
       <button class="btn btn-primary" id="btn-save-int-segn">Crea intervento</button>
     </div>
   `);
@@ -1673,10 +1710,9 @@ function openInterventionFromSegnalazione(s){
         createdAt: nowISO()
       });
       DB.saveInterventions(interventions);
-      closeModal();
+      closeModalSmart();
       toast('Intervento creato','success');
-      renderAlerts();
-      renderMain();
+      refreshAll();
     };
   },10);
 }
@@ -4653,11 +4689,11 @@ function _attachPanelListeners(panel) {
         +'<div style="font-size:12px;color:#94a3b8;margin-bottom:4px;">📅 Dal '+fmtDate(int.dataApertura)+(int.kmApertura?' · '+fmtKM(int.kmApertura):'')+'</div>'
         +(int.dataChiusura?'<div style="font-size:12px;color:#94a3b8;margin-bottom:12px;">📅 Al '+fmtDate(int.dataChiusura)+'</div>':'<div style="margin-bottom:12px;"></div>')
         +'<div class="btn-row">'
-        +(int.stato!=='chiuso'&&int.stato!=='annullato'?'<button onclick="closeModal();chiudiIntervento(\''+int.id+'\',\''+int.vehicleId+'\')" style="flex:1;background:#16a34a;color:#fff;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;">✅ Chiudi</button>':'')
-        +(int.stato!=='chiuso'&&int.stato!=='annullato'?'<button onclick="closeModal();annullaIntervento(\''+int.id+'\',\''+int.vehicleId+'\')" style="background:#ca8a04;color:#fff;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;">✕ Annulla</button>':'')
-        +'<button onclick="closeModal();openInterventionForm(\''+int.vehicleId+'\',\''+int.id+'\')" style="background:#f1f5f9;color:#475569;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;">✏️ Modifica</button>'
+        +(int.stato!=='chiuso'&&int.stato!=='annullato'?'<button onclick="closeModal2();chiudiIntervento(\''+int.id+'\',\''+int.vehicleId+'\')" style="flex:1;background:#16a34a;color:#fff;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;">✅ Chiudi</button>':'')
+        +(int.stato!=='chiuso'&&int.stato!=='annullato'?'<button onclick="closeModal2();annullaIntervento(\''+int.id+'\',\''+int.vehicleId+'\')" style="background:#ca8a04;color:#fff;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;">✕ Annulla</button>':'')
+        +'<button onclick="closeModal2();openInterventionForm(\''+int.vehicleId+'\',\''+int.id+'\')" style="background:#f1f5f9;color:#475569;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;">✏️ Modifica</button>'
         +'</div>';
-      openModal('🔧 Intervento', html);
+      openModal2('🔧 Intervento', html);
     });
   });
 
@@ -4673,8 +4709,8 @@ function _attachPanelListeners(panel) {
         +(v?'<div style="margin-bottom:6px;">'+renderTargaHtml(v.targa)+'<span style="font-size:14px;font-weight:600;color:#1e293b;margin-left:8px;">'+escHtml(v.nome)+'</span></div>':'')
         +'<div style="font-size:12px;color:#94a3b8;margin-bottom:8px;">📅 '+fmtDate(ti.dataProgrammata)+'</div>'
         +(ti.note?'<div style="font-size:13px;color:#475569;margin-bottom:12px;">'+escHtml(ti.note)+'</div>':'<div style="margin-bottom:12px;"></div>')
-        +'<div class="btn-row"><button onclick="closeModal();openEditCambioGomme(\''+tiid+'\')" style="flex:1;background:#1e40af;color:#fff;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;">✏️ Edita cambio gomme</button></div>';
-      openModal('🔵 Gomme', html2);
+        +'<div class="btn-row"><button onclick="closeModal2();openEditCambioGomme(\''+tiid+'\')" style="flex:1;background:#1e40af;color:#fff;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;">✏️ Edita cambio gomme</button></div>';
+      openModal2('🔵 Gomme', html2);
     });
   });
 
@@ -5124,11 +5160,11 @@ function openCheckAnomalieFromPlanner(checkId, vehicleId) {
   });
 
   if (anomSenzaInt.length === 0) {
-    openModal('Anomalie — ' + (v ? v.targa : ''),
+    openModal2('Anomalie — ' + (v ? v.targa : ''),
       '<div style="background:#dcfce7;border-radius:8px;padding:14px;text-align:center;font-size:14px;color:#15803d;font-weight:700;">'
       + '✅ Tutti gli interventi sono già stati creati per questo check.'
       + '</div>'
-      + '<button onclick="closeModal()" style="width:100%;background:#f1f5f9;color:#475569;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;margin-top:12px;">Chiudi</button>'
+      + '<button onclick="closeModal2()" style="width:100%;background:#f1f5f9;color:#475569;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;margin-top:12px;">Chiudi</button>'
     );
     return;
   }
@@ -5143,15 +5179,22 @@ function openCheckAnomalieFromPlanner(checkId, vehicleId) {
       + '<div style="font-size:13px;font-weight:700;color:#c2410c;">⚠️ ' + escHtml(a.voce) + '</div>'
       + (a.note ? '<div style="font-size:11px;color:#9a3412;margin-top:2px;">' + escHtml(a.note) + '</div>' : '')
       + '</div>'
+      + '<div style="display:flex;gap:6px;flex-shrink:0;">'
       + '<button class="crea-int-anom"'
       + ' data-cid="' + checkId + '" data-vid="' + vehicleId + '"'
       + ' data-voce="' + escHtml(a.voce) + '" data-note="' + escHtml(a.note||'') + '" data-km="' + (check.km||0) + '"'
-      + ' style="background:#1e40af;color:#fff;border:none;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;">'
+      + ' style="background:#1e40af;color:#fff;border:none;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">'
       + '+ Intervento</button>'
+      + '<button class="ris-anom"'
+      + ' data-cid="' + checkId + '" data-vid="' + vehicleId + '"'
+      + ' data-voce="' + escHtml(a.voce) + '" data-km="' + (check.km||0) + '"'
+      + ' style="background:#16a34a;color:#fff;border:none;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">'
+      + '✓ Risolto</button>'
+      + '</div>'
       + '</div>';
   }).join('');
 
-  openModal('Anomalie check — ' + (v ? v.targa : ''),
+  openModal2('Anomalie check — ' + (v ? v.targa : ''),
     '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">'
     + (v ? renderTargaHtml(v.targa) : '')
     + '<div style="font-size:13px;color:#64748b;">' + fmtDate(check.data) + '</div>'
@@ -5163,12 +5206,22 @@ function openCheckAnomalieFromPlanner(checkId, vehicleId) {
     + '<div style="font-size:12px;color:#94a3b8;margin-top:8px;">Dopo aver creato un intervento la voce scomparirà da questa lista.</div>'
     + '<div style="height:8px;"></div>'
   );
-  // Event delegation sui pulsanti + Intervento
+  // Event delegation: +Intervento e Risolto (onclick diretto, no accumulo listener)
   setTimeout(function(){
     document.querySelectorAll('.crea-int-anom').forEach(function(btn){
-      btn.addEventListener('click', function(){
-        openInterventionFromAnomaliaCheck(btn.dataset.cid, btn.dataset.vid, btn.dataset.voce, btn.dataset.note, parseInt(btn.dataset.km)||0);
-      });
+      btn.onclick = function(){
+        var cid=btn.dataset.cid, vid=btn.dataset.vid, voce=btn.dataset.voce, note=btn.dataset.note, km=parseInt(btn.dataset.km)||0;
+        closeModal2();
+        setTimeout(function(){ openInterventionFromAnomaliaCheck(cid, vid, voce, note, km); }, 20);
+      };
+    });
+    document.querySelectorAll('.ris-anom').forEach(function(btn){
+      btn.onclick = function(){
+        var cid=btn.dataset.cid, vid=btn.dataset.vid, voce=btn.dataset.voce, km=parseInt(btn.dataset.km)||0;
+        risolviAnomalia(vid, cid, voce, km);
+        closeModal2();
+        setTimeout(function(){ openCheckAnomalieFromPlanner(cid, vid); }, 30);
+      };
     });
   }, 30);
 }
