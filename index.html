@@ -4476,7 +4476,20 @@ function _buildMonthPanel(Y, M) {
     if (isAnnullato) {
       endDateStr = aperturaDate;
     } else if (isChiuso || int.dataChiusura) {
-      endDateStr = int.dataChiusura || aperturaDate;
+      var chiusuraDate = int.dataChiusura || aperturaDate;
+      // Verde "mezzo tornato disponibile" sul giorno di chiusura (mezza cella sfumata)
+      _pushDateRangeSegments(chiusuraDate, chiusuraDate, {
+        id:int.id, vehicleId:int.vehicleId, _isResolved:true,
+        descrizione:int.descrizione, dataApertura:int.dataApertura, stato:'chiuso',
+        checkId:int.checkId, segnalazioneId:int.segnalazioneId,
+        kmApertura:int.kmApertura, fornitoreId:int.fornitoreId,
+        dataChiusura:int.dataChiusura, kmChiusura:int.kmChiusura, noteChiusura:int.noteChiusura
+      });
+      // Il rosso (mezzo non disponibile) arriva fino al giorno PRIMA della chiusura.
+      // Se apertura == chiusura (risolto in giornata) non c'è rosso: resta solo il verde.
+      var dChiu = new Date(chiusuraDate+'T00:00:00');
+      dChiu.setDate(dChiu.getDate()-1);
+      endDateStr = dChiu.getFullYear()+'-'+String(dChiu.getMonth()+1).padStart(2,'0')+'-'+String(dChiu.getDate()).padStart(2,'0');
     } else {
       // Aperto e mai chiuso: rosso pieno da dataApertura fino a OGGI (prosegue giorno per
       // giorno fino alla risoluzione). Se l'intervento è programmato nel futuro (apertura > oggi)
@@ -4511,13 +4524,12 @@ function _buildMonthPanel(Y, M) {
       // La tratteggiata è una storia separata che coesiste con il giallo.
       linkedDates.sort();
       var earliest = linkedDates[0];
-      if (earliest <= c.data) {
-        endDateStr = c.data;
-      } else {
-        var dA = new Date(earliest+'T00:00:00');
-        dA.setDate(dA.getDate()-1);
-        endDateStr = dA.getFullYear()+'-'+String(dA.getMonth()+1).padStart(2,'0')+'-'+String(dA.getDate()).padStart(2,'0');
-      }
+      // Il colore anomalia si interrompe SEMPRE al giorno PRIMA della programmazione.
+      // Se la programmazione è <= data check (gestione immediata) non resta alcuna barra arancio:
+      // il giorno è rappresentato dal verde "mezzo disponibile" dell'intervento chiuso.
+      var dA = new Date(earliest+'T00:00:00');
+      dA.setDate(dA.getDate()-1);
+      endDateStr = dA.getFullYear()+'-'+String(dA.getMonth()+1).padStart(2,'0')+'-'+String(dA.getDate()).padStart(2,'0');
     } else {
       endDateStr = c.data > todayStr ? c.data : todayStr;
     }
@@ -4537,13 +4549,12 @@ function _buildMonthPanel(Y, M) {
       // La segnalazione (giallo) resta fino al giorno PRIMA della data di PROGRAMMAZIONE dell'intervento.
       // Da lì parte la tratteggiata di attesa; il giorno della data intervento è rosso pieno.
       var cut = linked.dataProgrammazione || linked.dataApertura;
-      if (cut <= s.data) {
-        endDateStr = s.data;
-      } else {
-        var dS = new Date(cut+'T00:00:00');
-        dS.setDate(dS.getDate()-1);
-        endDateStr = dS.getFullYear()+'-'+String(dS.getMonth()+1).padStart(2,'0')+'-'+String(dS.getDate()).padStart(2,'0');
-      }
+      // Il giallo si interrompe SEMPRE al giorno PRIMA della programmazione.
+      // Gestione immediata (programmazione <= data segnalazione) ⇒ nessuna barra gialla:
+      // il giorno è rappresentato dal verde "mezzo disponibile" dell'intervento chiuso.
+      var dS = new Date(cut+'T00:00:00');
+      dS.setDate(dS.getDate()-1);
+      endDateStr = dS.getFullYear()+'-'+String(dS.getMonth()+1).padStart(2,'0')+'-'+String(dS.getDate()).padStart(2,'0');
     } else {
       endDateStr = s.data > todayStr ? s.data : todayStr;
     }
@@ -4598,6 +4609,13 @@ function _buildMonthPanel(Y, M) {
         +' style="left:'+attLeft+'%;width:'+attW+'%;top:'+attTop+'px;height:6px;'
         +'background:'+EV_COLORS.intervento+';border:none;box-shadow:none;border-radius:3px;"'
         +' data-iid="'+seg.int.id+'" data-vid="'+seg.int.vehicleId+'"></button>';
+    } else if (seg.int._isResolved) {
+      // Mezzo tornato disponibile (intervento chiuso): mezza cella verde sfumata.
+      barsHtml += '<button class="pl-bar pl-bar-resolved"'
+        +' style="left:calc('+left+'% + 1px);width:calc('+width+'% - 2px);top:'+rowTop+'px;height:'+PL_ROW_H+'px;'
+        +'background:linear-gradient(to top, rgba(74,222,128,0.9), rgba(74,222,128,0));border:none;box-shadow:none;"'
+        +' data-iid="'+seg.int.id+'" data-vid="'+seg.int.vehicleId+'">'
+        +'<span class="pl-bar-lbl" style="color:#15803d;">'+lbl+'</span></button>';
     } else {
       var color = seg.int.stato==='annullato' ? EV_COLORS.annullato : EV_COLORS.intervento;
       barsHtml += '<button class="pl-bar"'
