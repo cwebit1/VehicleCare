@@ -4374,32 +4374,38 @@ function _buildMonthPanel(Y, M) {
     if (!int.dataApertura) return;
     var isChiuso    = int.stato === 'chiuso';
     var isAnnullato = int.stato === 'annullato';
-    var isFuturo    = int.dataApertura > todayStr;
+
+    // Data creazione record (solo parte YYYY-MM-DD) per la fase di ATTESA tratteggiata
+    var createdDate = (int.createdAt || int.dataApertura).slice(0,10);
+    var aperturaDate = int.dataApertura;
+
+    // ── FASE 1: ATTESA (tratteggiata rossa) — da createdAt al giorno PRIMA di dataApertura ──
+    // Solo se l'intervento NON è annullato e createdAt < dataApertura (cioè è programmato nel futuro)
+    if (!isAnnullato && createdDate < aperturaDate) {
+      var dPrev = new Date(aperturaDate+'T00:00:00');
+      dPrev.setDate(dPrev.getDate()-1);
+      var attesaEnd = dPrev.getFullYear()+'-'+String(dPrev.getMonth()+1).padStart(2,'0')+'-'+String(dPrev.getDate()).padStart(2,'0');
+      // L'attesa parte da createdAt; ma se c'è anomalia/segnalazione di origine, parte dal giorno dopo l'origine
+      var attesaStart = createdDate;
+      _pushDateRangeSegments(attesaStart, attesaEnd, {
+        id:int.id, vehicleId:int.vehicleId, _isAttesa:true,
+        descrizione:int.descrizione, dataApertura:int.dataApertura, stato:int.stato,
+        checkId:int.checkId, segnalazioneId:int.segnalazioneId,
+        kmApertura:int.kmApertura, fornitoreId:int.fornitoreId,
+        dataChiusura:int.dataChiusura, kmChiusura:int.kmChiusura, noteChiusura:int.noteChiusura
+      });
+    }
+
+    // ── FASE 2: LAVORAZIONE (rosso pieno) — da dataApertura in poi ──
+    var startDateStr = aperturaDate;
     var endDateStr;
-    if (isAnnullato || isFuturo) {
-      endDateStr = int.dataApertura;
-    } else if (int.dataChiusura) {
-      endDateStr = int.dataChiusura;
-    } else if (isChiuso) {
-      endDateStr = int.dataApertura;
+    if (isAnnullato) {
+      endDateStr = aperturaDate;
+    } else if (isChiuso || int.dataChiusura) {
+      endDateStr = int.dataChiusura || aperturaDate;
     } else {
-      endDateStr = todayStr;
-    }
-    var startDateStr = int.dataApertura;
-    // Se collegato a una segnalazione o a un'anomalia da check dello stesso giorno,
-    // la barra rossa parte dal giorno dopo (il giorno dell'origine resta giallo/arancione).
-    var originDate = null;
-    if (int.segnalazioneId && segnalazioniById[int.segnalazioneId]) {
-      originDate = segnalazioniById[int.segnalazioneId].data;
-    } else if (int.checkId && checksById[int.checkId]) {
-      originDate = checksById[int.checkId].data;
-    }
-    if (originDate && originDate === int.dataApertura && endDateStr >= startDateStr) {
-      var d = new Date(startDateStr+'T00:00:00');
-      d.setDate(d.getDate()+1);
-      var nextDay = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-      if (nextDay <= endDateStr) startDateStr = nextDay;
-      // se l'intervento dura un solo giorno, non spostiamo (altrimenti endDateStr<startDateStr e la barra rossa scompare del tutto)
+      // Aperto e mai chiuso: rosso pieno fino a fine mese visibile (continua all'infinito)
+      endDateStr = mEnd;
     }
     _pushDateRangeSegments(startDateStr, endDateStr, int);
   });
@@ -4423,17 +4429,17 @@ function _buildMonthPanel(Y, M) {
     });
     var endDateStr;
     if (!senzaIntervento && linkedDates.length) {
-      // Tutte le anomalie hanno un intervento collegato: traccia in arancione fino al giorno
-      // prima dell'apertura più precoce (o fino a c.data se coincide con essa).
+      // L'anomalia (giallo) resta fino al giorno PRIMA della data intervento.
+      // Il giorno della data intervento è rosso pieno (mezzo non disponibile).
+      // La tratteggiata è una storia separata che coesiste con il giallo.
       linkedDates.sort();
       var earliest = linkedDates[0];
-      if (earliest < c.data) return; // caso anomalo, non dovrebbe succedere
-      if (earliest === c.data) {
+      if (earliest <= c.data) {
         endDateStr = c.data;
       } else {
-        var d = new Date(earliest+'T00:00:00');
-        d.setDate(d.getDate()-1);
-        endDateStr = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+        var dA = new Date(earliest+'T00:00:00');
+        dA.setDate(dA.getDate()-1);
+        endDateStr = dA.getFullYear()+'-'+String(dA.getMonth()+1).padStart(2,'0')+'-'+String(dA.getDate()).padStart(2,'0');
       }
     } else {
       endDateStr = c.data > todayStr ? c.data : todayStr;
@@ -4451,14 +4457,14 @@ function _buildMonthPanel(Y, M) {
     var linked = interventions.find(function(i){ return i.segnalazioneId===s.id && i.stato!=='annullato'; });
     var endDateStr;
     if (linked && linked.dataApertura) {
-      if (linked.dataApertura < s.data) return; // intervento aperto prima della segnalazione → niente da tracciare
-      if (linked.dataApertura === s.data) {
-        endDateStr = s.data; // stesso giorno: traccia comunque il giorno della segnalazione
+      // La segnalazione (giallo) resta fino al giorno PRIMA della data intervento.
+      // Il giorno della data intervento è rosso pieno. La tratteggiata coesiste.
+      if (linked.dataApertura <= s.data) {
+        endDateStr = s.data;
       } else {
-        // giorno prima della dataApertura dell'intervento
-        var d = new Date(linked.dataApertura+'T00:00:00');
-        d.setDate(d.getDate()-1);
-        endDateStr = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+        var dS = new Date(linked.dataApertura+'T00:00:00');
+        dS.setDate(dS.getDate()-1);
+        endDateStr = dS.getFullYear()+'-'+String(dS.getMonth()+1).padStart(2,'0')+'-'+String(dS.getDate()).padStart(2,'0');
       }
     } else {
       endDateStr = s.data > todayStr ? s.data : todayStr;
@@ -4504,6 +4510,14 @@ function _buildMonthPanel(Y, M) {
         +' style="left:calc('+left+'% + 1px);width:calc('+width+'% - 2px);top:'+rowTop+'px;height:'+PL_ROW_H+'px;background:'+EV_COLORS.segnalazione+';"'
         +' data-segn-id="'+seg.int._segnalazioneId+'">'
         +'<span class="pl-bar-lbl">'+lbl+'</span></button>';
+    } else if (seg.int._isAttesa) {
+      // Fase di attesa: linea tratteggiata rossa (mezzo ancora disponibile)
+      barsHtml += '<button class="pl-bar pl-bar-attesa"'
+        +' style="left:calc('+left+'% + 1px);width:calc('+width+'% - 2px);top:'+rowTop+'px;height:'+PL_ROW_H+'px;'
+        +'background:repeating-linear-gradient(45deg,'+EV_COLORS.intervento+' 0px,'+EV_COLORS.intervento+' 5px,transparent 5px,transparent 10px);'
+        +'border:1px dashed '+EV_COLORS.intervento+';"'
+        +' data-iid="'+seg.int.id+'" data-vid="'+seg.int.vehicleId+'">'
+        +'<span class="pl-bar-lbl" style="color:'+EV_COLORS.intervento+';">'+lbl+'</span></button>';
     } else {
       var color = seg.int.stato==='annullato' ? EV_COLORS.annullato : EV_COLORS.intervento;
       barsHtml += '<button class="pl-bar"'
