@@ -1537,10 +1537,8 @@ function openInterventionFromAnomaliaCheck(checkId, vehicleId, voce, note, km){
       ⚠️ Anomalia da check: <strong>${escHtml(voce)}</strong></div>
     <div class="form-group"><label class="form-label">Descrizione problema *</label>
       <textarea class="form-input" id="int-desc" rows="3" placeholder="Descrivi il problema o l'intervento…">${escHtml(voce+(note?' — '+note:''))}</textarea></div>
-    <div class="form-group"><label class="form-label">Data apertura (data intervento dal meccanico)</label>
+    <div class="form-group"><label class="form-label">Data apertura (data intervento)</label>
       <input class="form-input" id="int-data" type="date" value="${today()}"></div>
-    <div class="form-group"><label class="form-label">KM apertura</label>
-      <input class="form-input" id="int-km" type="number" inputmode="numeric" value="${km||v?.km||''}" min="0" placeholder="KM veicolo"></div>
     <div class="form-group"><label class="form-label">Stato</label>
       <select class="form-select" id="int-stato">
         <option value="in_lavorazione" selected>🔧 In lavorazione</option>
@@ -1548,11 +1546,13 @@ function openInterventionFromAnomaliaCheck(checkId, vehicleId, voce, note, km){
         <option value="chiuso">✅ Chiuso</option>
         <option value="annullato">✕ Annullato</option>
       </select></div>
-    <div class="form-group inline"><label class="form-label">Fornitore</label>
+    <div class="form-group"><label class="form-label">Fornitore</label>
       <select class="form-select" id="int-fornitore">
         <option value="">— Nessun fornitore —</option>
         ${suppliersOptions}
       </select></div>
+    <div class="form-group"><label class="form-label">KM apertura</label>
+      <input class="form-input" id="int-km" type="number" inputmode="numeric" value="${km||v?.km||''}" min="0" placeholder="KM veicolo"></div>
     <div id="chiusura-fields" style="display:none">
       <div class="form-row">
         <div class="form-group inline"><label class="form-label">Data chiusura</label>
@@ -5163,14 +5163,12 @@ function openCheckAnomalieFromPlanner(checkId, vehicleId) {
     + '<div style="font-size:12px;color:#94a3b8;margin-top:8px;">Dopo aver creato un intervento la voce scomparirà da questa lista.</div>'
     + '<div style="height:8px;"></div>'
   );
-  // Event delegation sui pulsanti + Intervento (onclick diretto per evitare accumulo listener)
+  // Event delegation sui pulsanti + Intervento
   setTimeout(function(){
     document.querySelectorAll('.crea-int-anom').forEach(function(btn){
-      btn.onclick = function(){
-        var cid=btn.dataset.cid, vid=btn.dataset.vid, voce=btn.dataset.voce, note=btn.dataset.note, km=parseInt(btn.dataset.km)||0;
-        closeModal();
-        setTimeout(function(){ openInterventionFromAnomaliaCheck(cid, vid, voce, note, km); }, 20);
-      };
+      btn.addEventListener('click', function(){
+        openInterventionFromAnomaliaCheck(btn.dataset.cid, btn.dataset.vid, btn.dataset.voce, btn.dataset.note, parseInt(btn.dataset.km)||0);
+      });
     });
   }, 30);
 }
