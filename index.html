@@ -1153,6 +1153,7 @@ async function renderGestioneVeicoli(container){
           + vendutoBadge
           + (v.sollevatore ? '<span class="icon-badge">🦯 Sollevatore</span>' : '')
           + (v.pedana ? '<span class="icon-badge">📐 Pedana</span>' : '')
+          + (v.spazzolePost ? '<span class="icon-badge">🧹 Spazzole post</span>' : '')
           + '</div>'
           + '</div>'
           + '</div>'
@@ -1282,6 +1283,7 @@ function renderVehicleCard(v, photo){
           ${revScad?'<span class="badge badge-red">Revisione scaduta</span>':''}
           ${v.sollevatore?'<span class="icon-badge">🦯 Sollevatore</span>':''}
           ${v.pedana?'<span class="icon-badge">📐 Pedana</span>':''}
+          ${v.spazzolePost?'<span class="icon-badge">🧹 Spazzole post</span>':''}
         </div>
       </div>
     </div>
@@ -1718,8 +1720,18 @@ function openCheckForm(vehicleId, editCheckId){
   const v=DB.vehicles().find(x=>x.id===vehicleId);
   if(!v){ toast('Veicolo non trovato','error'); return; }
   const editC = editCheckId ? DB.checks().find(x=>x.id===editCheckId) : null;
+  
+  // Filtra voci non pertinenti al veicolo
+  const VOCI_FILTRATE = CHECK_VOCI.filter(voce => {
+    if(voce === 'Sollevatore' && !v.sollevatore) return false;
+    if(voce === 'Dispositivi ritenzione carrozzine' && !v.sollevatore && !v.pedana) return false;
+    if(voce === 'Spazzole posteriori' && !v.spazzolePost) return false;
+    if(voce === 'Lavavetri posteriori' && !v.spazzolePost) return false;
+    return true;
+  });
+  
   checkItems={};
-  CHECK_VOCI.forEach(voce=>{
+  VOCI_FILTRATE.forEach(voce=>{
     const existing = editC && editC.items ? editC.items.find(i=>i.voce===voce) : null;
     checkItems[voce]={ val: existing ? existing.val : '', note: existing ? (existing.note||'') : '' };
   });
@@ -1746,7 +1758,7 @@ function openCheckForm(vehicleId, editCheckId){
     <div class="divider"></div>
     <div class="section-title">Voci di controllo</div>
     <div id="check-voci-list">
-      ${CHECK_VOCI.map((voce,i)=>{
+      ${VOCI_FILTRATE.map((voce,i)=>{
         const cur = checkItems[voce]||{val:'',note:''};
         return '<div class="check-item" id="chk-row-'+i+'">'
           +'<div class="check-label">'+escHtml(voce)+'</div>'
