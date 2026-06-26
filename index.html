@@ -1153,7 +1153,7 @@ async function renderGestioneVeicoli(container){
           + vendutoBadge
           + (v.sollevatore ? '<span class="icon-badge">🦯 Sollevatore</span>' : '')
           + (v.pedana ? '<span class="icon-badge">📐 Pedana</span>' : '')
-          + (v.spazzolePost ? '<span class="icon-badge">🧹 Spazzole post</span>' : '')
+          + (v.spazzolePost ? '<span class="icon-badge"><svg viewBox="0 0 160 110" style="width:18px;height:13px;vertical-align:middle;margin-right:3px;" xmlns="http://www.w3.org/2000/svg"><g transform="scale(1,0.667)" stroke-linejoin="round" stroke-linecap="round"><path d="M6 18 Q80 2 154 18 L132 104 Q80 114 28 104 Z" fill="#cfe8ff" stroke="#000" stroke-width="13"/><line x1="80" y1="112" x2="44" y2="44" fill="none" stroke="#000" stroke-width="13"/></g><circle cx="80" cy="92" r="11" fill="#000"/></svg>Spazzole post</span>' : '')
           + '</div>'
           + '</div>'
           + '</div>'
@@ -1283,7 +1283,7 @@ function renderVehicleCard(v, photo){
           ${revScad?'<span class="badge badge-red">Revisione scaduta</span>':''}
           ${v.sollevatore?'<span class="icon-badge">🦯 Sollevatore</span>':''}
           ${v.pedana?'<span class="icon-badge">📐 Pedana</span>':''}
-          ${v.spazzolePost?'<span class="icon-badge">🧹 Spazzole post</span>':''}
+          ${v.spazzolePost?'<span class="icon-badge"><svg viewBox="0 0 160 110" style="width:18px;height:13px;vertical-align:middle;margin-right:3px;" xmlns="http://www.w3.org/2000/svg"><g transform="scale(1,0.667)" stroke-linejoin="round" stroke-linecap="round"><path d="M6 18 Q80 2 154 18 L132 104 Q80 114 28 104 Z" fill="#cfe8ff" stroke="#000" stroke-width="13"/><line x1="80" y1="112" x2="44" y2="44" fill="none" stroke="#000" stroke-width="13"/></g><circle cx="80" cy="92" r="11" fill="#000"/></svg>Spazzole post</span>':''}
         </div>
       </div>
     </div>
