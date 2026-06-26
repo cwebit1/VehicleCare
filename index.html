@@ -760,8 +760,7 @@ function renderAlerts(){
   bar.innerHTML='';
   const vehicles = DB.vehicles();
   const interventions = DB.interventions();
-  const settings = DB.settings();
-  console.log('renderAlerts:', {vehicles: vehicles.length, interventions: interventions.length, checks: DB.checks().length})
+  const settings = DB.settings()
   const warnDays = settings.revWarningDays||30;
   const now = new Date();
 
