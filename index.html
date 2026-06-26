@@ -1897,7 +1897,7 @@ function saveCheck(vehicleId, editCheckId){
   const vidx=vehicles.findIndex(v=>v.id===vehicleId);
   if(vidx>-1){ vehicles[vidx].km=km; vehicles[vidx].ultimoCheck=date; DB.saveVehicles(vehicles); }
 
-  closeModal();
+  closeModalSmart();
   renderMain();
   renderAlerts();
 
@@ -2172,7 +2172,7 @@ function saveIntervention(vehicleId, intId){
   }
   DB.saveInterventions(interventions);
   window._newIntervention=null;
-  closeModal();
+  closeModalSmart();
   renderMain();
   renderAlerts();
 }
