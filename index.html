@@ -4589,11 +4589,13 @@ function _buildMonthPanel(Y, M) {
         +' data-segn-id="'+seg.int._segnalazioneId+'">'
         +'<span class="pl-bar-lbl">'+lbl+'</span></button>';
     } else if (seg.int._isAttesa) {
-      // Fase di attesa: sottile barra rossa centrale (~10px) centrata nella riga.
-      // Copre solo la fascia centrale: gli eventuali eventi sotto restano visibili e cliccabili.
-      var attTop = rowTop + (PL_ROW_H/2 - 5);
+      // Fase di attesa: trattino rosso centrale, alto 6px e lungo metà del segmento (centrato),
+      // così non si salda in una linea continua e gli eventi sotto restano visibili/cliccabili.
+      var attTop  = rowTop + (PL_ROW_H/2 - 3);
+      var attLeft = left + width/4;
+      var attW    = width/2;
       barsHtml += '<button class="pl-bar pl-bar-attesa"'
-        +' style="left:calc('+left+'% + 1px);width:calc('+width+'% - 2px);top:'+attTop+'px;height:10px;'
+        +' style="left:'+attLeft+'%;width:'+attW+'%;top:'+attTop+'px;height:6px;'
         +'background:'+EV_COLORS.intervento+';border:none;box-shadow:none;border-radius:3px;"'
         +' data-iid="'+seg.int.id+'" data-vid="'+seg.int.vehicleId+'"></button>';
     } else {
