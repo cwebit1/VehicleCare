@@ -1898,19 +1898,14 @@ function createSingleIntervention(vehicleId, checkId, voce, note, km){
     toast('Intervento già esistente per questa anomalia');
     return;
   }
-  interventions.push({
-    id:DB.uid(), vehicleId, checkId,
-    dataApertura:today(), kmApertura:parseInt(km)||null,
+  // Non creare subito, apri il form per configurare
+  window._newIntervention={
+    vehicleId, checkId,
     descrizione:voce+(note?' — '+note:''),
-    stato:'anomalia', origine:'check',
-    fornitoreId:null, dataChiusura:null, kmChiusura:null, noteChiusura:'',
-    createdAt:nowISO()
-  });
-  DB.saveInterventions(interventions);
-  toast('Intervento creato','success');
-  renderAlerts();
-  // Riapri lo storico aggiornato
-  openHistory(vehicleId);
+    note, km:parseInt(km)||null,
+    forAnomalia:true
+  };
+  openInterventionForm(vehicleId);
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2005,19 +2000,24 @@ function openInterventionForm(vehicleId, intId){
   const v=DB.vehicles().find(x=>x.id===vehicleId);
   const interventions=DB.interventions();
   const existing=intId?interventions.find(i=>i.id===intId):null;
+  const newFromAnomaly=window._newIntervention||null;
   const suppliers=DB.suppliers().filter(s=>s.attivo);
 
   const suppliersOptions=suppliers.map(s=>`<option value="${s.id}" ${existing?.fornitoreId===s.id?'selected':''}>${escHtml(s.nome)} (${escHtml(s.tipo)})</option>`).join('');
   const chiusuraDisplay=existing?.stato==='chiuso'?'':'display:none';
 
+  const descrizione = existing?.descrizione || newFromAnomaly?.descrizione || (window._preInterventoDesc||'');
+  const dataApertura = existing?.dataApertura || newFromAnomaly?.dataApertura || today();
+  const kmApertura = existing?.kmApertura || newFromAnomaly?.km || v?.km || '';
+
   window._preInterventoDesc = null;
   openModal(intId?'Modifica Intervento':'Nuovo Intervento — '+(v?.targa||''), `
     <div class="form-group"><label class="form-label">Descrizione problema *</label>
-      <textarea class="form-input" id="int-desc" rows="3" placeholder="Descrivi il problema o l'intervento…">${escHtml(existing?.descrizione||(window._preInterventoDesc||''))}</textarea></div>
+      <textarea class="form-input" id="int-desc" rows="3" placeholder="Descrivi il problema o l'intervento…">${escHtml(descrizione)}</textarea></div>
     <div class="form-group inline"><label class="form-label">Data apertura</label>
-      <input class="form-input" id="int-data" type="date" value="${existing?.dataApertura||today()}"></div>
+      <input class="form-input" id="int-data" type="date" value="${dataApertura}"></div>
     <div class="form-group inline"><label class="form-label">KM apertura</label>
-      <input class="form-input" id="int-km" type="number" value="${existing?.kmApertura||v?.km||''}" min="0"></div>
+      <input class="form-input" id="int-km" type="number" value="${kmApertura}" min="0"></div>
     <div class="form-group inline"><label class="form-label">Stato</label>
       <select class="form-select" id="int-stato">
         <option value="in_lavorazione" ${(!existing||existing.stato==='in_lavorazione')?'selected':''}>🔧 In lavorazione</option>
@@ -2069,6 +2069,13 @@ function saveIntervention(vehicleId, intId){
     kmChiusura:stato==='chiuso'?parseInt(document.getElementById('int-km-ch').value)||null:null,
     noteChiusura:stato==='chiuso'?document.getElementById('int-note-ch').value:'',
   };
+  // Se viene da anomalia, aggiungi checkId e imposta origine='check'
+  const newFromAnomaly=window._newIntervention||null;
+  if(newFromAnomaly){
+    data.checkId=newFromAnomaly.checkId;
+    data.origine='check';
+  }
+
   if(intId){
     const idx=interventions.findIndex(i=>i.id===intId);
     if(idx>-1) interventions[idx]={...interventions[idx],...data};
@@ -2078,6 +2085,7 @@ function saveIntervention(vehicleId, intId){
     toast('Intervento creato','success');
   }
   DB.saveInterventions(interventions);
+  window._newIntervention=null;
   closeModal();
   renderMain();
   renderAlerts();
