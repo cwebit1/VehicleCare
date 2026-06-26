@@ -2049,9 +2049,8 @@ function saveChiusura(intId, vehicleId){
   DB.saveInterventions(interventions);
   closeModal();
   toast('Intervento chiuso','success');
-  renderAlerts();
-  renderMain();
-  if(window._chiusuraFromPlanner){ window._chiusuraFromPlanner=false; openPlanner(_plannerYear, _plannerMonth); }
+  window._chiusuraFromPlanner=false;
+  refreshAll();
 }
 
 function annullaIntervento(intId, vehicleId, fromPlanner){
@@ -2187,8 +2186,7 @@ function saveIntervention(vehicleId, intId){
   DB.saveInterventions(interventions);
   window._newIntervention=null;
   closeModalSmart();
-  renderMain();
-  renderAlerts();
+  refreshAll();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -5261,9 +5259,8 @@ function openCheckAnomalieFromPlanner(checkId, vehicleId) {
     document.querySelectorAll('.ris-anom').forEach(function(btn){
       btn.onclick = function(){
         var cid=btn.dataset.cid, vid=btn.dataset.vid, voce=btn.dataset.voce, km=parseInt(btn.dataset.km)||0;
-        risolviAnomalia(vid, cid, voce, km);
         closeModal2();
-        setTimeout(function(){ openCheckAnomalieFromPlanner(cid, vid); }, 30);
+        setTimeout(function(){ risolviAnomalia(vid, cid, voce, km); }, 20);
       };
     });
   }, 30);
