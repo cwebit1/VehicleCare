@@ -1658,14 +1658,14 @@ function openInterventionFromSegnalazione(s){
       <div class="form-group inline"><label class="form-label">KM apertura</label>
         <input class="form-input" id="int-km" type="number" value="${s.km||v?.km||''}" min="0"></div>
     </div>
-    <div class="form-group inline"><label class="form-label">Stato</label>
+    <div class="form-group"><label class="form-label">Stato</label>
       <select class="form-select" id="int-stato">
         <option value="in_lavorazione" selected>🔧 In lavorazione</option>
         <option value="anomalia">⚠️ Anomalia</option>
         <option value="chiuso">✅ Chiuso</option>
         <option value="annullato">✕ Annullato</option>
       </select></div>
-    <div class="form-group inline"><label class="form-label">Fornitore</label>
+    <div class="form-group"><label class="form-label">Fornitore</label>
       <select class="form-select" id="int-fornitore">
         <option value="">— Nessun fornitore —</option>
         ${suppliersOptions}
@@ -2094,7 +2094,7 @@ function openInterventionForm(vehicleId, intId){
 
   const descrizione = existing?.descrizione || newFromAnomaly?.descrizione || (window._preInterventoDesc||'');
   const dataApertura = existing?.dataApertura || newFromAnomaly?.dataApertura || today();
-  const kmApertura = existing?.kmApertura || newFromAnomaly?.km || v?.km || 0;
+  const kmApertura = existing?.kmApertura || newFromAnomaly?.km || v?.km || '';
 
   window._preInterventoDesc = null;
   openModal(intId?'Modifica Intervento':'Nuovo Intervento — '+(v?.targa||''), `
@@ -2102,7 +2102,7 @@ function openInterventionForm(vehicleId, intId){
       <textarea class="form-input" id="int-desc" rows="3" placeholder="Descrivi il problema o l'intervento…">${escHtml(descrizione)}</textarea></div>
     <div class="form-group inline"><label class="form-label">Data apertura</label>
       <input class="form-input" id="int-data" type="date" value="${dataApertura}"></div>
-    <div class="form-group inline"><label class="form-label">KM apertura</label>
+    <div class="form-group"><label class="form-label">KM apertura</label>
       <input class="form-input" id="int-km" type="number" value="${kmApertura}" min="0"></div>
     <div class="form-group inline"><label class="form-label">Stato</label>
       <select class="form-select" id="int-stato">
