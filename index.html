@@ -1575,8 +1575,12 @@ function openInterventionFromAnomaliaCheck(checkId, vehicleId, voce, note, km){
       ⚠️ Anomalia da check: <strong>${escHtml(voce)}</strong></div>
     <div class="form-group"><label class="form-label">Descrizione problema *</label>
       <textarea class="form-input" id="int-desc" rows="3" placeholder="Descrivi il problema o l'intervento…">${escHtml(voce+(note?' — '+note:''))}</textarea></div>
-    <div class="form-group"><label class="form-label">Data apertura (data intervento)</label>
-      <input class="form-input" id="int-data" type="date" value="${today()}"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Data programmazione</label>
+        <input class="form-input" id="int-data-prog" type="date" value="${today()}"></div>
+      <div class="form-group"><label class="form-label">Data intervento</label>
+        <input class="form-input" id="int-data" type="date" value="${today()}"></div>
+    </div>
     <div class="form-group"><label class="form-label">Stato</label>
       <select class="form-select" id="int-stato">
         <option value="in_lavorazione" selected>🔧 In lavorazione</option>
@@ -1627,6 +1631,7 @@ function openInterventionFromAnomaliaCheck(checkId, vehicleId, voce, note, km){
         checkId: checkId,
         descrizione: desc,
         dataApertura: document.getElementById('int-data').value,
+        dataProgrammazione: document.getElementById('int-data-prog').value || null,
         kmApertura: parseInt(document.getElementById('int-km').value)||null,
         stato, origine: 'check',
         fornitoreId: document.getElementById('int-fornitore').value||null,
@@ -1653,11 +1658,13 @@ function openInterventionFromSegnalazione(s){
     <div class="form-group"><label class="form-label">Descrizione problema *</label>
       <textarea class="form-input" id="int-desc" rows="3" placeholder="Descrivi il problema o l'intervento…">${escHtml(s.problema+(s.note?' — '+s.note:''))}</textarea></div>
     <div class="form-row">
-      <div class="form-group"><label class="form-label">Data apertura</label>
+      <div class="form-group"><label class="form-label">Data programmazione</label>
+        <input class="form-input" id="int-data-prog" type="date" value="${today()}"></div>
+      <div class="form-group"><label class="form-label">Data intervento</label>
         <input class="form-input" id="int-data" type="date" value="${today()}"></div>
-      <div class="form-group"><label class="form-label">KM apertura</label>
-        <input class="form-input" id="int-km" type="number" value="${s.km||v?.km||''}" min="0"></div>
     </div>
+    <div class="form-group"><label class="form-label">KM apertura</label>
+      <input class="form-input" id="int-km" type="number" value="${s.km||v?.km||''}" min="0"></div>
     <div class="form-group"><label class="form-label">Stato</label>
       <select class="form-select" id="int-stato">
         <option value="in_lavorazione" selected>🔧 In lavorazione</option>
@@ -1701,6 +1708,7 @@ function openInterventionFromSegnalazione(s){
         segnalazioneId: s.id,
         descrizione: desc,
         dataApertura: document.getElementById('int-data').value,
+        dataProgrammazione: document.getElementById('int-data-prog').value || null,
         kmApertura: parseInt(document.getElementById('int-km').value)||null,
         stato, origine: 'segnalazione',
         fornitoreId: document.getElementById('int-fornitore').value||null,
@@ -2094,14 +2102,19 @@ function openInterventionForm(vehicleId, intId){
 
   const descrizione = existing?.descrizione || newFromAnomaly?.descrizione || (window._preInterventoDesc||'');
   const dataApertura = existing?.dataApertura || newFromAnomaly?.dataApertura || today();
+  const dataProgrammazione = existing?.dataProgrammazione || newFromAnomaly?.dataProgrammazione || dataApertura;
   const kmApertura = existing?.kmApertura || newFromAnomaly?.km || v?.km || '';
 
   window._preInterventoDesc = null;
   openModal(intId?'Modifica Intervento':'Nuovo Intervento — '+(v?.targa||''), `
     <div class="form-group"><label class="form-label">Descrizione problema *</label>
       <textarea class="form-input" id="int-desc" rows="3" placeholder="Descrivi il problema o l'intervento…">${escHtml(descrizione)}</textarea></div>
-    <div class="form-group"><label class="form-label">Data apertura</label>
-      <input class="form-input" id="int-data" type="date" value="${dataApertura}"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Data programmazione</label>
+        <input class="form-input" id="int-data-prog" type="date" value="${dataProgrammazione}"></div>
+      <div class="form-group"><label class="form-label">Data intervento</label>
+        <input class="form-input" id="int-data" type="date" value="${dataApertura}"></div>
+    </div>
     <div class="form-group"><label class="form-label">KM apertura</label>
       <input class="form-input" id="int-km" type="number" value="${kmApertura}" min="0"></div>
     <div class="form-group"><label class="form-label">Stato</label>
@@ -2148,6 +2161,7 @@ function saveIntervention(vehicleId, intId){
   const data={
     vehicleId, descrizione:desc,
     dataApertura:document.getElementById('int-data').value,
+    dataProgrammazione:document.getElementById('int-data-prog').value||null,
     kmApertura:parseInt(document.getElementById('int-km').value)||null,
     stato, fornitoreId:document.getElementById('int-fornitore').value||null,
     origine:'manuale',
@@ -4435,18 +4449,18 @@ function _buildMonthPanel(Y, M) {
     var isChiuso    = int.stato === 'chiuso';
     var isAnnullato = int.stato === 'annullato';
 
-    // Data creazione record (solo parte YYYY-MM-DD) per la fase di ATTESA tratteggiata
-    var createdDate = (int.createdAt || int.dataApertura).slice(0,10);
+    // Data programmazione (inizio attesa tratteggiata). Fallback per record vecchi: createdAt → dataApertura
+    var progDate = (int.dataProgrammazione || int.createdAt || int.dataApertura).slice(0,10);
     var aperturaDate = int.dataApertura;
 
-    // ── FASE 1: ATTESA (tratteggiata rossa) — da createdAt al giorno PRIMA di dataApertura ──
-    // Solo se l'intervento NON è annullato e createdAt < dataApertura (cioè è programmato nel futuro)
-    if (!isAnnullato && createdDate < aperturaDate) {
+    // ── FASE 1: ATTESA (tratteggiata rossa) — da dataProgrammazione al giorno PRIMA di dataApertura ──
+    // Solo se l'intervento NON è annullato e dataProgrammazione < dataApertura (cioè c'è un gap di attesa)
+    if (!isAnnullato && progDate < aperturaDate) {
       var dPrev = new Date(aperturaDate+'T00:00:00');
       dPrev.setDate(dPrev.getDate()-1);
       var attesaEnd = dPrev.getFullYear()+'-'+String(dPrev.getMonth()+1).padStart(2,'0')+'-'+String(dPrev.getDate()).padStart(2,'0');
-      // L'attesa parte da createdAt; ma se c'è anomalia/segnalazione di origine, parte dal giorno dopo l'origine
-      var attesaStart = createdDate;
+      // L'attesa parte dalla data di programmazione dell'intervento
+      var attesaStart = progDate;
       _pushDateRangeSegments(attesaStart, attesaEnd, {
         id:int.id, vehicleId:int.vehicleId, _isAttesa:true,
         descrizione:int.descrizione, dataApertura:int.dataApertura, stato:int.stato,
@@ -4482,7 +4496,8 @@ function _buildMonthPanel(Y, M) {
     anomItems.forEach(function(a){
       var linkedInt = interventions.find(function(i){ return i.checkId===c.id && i.descrizione.startsWith(a.voce) && i.stato!=='annullato'; });
       if (linkedInt && linkedInt.dataApertura) {
-        linkedDates.push(linkedInt.dataApertura);
+        // Il colore anomalia si interrompe alla data di PROGRAMMAZIONE dell'intervento (fallback dataApertura)
+        linkedDates.push(linkedInt.dataProgrammazione || linkedInt.dataApertura);
       } else {
         senzaIntervento = true;
       }
@@ -4517,12 +4532,13 @@ function _buildMonthPanel(Y, M) {
     var linked = interventions.find(function(i){ return i.segnalazioneId===s.id && i.stato!=='annullato'; });
     var endDateStr;
     if (linked && linked.dataApertura) {
-      // La segnalazione (giallo) resta fino al giorno PRIMA della data intervento.
-      // Il giorno della data intervento è rosso pieno. La tratteggiata coesiste.
-      if (linked.dataApertura <= s.data) {
+      // La segnalazione (giallo) resta fino al giorno PRIMA della data di PROGRAMMAZIONE dell'intervento.
+      // Da lì parte la tratteggiata di attesa; il giorno della data intervento è rosso pieno.
+      var cut = linked.dataProgrammazione || linked.dataApertura;
+      if (cut <= s.data) {
         endDateStr = s.data;
       } else {
-        var dS = new Date(linked.dataApertura+'T00:00:00');
+        var dS = new Date(cut+'T00:00:00');
         dS.setDate(dS.getDate()-1);
         endDateStr = dS.getFullYear()+'-'+String(dS.getMonth()+1).padStart(2,'0')+'-'+String(dS.getDate()).padStart(2,'0');
       }
@@ -5271,7 +5287,9 @@ function plannerNewIntervention(year, month, day) {
     + '<textarea class="form-input" id="pni-desc" rows="3" placeholder="Descrizione intervento..."></textarea></div>'
     + '<div class="form-group"><label class="form-label">Fornitore</label>'
     + '<select class="form-select" id="pni-fornitore">' + suppOpts + '</select></div>'
-    + '<div class="form-group"><label class="form-label">Data apertura</label>'
+    + '<div class="form-group"><label class="form-label">Data programmazione</label>'
+    + '<input class="form-input" id="pni-data-prog" type="date" value="' + dateStr + '"></div>'
+    + '<div class="form-group"><label class="form-label">Data intervento</label>'
     + '<input class="form-input" id="pni-data" type="date" value="' + dateStr + '"></div>'
     + '<div class="btn-row">'
     + '<button class="btn btn-secondary" onclick="openPlanner(_plannerYear, _plannerMonth)">Annulla</button>'
@@ -5284,13 +5302,14 @@ function savePlannerIntervention() {
   var desc       = document.getElementById('pni-desc')?.value.trim();
   var vehicleId  = document.getElementById('pni-veh')?.value;
   var data       = document.getElementById('pni-data')?.value;
+  var dataProg   = document.getElementById('pni-data-prog')?.value || null;
   var fornitoreId= document.getElementById('pni-fornitore')?.value || null;
   if (!desc) { toast('Inserisci una descrizione','error'); return; }
   var v = DB.vehicles().find(function(x) { return x.id === vehicleId; });
   var interventions = DB.interventions();
   interventions.push({
     id: DB.uid(), vehicleId, descrizione: desc,
-    dataApertura: data, kmApertura: parseInt(v?.km)||null,
+    dataApertura: data, dataProgrammazione: dataProg, kmApertura: parseInt(v?.km)||null,
     stato: 'in_lavorazione', fornitoreId: fornitoreId, origine: 'manuale',
     dataChiusura: null, kmChiusura: null, noteChiusura: '',
     createdAt: nowISO()
