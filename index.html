@@ -1979,11 +1979,16 @@ function createSingleIntervention(vehicleId, checkId, voce, note, km){
     toast('Intervento già esistente per questa anomalia');
     return;
   }
+  // Recupera la data dell'anomalia dal check
+  const check=DB.checks().find(c=>c.id===checkId);
+  const anomalyDate=check?check.data:today();
+  
   // Non creare subito, apri il form per configurare
   window._newIntervention={
     vehicleId, checkId,
     descrizione:voce+(note?' — '+note:''),
     note, km:parseInt(km)||null,
+    dataApertura:anomalyDate,
     forAnomalia:true
   };
   openInterventionForm(vehicleId);
