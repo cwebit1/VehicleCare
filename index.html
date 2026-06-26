@@ -1653,9 +1653,9 @@ function openInterventionFromSegnalazione(s){
     <div class="form-group"><label class="form-label">Descrizione problema *</label>
       <textarea class="form-input" id="int-desc" rows="3" placeholder="Descrivi il problema o l'intervento…">${escHtml(s.problema+(s.note?' — '+s.note:''))}</textarea></div>
     <div class="form-row">
-      <div class="form-group inline"><label class="form-label">Data apertura</label>
+      <div class="form-group"><label class="form-label">Data apertura</label>
         <input class="form-input" id="int-data" type="date" value="${today()}"></div>
-      <div class="form-group inline"><label class="form-label">KM apertura</label>
+      <div class="form-group"><label class="form-label">KM apertura</label>
         <input class="form-input" id="int-km" type="number" value="${s.km||v?.km||''}" min="0"></div>
     </div>
     <div class="form-group"><label class="form-label">Stato</label>
@@ -2100,18 +2100,18 @@ function openInterventionForm(vehicleId, intId){
   openModal(intId?'Modifica Intervento':'Nuovo Intervento — '+(v?.targa||''), `
     <div class="form-group"><label class="form-label">Descrizione problema *</label>
       <textarea class="form-input" id="int-desc" rows="3" placeholder="Descrivi il problema o l'intervento…">${escHtml(descrizione)}</textarea></div>
-    <div class="form-group inline"><label class="form-label">Data apertura</label>
+    <div class="form-group"><label class="form-label">Data apertura</label>
       <input class="form-input" id="int-data" type="date" value="${dataApertura}"></div>
     <div class="form-group"><label class="form-label">KM apertura</label>
       <input class="form-input" id="int-km" type="number" value="${kmApertura}" min="0"></div>
-    <div class="form-group inline"><label class="form-label">Stato</label>
+    <div class="form-group"><label class="form-label">Stato</label>
       <select class="form-select" id="int-stato">
         <option value="in_lavorazione" ${(!existing||existing.stato==='in_lavorazione')?'selected':''}>🔧 In lavorazione</option>
         <option value="anomalia" ${existing?.stato==='anomalia'?'selected':''}>⚠️ Anomalia</option>
         <option value="chiuso" ${existing?.stato==='chiuso'?'selected':''}>✅ Chiuso</option>
         <option value="annullato" ${existing?.stato==='annullato'?'selected':''}>✕ Annullato</option>
       </select></div>
-    <div class="form-group inline"><label class="form-label">Fornitore</label>
+    <div class="form-group"><label class="form-label">Fornitore</label>
       <select class="form-select" id="int-fornitore">
         <option value="">— Nessun fornitore —</option>
         ${suppliersOptions}
