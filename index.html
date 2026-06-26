@@ -4478,8 +4478,10 @@ function _buildMonthPanel(Y, M) {
     } else if (isChiuso || int.dataChiusura) {
       endDateStr = int.dataChiusura || aperturaDate;
     } else {
-      // Aperto e mai chiuso: rosso pieno fino a fine mese visibile (continua all'infinito)
-      endDateStr = mEnd;
+      // Aperto e mai chiuso: rosso pieno da dataApertura fino a OGGI (prosegue giorno per
+      // giorno fino alla risoluzione). Se l'intervento è programmato nel futuro (apertura > oggi)
+      // resta il solo giorno programmato; non sconfina mai oltre la data odierna.
+      endDateStr = todayStr > aperturaDate ? todayStr : aperturaDate;
     }
     _pushDateRangeSegments(startDateStr, endDateStr, int);
   });
@@ -4587,13 +4589,13 @@ function _buildMonthPanel(Y, M) {
         +' data-segn-id="'+seg.int._segnalazioneId+'">'
         +'<span class="pl-bar-lbl">'+lbl+'</span></button>';
     } else if (seg.int._isAttesa) {
-      // Fase di attesa: linea tratteggiata rossa (mezzo ancora disponibile)
+      // Fase di attesa: sottile barra rossa centrale (~10px) centrata nella riga.
+      // Copre solo la fascia centrale: gli eventuali eventi sotto restano visibili e cliccabili.
+      var attTop = rowTop + (PL_ROW_H/2 - 5);
       barsHtml += '<button class="pl-bar pl-bar-attesa"'
-        +' style="left:calc('+left+'% + 1px);width:calc('+width+'% - 2px);top:'+rowTop+'px;height:'+PL_ROW_H+'px;'
-        +'background:repeating-linear-gradient(45deg,'+EV_COLORS.intervento+' 0px,'+EV_COLORS.intervento+' 5px,transparent 5px,transparent 10px);'
-        +'border:1px dashed '+EV_COLORS.intervento+';"'
-        +' data-iid="'+seg.int.id+'" data-vid="'+seg.int.vehicleId+'">'
-        +'<span class="pl-bar-lbl" style="color:'+EV_COLORS.intervento+';">'+lbl+'</span></button>';
+        +' style="left:calc('+left+'% + 1px);width:calc('+width+'% - 2px);top:'+attTop+'px;height:10px;'
+        +'background:'+EV_COLORS.intervento+';border:none;box-shadow:none;border-radius:3px;"'
+        +' data-iid="'+seg.int.id+'" data-vid="'+seg.int.vehicleId+'"></button>';
     } else {
       var color = seg.int.stato==='annullato' ? EV_COLORS.annullato : EV_COLORS.intervento;
       barsHtml += '<button class="pl-bar"'
