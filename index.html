@@ -1080,6 +1080,16 @@ function fabAction(){
   else if(currentTab==='fornitori') openSupplierForm();
 }
 
+function refreshAll(){
+  // Aggiorna dashboard/tab corrente e alerts
+  renderMain();
+  renderAlerts();
+  // Se il planner è aperto, ridisegnalo mantenendo mese/anno correnti
+  if(document.getElementById('planner-wrap')){
+    openPlanner(_plannerYear, _plannerMonth);
+  }
+}
+
 function renderMain(){
   const main=document.getElementById('main');
   if(currentTab==='veicoli') renderVehicles(main);
@@ -5395,11 +5405,13 @@ function eliminaIntervento(intId){
   `);
 }
 function confirmEliminaIntervento(intId){
+  const i = DB.interventions().find(x=>x.id===intId);
+  const vid = i ? i.vehicleId : null;
   DB.saveInterventions(DB.interventions().filter(x=>x.id!==intId));
   closeModal();
   toast('Intervento eliminato','success');
-  renderMain();
-  renderAlerts();
+  refreshAll();
+  if(vid) setTimeout(()=>openHistory(vid), 50);
 }
 
 function modificaCambioGomme(intId){
@@ -5529,11 +5541,13 @@ function eliminaCambioGomme(intId){
   `);
 }
 function confirmEliminaCambioGomme(intId){
+  const ti = DB.tireInterventions().find(x=>x.id===intId);
+  const vid = ti ? ti.vehicleId : null;
   DB.saveTireInterventions(DB.tireInterventions().filter(x=>x.id!==intId));
   closeModal();
   toast('Cambio gomme eliminato','success');
-  renderMain();
-  renderAlerts();
+  refreshAll();
+  if(vid) setTimeout(()=>openHistory(vid), 50);
 }
 
 function eliminaSegnalazione(segnId){
@@ -5551,11 +5565,14 @@ function eliminaSegnalazione(segnId){
 }
 
 function _doEliminaSegnalazione(segnId){
+  const s = DB.segnalazioni().find(x=>x.id===segnId);
+  const vid = s ? s.vehicleId : null;
   const segnalazioni = DB.segnalazioni().filter(x=>x.id!==segnId);
   DB.saveSegnalazioni(segnalazioni);
   closeModal();
-  renderMain();
   toast('Segnalazione eliminata','success');
+  refreshAll();
+  if(vid) setTimeout(()=>openHistory(vid), 50);
 }
 
 function eliminaCheck(checkId){
@@ -5573,11 +5590,14 @@ function eliminaCheck(checkId){
 }
 
 function _doEliminaCheck(checkId){
+  const c = DB.checks().find(x=>x.id===checkId);
+  const vid = c ? c.vehicleId : null;
   const checks = DB.checks().filter(x=>x.id!==checkId);
   DB.saveChecks(checks);
   closeModal();
-  renderMain();
   toast('Check eliminato','success');
+  refreshAll();
+  if(vid) setTimeout(()=>openHistory(vid), 50);
 }
 
 function confirmResetAll(){
