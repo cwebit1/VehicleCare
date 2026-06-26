@@ -1336,7 +1336,6 @@ function openVehicleForm(id){
       <input class="form-input" id="vf-revisione" type="date" value="${v.scadenzaRevisione||''}"></div>
     <div class="form-checkbox"><input type="checkbox" id="vf-sollevatore" ${v.sollevatore?'checked':''}><label for="vf-sollevatore" style="font-size:14px;font-weight:500;">Presente sollevatore</label></div>
     <div class="form-checkbox"><input type="checkbox" id="vf-pedana" ${v.pedana?'checked':''}><label for="vf-pedana" style="font-size:14px;font-weight:500;">Presente pedana</label></div>
-    <div class="form-checkbox"><input type="checkbox" id="vf-spazzolePost" ${v.spazzolePost?'checked':''}><label for="vf-spazzolePost" style="font-size:14px;font-weight:500;">Spazzole posteriori</label></div>
     <div class="form-group"><label class="form-label">Note</label>
       <textarea class="form-input" id="vf-note" rows="2" placeholder="Note aggiuntive…">${escHtml(v.note||'')}</textarea></div>
     <div class="btn-row">
@@ -1362,7 +1361,6 @@ function saveVehicle(id){
     scadenzaRevisione:document.getElementById('vf-revisione').value||null,
     sollevatore:document.getElementById('vf-sollevatore').checked,
     pedana:document.getElementById('vf-pedana').checked,
-    spazzolePost:document.getElementById('vf-spazzolePost').checked,
     note:document.getElementById('vf-note').value.trim(),
   };
 
@@ -1716,15 +1714,7 @@ function openCheckForm(vehicleId){
   const v=DB.vehicles().find(x=>x.id===vehicleId);
   if(!v){ toast('Veicolo non trovato','error'); return; }
   checkItems={};
-  // Filtra voci non pertinenti al veicolo
-  const VOCI_FILTRATE = CHECK_VOCI.filter(voce => {
-    if(voce === 'Sollevatore' && !v.sollevatore) return false;
-    if(voce === 'Dispositivi ritenzione carrozzine' && !v.sollevatore && !v.pedana) return false;
-    if(voce === 'Spazzole posteriori' && !v.spazzolePost) return false;
-    if(voce === 'Lavavetri posteriori' && !v.spazzolePost) return false;
-    return true;
-  });
-  VOCI_FILTRATE.forEach(voce=>{ checkItems[voce]={val:'',note:''}; });
+  CHECK_VOCI.forEach(voce=>{ checkItems[voce]={val:'',note:''}; });
   const settings=DB.settings();
 
   openModal(`Check — ${v.targa}`, `
@@ -1743,7 +1733,7 @@ function openCheckForm(vehicleId){
     <div class="divider"></div>
     <div class="section-title">Voci di controllo</div>
     <div id="check-voci-list">
-      ${VOCI_FILTRATE.map((voce,i)=>`
+      ${CHECK_VOCI.map((voce,i)=>`
         <div class="check-item" id="chk-row-${i}">
           <div class="check-label">${escHtml(voce)}</div>
           <div class="check-toggle">
@@ -4424,69 +4414,39 @@ function _buildMonthPanel(Y, M) {
     segments.push({ int:{id:ti.id,vehicleId:ti.vehicleId,_isTireInt:true,_tireIntId:ti.id}, row:Math.floor(cellIdx/PL_COLS), colStart:cellIdx%PL_COLS, colEnd:cellIdx%PL_COLS, span:1, isFirst:true });
   });
 
-  // Barre overlay HTML — una barra per veicolo+cella, colore determinato dal check
-  // Priorità colore: check ok (verde) > check anomalia (arancio) > intervento aperto (rosso)
-  //                  > segnalazione (giallo) > gomme (blu) > intervento annullato/chiuso
+  // Barre overlay HTML
   var colWidthPct = 100 / PL_COLS;
   var barsHtml = '';
-
-  // Raggruppa segmenti per chiave veicolo+row+colStart (una barra per cella per veicolo)
-  var cellGroups = {}; // key: vid+'_'+row+'_'+col → { segs:[], vid, row, colStart, colEnd, span, isFirst }
   segments.forEach(function(seg) {
-    for (var col = seg.colStart; col <= seg.colEnd; col++) {
-      var key = seg.int.vehicleId + '_' + seg.row + '_' + col;
-      if (!cellGroups[key]) {
-        cellGroups[key] = { segs:[], vid:seg.int.vehicleId, row:seg.row, col:col, isFirst:(col===seg.colStart && seg.isFirst) };
-      }
-      cellGroups[key].segs.push(seg.int);
-      if (col === seg.colStart && seg.isFirst) cellGroups[key].isFirst = true;
-    }
-  });
-
-  // Ora per ogni gruppo cella determina il colore e costruisce la barra unica
-  // Raccoglie anche span: se lo stesso veicolo ha lo stesso colore in celle consecutive della stessa riga, le unisce
-  // (semplificazione: una barra per cella, poi il browser le mostra adiacenti)
-  Object.keys(cellGroups).forEach(function(key) {
-    var grp = cellGroups[key];
-    var vIdx = vehicles.findIndex(function(v){ return v.id===grp.vid; });
+    var vIdx = vehicles.findIndex(function(v){ return v.id===seg.int.vehicleId; });
     if (vIdx===-1) return;
-    var v = vehicles[vIdx];
-    var segs = grp.segs;
-
-    // Determina colore priorità: check ok > check anomalia > intervento aperto > segnalazione > gomme > annullato/chiuso
-    var color = null;
-    var priority = -1;
-    // Lista eventi per modal
-    var hasCheckOk    = segs.some(function(s){ return s._isCheckOk; });
-    var hasCheckAnom  = segs.some(function(s){ return s._isCheckAnom; });
-    var hasIntAperto  = segs.some(function(s){ return !s._isCheckAnom && !s._isSegnalazione && !s._isTireInt && s.stato!=='chiuso' && s.stato!=='annullato'; });
-    var hasSegn       = segs.some(function(s){ return s._isSegnalazione; });
-    var hasGomme      = segs.some(function(s){ return s._isTireInt; });
-    var hasIntChiuso  = segs.some(function(s){ return !s._isCheckAnom && !s._isSegnalazione && !s._isTireInt && (s.stato==='chiuso'||s.stato==='annullato'); });
-
-    if (hasCheckOk)        { color = EV_COLORS.checkOk;    priority = 5; }
-    else if (hasCheckAnom) { color = EV_COLORS.checkAnom;  priority = 4; }
-    else if (hasIntAperto) { color = EV_COLORS.intervento; priority = 3; }
-    else if (hasSegn)      { color = EV_COLORS.segnalazione; priority = 2; }
-    else if (hasGomme)     { color = EV_COLORS.gomme;      priority = 1; }
-    else if (hasIntChiuso) { color = EV_COLORS.annullato;  priority = 0; }
-    if (!color) return;
-
-    // Badge contatore se più di un evento
-    var count = segs.length;
-    var lbl = grp.isFirst ? escHtml(v.targa) : '';
-    var badge = (count > 1) ? '<span style="background:rgba(0,0,0,0.25);color:#fff;border-radius:4px;padding:0 3px;font-size:6px;margin-left:2px;">×'+count+'</span>' : '';
-
-    // Serializza gli ids per il modal
-    var dataSegs = JSON.stringify(segs.map(function(s){ return s.id||s._checkId||s._segnalazioneId||s._tireIntId; }));
-
-    var left   = grp.col * colWidthPct;
-    var rowTop = grp.row * (cellH + PL_CELL_GAP) + PL_HDR_H + vIdx * (PL_ROW_H + PL_ROW_GAP);
-
-    barsHtml += '<button class="pl-bar pl-bar-multi"'
-      +' style="left:calc('+left+'% + 1px);width:calc('+colWidthPct+'% - 2px);top:'+rowTop+'px;height:'+PL_ROW_H+'px;background:'+color+';"'
-      +' data-vid="'+grp.vid+'" data-col="'+grp.col+'" data-row="'+grp.row+'">'
-      +'<span class="pl-bar-lbl">'+lbl+badge+'</span></button>';
+    var v    = vehicles[vIdx];
+    var left = seg.colStart * colWidthPct;
+    var width= seg.span    * colWidthPct;
+    var rowTop = seg.row * (cellH + PL_CELL_GAP) + PL_HDR_H + vIdx * (PL_ROW_H + PL_ROW_GAP);
+    var lbl  = seg.isFirst ? escHtml(v.targa) : '';
+    if (seg.int._isTireInt) {
+      barsHtml += '<button class="pl-bar pl-bar-tire"'
+        +' style="left:calc('+left+'% + 1px);width:calc('+width+'% - 2px);top:'+rowTop+'px;height:'+PL_ROW_H+'px;background:'+EV_COLORS.gomme+';"'
+        +' data-tiid="'+seg.int._tireIntId+'" data-vid="'+seg.int.vehicleId+'">'
+        +'<span class="pl-bar-lbl">'+lbl+'</span></button>';
+    } else if (seg.int._isCheckAnom) {
+      barsHtml += '<button class="pl-bar pl-bar-checkanom"'
+        +' style="left:calc('+left+'% + 1px);width:calc('+width+'% - 2px);top:'+rowTop+'px;height:'+PL_ROW_H+'px;background:'+EV_COLORS.checkAnom+';"'
+        +' data-checkanom-vid="'+seg.int.vehicleId+'" data-checkanom-cid="'+seg.int._checkId+'">'
+        +'<span class="pl-bar-lbl">'+lbl+'</span></button>';
+    } else if (seg.int._isSegnalazione) {
+      barsHtml += '<button class="pl-bar pl-bar-segnalazione"'
+        +' style="left:calc('+left+'% + 1px);width:calc('+width+'% - 2px);top:'+rowTop+'px;height:'+PL_ROW_H+'px;background:'+EV_COLORS.segnalazione+';"'
+        +' data-segn-id="'+seg.int._segnalazioneId+'">'
+        +'<span class="pl-bar-lbl">'+lbl+'</span></button>';
+    } else {
+      var color = seg.int.stato==='annullato' ? EV_COLORS.annullato : EV_COLORS.intervento;
+      barsHtml += '<button class="pl-bar"'
+        +' style="left:calc('+left+'% + 1px);width:calc('+width+'% - 2px);top:'+rowTop+'px;height:'+PL_ROW_H+'px;background:'+color+';"'
+        +' data-iid="'+seg.int.id+'" data-vid="'+seg.int.vehicleId+'">'
+        +'<span class="pl-bar-lbl">'+lbl+'</span></button>';
+    }
   });
 
   // Riepilogo (solo per il pannello corrente, sarà mostrato sotto il calendario)
@@ -4578,86 +4538,96 @@ function _drawTodayBorder(panel) {
 
 // ── Attacca tutti gli event listener a un pannello mese ──
 function _attachPanelListeners(panel) {
-  // Click su barra planner → modal con tutti gli eventi del veicolo in quel giorno
-  panel.querySelectorAll('.pl-bar-multi').forEach(function(btn) {
+  // Barre intervento → fumetto
+  panel.querySelectorAll('.pl-bar').forEach(function(btn) {
     btn.addEventListener('click', function(e) {
       e.stopPropagation();
-      var vid = btn.dataset.vid;
-      var row = parseInt(btn.dataset.row);
-      var col = parseInt(btn.dataset.col);
-      var v   = DB.vehicles().find(function(x){ return x.id===vid; });
-      if (!v) return;
-
-      var cellSegs = segments.filter(function(seg){
-        return seg.int.vehicleId===vid && seg.row===row && seg.colStart<=col && seg.colEnd>=col;
-      }).map(function(seg){ return seg.int; });
-
-      var html = '<div style="margin-bottom:12px;">'
-        +renderTargaHtml(v.targa)
-        +'<span style="font-size:15px;font-weight:600;color:#1e293b;margin-left:8px;">'+escHtml(v.nome)+'</span>'
+      var iid = btn.dataset.iid;
+      var int = DB.interventions().find(function(x){ return x.id===iid; });
+      var v   = DB.vehicles().find(function(x){ return x.id===btn.dataset.vid; });
+      var sup = int && int.fornitoreId ? DB.suppliers().find(function(x){ return x.id===int.fornitoreId; }) : null;
+      if (!int) return;
+      var rect   = btn.getBoundingClientRect();
+      var finalX = Math.min(Math.max(rect.left+rect.width/2-128,8),window.innerWidth-264);
+      var finalY = Math.max(rect.top-8,0);
+      var statoColor = int.stato==='chiuso'?'#16a34a':int.stato==='anomalia'?'#dc2626':'#d97706';
+      var statoLbl   = int.stato==='chiuso'?'✅ Chiuso':int.stato==='anomalia'?'⚠️ Anomalia':'🔧 In lavorazione';
+      var bubble = document.getElementById('pl-bubble');
+      bubble.innerHTML='<div class="pl-bubble-inner">'
+        +'<div style="font-size:11px;font-weight:700;color:'+statoColor+';margin-bottom:6px;">'+statoLbl+'</div>'
+        +(v?'<div style="margin-bottom:4px;">'+renderTargaHtml(v.targa)+'</div>':'')
+        +(v?'<div style="font-size:12px;font-weight:600;color:#1e293b;margin-bottom:4px;">'+escHtml(v.nome)+'</div>':'')
+        +'<div style="font-size:12px;color:#334155;margin-bottom:4px;">'+escHtml(int.descrizione||'')+'</div>'
+        +(sup?'<div style="font-size:11px;color:#64748b;">🏠 '+escHtml(sup.nome)+'</div>':'')
+        +'<div style="font-size:11px;color:#94a3b8;margin-top:6px;">Dal '+fmtDate(int.dataApertura)+(int.kmApertura?' · '+fmtKM(int.kmApertura):'')+'</div>'
+        +(int.dataChiusura?'<div style="font-size:11px;color:#94a3b8;">Al '+fmtDate(int.dataChiusura)+'</div>':'')
+        +'<div style="display:flex;gap:6px;margin-top:10px;">'
+        +(int.stato!=='chiuso'&&int.stato!=='annullato'?'<button class="bubble-chiudi" data-iid="'+int.id+'" data-vid="'+int.vehicleId+'" style="flex:1;background:#16a34a;color:#fff;border:none;border-radius:7px;padding:8px;font-size:12px;font-weight:700;cursor:pointer;">Chiudi</button>':'')
+        +(int.stato!=='chiuso'&&int.stato!=='annullato'?'<button class="bubble-ann" data-iid="'+int.id+'" data-vid="'+int.vehicleId+'" style="background:#ca8a04;color:#fff;border:none;border-radius:7px;padding:8px;font-size:12px;font-weight:600;cursor:pointer;">✕ Annulla</button>':'')
+        +'<button class="bubble-mod" data-iid="'+int.id+'" data-vid="'+int.vehicleId+'" style="background:#f1f5f9;color:#475569;border:none;border-radius:7px;padding:8px;font-size:12px;font-weight:600;cursor:pointer;">Modifica</button>'
+        +'</div>'
+        +'<div class="pl-bubble-arrow"></div><div class="pl-bubble-arrow2"></div>'
         +'</div>';
-
-      cellSegs.forEach(function(item, idx) {
-        if (idx > 0) html += '<div style="border-top:1px solid #f1f5f9;margin:10px 0;"></div>';
-
-        if (item._isCheckAnom || item._isCheckOk) {
-          var chk = DB.checks ? DB.checks().find(function(x){ return x.id===(item._checkId||item.id); }) : null;
-          var statoLbl   = item._isCheckOk ? '✅ Check OK' : '⚠️ Check anomalia';
-          var statoColor = item._isCheckOk ? '#16a34a' : '#d97706';
-          html += '<div style="font-size:12px;font-weight:700;color:'+statoColor+';margin-bottom:4px;">'+statoLbl+'</div>';
-          if (chk) html += '<div style="font-size:12px;color:#94a3b8;margin-bottom:6px;">📅 '+fmtDate(chk.data)+(chk.km?' · '+fmtKM(chk.km):'')+'</div>';
-          var checkId2 = item._checkId||item.id;
-          html += '<div class="btn-row"><button onclick="closeModal();openCheckViewer(\'' +checkId2+ '\',\'' +vid+ '\')" style="flex:1;background:#1e40af;color:#fff;border:none;border-radius:8px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;">📋 Apri check</button></div>';
-
-        } else if (item._isSegnalazione) {
-          var s = DB.segnalazioni().find(function(x){ return x.id===item._segnalazioneId; });
-          html += '<div style="font-size:12px;font-weight:700;color:#ca8a04;margin-bottom:4px;">🟡 Segnalazione</div>';
-          if (s) {
-            html += '<div style="font-size:12px;color:#334155;margin-bottom:4px;">'+escHtml(s.problema||'')+'</div>';
-            html += '<div style="font-size:12px;color:#94a3b8;margin-bottom:6px;">📅 '+fmtDate(s.data)+'</div>';
-          }
-          html += '<div class="btn-row"><button onclick="closeModal();openSegnalazioneDetail(\''+item._segnalazioneId+'\')" style="flex:1;background:#ca8a04;color:#fff;border:none;border-radius:8px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;">📋 Dettaglio</button></div>';
-
-        } else if (item._isTireInt) {
-          var ti = DB.tireInterventions().find(function(x){ return x.id===item._tireIntId; });
-          html += '<div style="font-size:12px;font-weight:700;color:#1e40af;margin-bottom:4px;">🔵 Cambio gomme</div>';
-          if (ti) {
-            html += '<div style="font-size:12px;color:#94a3b8;margin-bottom:6px;">📅 '+fmtDate(ti.dataProgrammata)+'</div>';
-            if (ti.note) html += '<div style="font-size:12px;color:#475569;margin-bottom:6px;">'+escHtml(ti.note)+'</div>';
-          }
-          html += '<div class="btn-row"><button onclick="closeModal();openEditCambioGomme(\''+item._tireIntId+'\')" style="flex:1;background:#1e40af;color:#fff;border:none;border-radius:8px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;">✏️ Edita</button></div>';
-
-        } else {
-          var int2 = DB.interventions().find(function(x){ return x.id===item.id; });
-          if (!int2) return;
-          var sup = int2.fornitoreId ? DB.suppliers().find(function(x){ return x.id===int2.fornitoreId; }) : null;
-          var statoColor = int2.stato==='chiuso'?'#16a34a':int2.stato==='annullato'?'#94a3b8':'#dc2626';
-          var statoLbl   = int2.stato==='chiuso'?'✅ Chiuso':int2.stato==='annullato'?'✕ Annullato':'🔧 In lavorazione';
-          html += '<div style="font-size:12px;font-weight:700;color:'+statoColor+';margin-bottom:4px;">'+statoLbl+'</div>';
-          html += '<div style="font-size:13px;color:#334155;margin-bottom:4px;">'+escHtml(int2.descrizione||'')+'</div>';
-          if (sup) html += '<div style="font-size:12px;color:#64748b;margin-bottom:4px;">🏠 '+escHtml(sup.nome)+'</div>';
-          html += '<div style="font-size:12px;color:#94a3b8;margin-bottom:6px;">📅 Dal '+fmtDate(int2.dataApertura)+(int2.kmApertura?' · '+fmtKM(int2.kmApertura):'')+'</div>';
-          if (int2.dataChiusura) html += '<div style="font-size:12px;color:#94a3b8;margin-bottom:6px;">📅 Al '+fmtDate(int2.dataChiusura)+'</div>';
-          html += '<div class="btn-row">';
-          if (int2.stato!=='chiuso' && int2.stato!=='annullato') {
-            html += '<button onclick="closeModal();chiudiIntervento(\''+int2.id+'\',\''+int2.vehicleId+'\')" style="flex:1;background:#16a34a;color:#fff;border:none;border-radius:8px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;">✅ Chiudi</button>';
-            html += '<button onclick="closeModal();annullaIntervento(\''+int2.id+'\',\''+int2.vehicleId+'\')" style="background:#ca8a04;color:#fff;border:none;border-radius:8px;padding:9px;font-size:12px;font-weight:600;cursor:pointer;">✕ Annulla</button>';
-          }
-          html += '<button onclick="closeModal();openInterventionForm(\''+int2.vehicleId+'\',\''+int2.id+'\')" style="background:#f1f5f9;color:#475569;border:none;border-radius:8px;padding:9px;font-size:12px;font-weight:600;cursor:pointer;">✏️ Modifica</button>';
-          html += '</div>';
-        }
-      });
-
-      openModal('📋 Eventi veicolo', html);
+      bubble.style.display='block';
+      bubble.style.left=finalX+'px';
+      bubble.style.top=finalY+'px';
+      bubble.style.transform='translateY(-100%)';
     });
   });
 
+  // Barre GOMME → fumetto
+  panel.querySelectorAll('.pl-bar-tire').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var tiid = btn.dataset.tiid;
+      var ti   = DB.tireInterventions().find(function(x){ return x.id===tiid; });
+      var v    = DB.vehicles().find(function(x){ return x.id===btn.dataset.vid; });
+      if (!ti) return;
+      var rect   = btn.getBoundingClientRect();
+      var finalX = Math.min(Math.max(rect.left+rect.width/2-128,8),window.innerWidth-264);
+      var finalY = Math.max(rect.top-8,0);
+      var bubble = document.getElementById('pl-bubble');
+      bubble.innerHTML='<div class="pl-bubble-inner">'
+        +'<div style="font-size:11px;font-weight:700;color:#1e40af;margin-bottom:6px;">🔵 Cambio gomme programmato</div>'
+        +(v?'<div style="margin-bottom:4px;">'+renderTargaHtml(v.targa)+'</div>':'')
+        +(v?'<div style="font-size:12px;font-weight:600;color:#1e293b;margin-bottom:6px;">'+escHtml(v.nome)+'</div>':'')
+        +'<div style="font-size:12px;color:#94a3b8;margin-bottom:10px;">📅 '+fmtDate(ti.dataProgrammata)+'</div>'
+        +(ti.note?'<div style="font-size:12px;color:#475569;margin-bottom:10px;">'+escHtml(ti.note)+'</div>':'')
+        +'<button class="bubble-tire-edita" data-tiid="'+tiid+'" style="width:100%;background:#1e40af;color:#fff;border:none;border-radius:7px;padding:9px;font-size:13px;font-weight:700;cursor:pointer;">Edita cambio gomme</button>'
+        +'<div class="pl-bubble-arrow"></div><div class="pl-bubble-arrow2"></div>'
+        +'</div>';
+      bubble.style.display='block';
+      bubble.style.left=finalX+'px';
+      bubble.style.top=finalY+'px';
+      bubble.style.transform='translateY(-100%)';
+    });
+  });
+
+  // Barre ANOMALIA DA CHECK (senza intervento) → apre maschera anomalie del check specifico
+  panel.querySelectorAll('.pl-bar-checkanom').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var bubble = document.getElementById('pl-bubble');
+      if (bubble) bubble.style.display='none';
+      openCheckAnomalieFromPlanner(btn.dataset.checkanomCid, btn.dataset.checkanomVid);
+    });
+  });
+
+  // Barre SEGNALAZIONE aperta → apre dettaglio segnalazione
+  panel.querySelectorAll('.pl-bar-segnalazione').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var bubble = document.getElementById('pl-bubble');
+      if (bubble) bubble.style.display='none';
+      openSegnalazioneDetail(btn.dataset.segnId);
+    });
+  });
 
   // Overlay click → check badge / cella nuova
   var overlay = panel.querySelector('.pl-bars-overlay');
   if (overlay) {
     overlay.addEventListener('click', function(e) {
-      if (e.target.closest('.pl-bar-multi')) return;
+      if (e.target.closest('.pl-bar')) return;
       var bubble = document.getElementById('pl-bubble');
       if (bubble && bubble.style.display !== 'none') { bubble.style.display='none'; return; }
       overlay.style.pointerEvents = 'none';
