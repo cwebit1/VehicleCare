@@ -781,7 +781,7 @@ function renderAlerts(){
     (c.items||[]).forEach(function(item){
       if(item.val==='anomalia'){
         const alreadyHandled = interventions.some(function(i){
-          return i.checkId===c.id && i.descrizione.startsWith(item.voce);
+          return i.checkId===c.id && i.descrizione.startsWith(item.voce) && i.stato!=='annullato';
         });
         if(!alreadyHandled){
           if(!anomByVehicle[c.vehicleId]) anomByVehicle[c.vehicleId]=0;
@@ -803,7 +803,7 @@ function renderAlerts(){
   segnalazioni.forEach(function(s){
     const vSegn = vehicles.find(x=>x.id===s.vehicleId);
     if(!vSegn || vSegn.venduto) return;
-    const alreadyHandled = DB.interventions().some(function(i){ return i.segnalazioneId===s.id; });
+    const alreadyHandled = DB.interventions().some(function(i){ return i.segnalazioneId===s.id && i.stato!=='annullato'; });
     if(alreadyHandled) return;
     const targa = vSegn.targa;
     const chip = mkChip('red', '📢 '+targa+' · Segnalazione', ()=>openSegnalazioneDetail(s.id));
@@ -878,7 +878,7 @@ function openAnomalieModal(vehicleId){
     const anomItems = (c.items||[]).filter(i=>i.val==='anomalia');
     anomItems.forEach(function(a){
       const exists = interventions.some(function(i){
-        return i.checkId===c.id && i.descrizione.startsWith(a.voce);
+        return i.checkId===c.id && i.descrizione.startsWith(a.voce) && i.stato!=='annullato';
       });
       if(!exists) allAnom.push({c, a});
     });
@@ -1927,7 +1927,7 @@ function askCreateInterventions(){
   // Verifica quali anomalie hanno già un intervento collegato
   const interventions=DB.interventions();
   const anomalieSenzaIntervento=anomalie.filter(a=>
-    !interventions.some(i=>i.checkId===checkId && i.descrizione.startsWith(a.voce))
+    !interventions.some(i=>i.checkId===checkId && i.descrizione.startsWith(a.voce) && i.stato!=='annullato')
   );
 
   if(anomalieSenzaIntervento.length===0){
@@ -1959,7 +1959,7 @@ function _createAnomalyInterventions(){
   const interventions=DB.interventions();
   // Solo anomalie senza intervento già esistente
   const toCreate=anomalie.filter(a=>
-    !interventions.some(i=>i.checkId===checkId && i.descrizione.startsWith(a.voce))
+    !interventions.some(i=>i.checkId===checkId && i.descrizione.startsWith(a.voce) && i.stato!=='annullato')
   );
   toCreate.forEach(a=>{
     interventions.push({
@@ -1983,7 +1983,7 @@ function _createAnomalyInterventions(){
 function createSingleIntervention(vehicleId, checkId, voce, note, km){
   const interventions=DB.interventions();
   // Evita duplicati
-  if(interventions.some(i=>i.checkId===checkId && i.descrizione.startsWith(voce))){
+  if(interventions.some(i=>i.checkId===checkId && i.descrizione.startsWith(voce) && i.stato!=='annullato')){
     toast('Intervento già esistente per questa anomalia');
     return;
   }
@@ -2545,7 +2545,7 @@ function openHistory(vehicleId){
           const allInterventions=DB.interventions();
           const anom=c.items?.filter(i=>i.val==='anomalia')||[];
           const anomSenzaInt=anom.filter(a=>
-            !allInterventions.some(i=>i.checkId===c.id && i.descrizione.startsWith(a.voce))
+            !allInterventions.some(i=>i.checkId===c.id && i.descrizione.startsWith(a.voce) && i.stato!=='annullato')
           );
           // Costruisci HTML anomalie senza backtick annidati
           let anomHtml='';
@@ -2611,7 +2611,7 @@ function openHistory(vehicleId){
         } else if(ev.type==='segnalazione'){
           const s=ev.data;
           const allInterventions=DB.interventions();
-          const handled=allInterventions.some(function(i){ return i.segnalazioneId===s.id; });
+          const handled=allInterventions.some(function(i){ return i.segnalazioneId===s.id && i.stato!=='annullato'; });
           const boxHtml = !handled
             ? '<div style="margin-top:8px;padding:8px 10px;background:#fff0f0;border:1px solid #fca5a5;border-radius:8px;">'
               +'<div style="font-size:11px;font-weight:700;color:#b91c1c;margin-bottom:6px;">SEGNALAZIONE APERTA:</div>'
@@ -3767,13 +3767,13 @@ function renderReport(container){
   checks.forEach(function(c){
     (c.items||[]).forEach(function(item){
       if(item.val==='anomalia'){
-        const handled=interventions.some(function(i){ return i.checkId===c.id&&i.descrizione.startsWith(item.voce); });
+        const handled=interventions.some(function(i){ return i.checkId===c.id&&i.descrizione.startsWith(item.voce) && i.stato!=='annullato'; });
         if(!handled) anomCount++;
       }
     });
   });
   segnalazioni.forEach(function(s){
-    const handled=interventions.some(function(i){ return i.segnalazioneId===s.id; });
+    const handled=interventions.some(function(i){ return i.segnalazioneId===s.id && i.stato!=='annullato'; });
     if(!handled) anomCount++;
   });
   const intAnomalie=anomCount;
@@ -4021,14 +4021,14 @@ function reportDetail(type){
       const v2=vehicles.find(x=>x.id===c.vehicleId);
       (c.items||[]).forEach(function(item){
         if(item.val==='anomalia'){
-          const handled=interventions.some(function(i){ return i.checkId===c.id&&i.descrizione.startsWith(item.voce); });
+          const handled=interventions.some(function(i){ return i.checkId===c.id&&i.descrizione.startsWith(item.voce) && i.stato!=='annullato'; });
           if(!handled) anomItems.push({tipo:'check', vehicleId:c.vehicleId, v:v2, descrizione:item.voce, note:item.note||'', data:c.data, km:c.km, checkId:c.id});
         }
       });
     });
     // Segnalazioni non gestite
     DB.segnalazioni().forEach(function(s){
-      const handled=interventions.some(function(i){ return i.segnalazioneId===s.id; });
+      const handled=interventions.some(function(i){ return i.segnalazioneId===s.id && i.stato!=='annullato'; });
       if(!handled){
         const v2=vehicles.find(x=>x.id===s.vehicleId);
         anomItems.push({tipo:'segnalazione', vehicleId:s.vehicleId, v:v2, descrizione:s.problema, note:s.note||'', data:s.data, km:s.km, segnalazioneId:s.id});
@@ -5196,7 +5196,7 @@ function openCheckAnomalieFromPlanner(checkId, vehicleId) {
   // Calcola anomalie ancora senza intervento
   var anomSenzaInt = anom.filter(function(a) {
     return !interventions.some(function(i) {
-      return i.checkId === checkId && i.descrizione && i.descrizione.startsWith(a.voce);
+      return i.checkId === checkId && i.descrizione && i.descrizione.startsWith(a.voce) && i.stato!=='annullato';
     });
   });
 
@@ -5212,7 +5212,7 @@ function openCheckAnomalieFromPlanner(checkId, vehicleId) {
 
   var rows = anomSenzaInt.map(function(a) {
     var hasInt = interventions.some(function(i) {
-      return i.checkId === checkId && i.descrizione && i.descrizione.startsWith(a.voce);
+      return i.checkId === checkId && i.descrizione && i.descrizione.startsWith(a.voce) && i.stato!=='annullato';
     });
     if (hasInt) return ''; // già gestita
     return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;margin-bottom:8px;">'
@@ -5270,7 +5270,7 @@ function openCheckAnomalieFromPlanner(checkId, vehicleId) {
 function creaInterventoAnomalia(checkId, vehicleId, voce, note, km) {
   var interventions = DB.interventions();
   // Controlla duplicato
-  if (interventions.some(function(i) { return i.checkId === checkId && i.descrizione && i.descrizione.startsWith(voce); })) {
+  if (interventions.some(function(i) { return i.checkId === checkId && i.descrizione && i.descrizione.startsWith(voce) && i.stato!=='annullato'; })) {
     toast('Intervento già esistente per questa anomalia');
     openCheckAnomalieFromPlanner(checkId, vehicleId);
     return;
