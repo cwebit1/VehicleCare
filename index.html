@@ -2094,7 +2094,7 @@ function openInterventionForm(vehicleId, intId){
 
   const descrizione = existing?.descrizione || newFromAnomaly?.descrizione || (window._preInterventoDesc||'');
   const dataApertura = existing?.dataApertura || newFromAnomaly?.dataApertura || today();
-  const kmApertura = existing?.kmApertura || newFromAnomaly?.km || v?.km || '';
+  const kmApertura = existing?.kmApertura || newFromAnomaly?.km || v?.km || 0;
 
   window._preInterventoDesc = null;
   openModal(intId?'Modifica Intervento':'Nuovo Intervento — '+(v?.targa||''), `
