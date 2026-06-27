@@ -1597,9 +1597,9 @@ function openInterventionFromAnomaliaCheck(checkId, vehicleId, voce, note, km){
       <input class="form-input" id="int-km" type="number" inputmode="numeric" value="${km||v?.km||''}" min="0" placeholder="KM veicolo"></div>
     <div id="chiusura-fields" style="display:none">
       <div class="form-row">
-        <div class="form-group inline"><label class="form-label">Data chiusura</label>
+        <div class="form-group"><label class="form-label">Data chiusura</label>
           <input class="form-input" id="int-data-ch" type="date" value="${today()}"></div>
-        <div class="form-group inline"><label class="form-label">KM chiusura</label>
+        <div class="form-group"><label class="form-label">KM chiusura</label>
           <input class="form-input" id="int-km-ch" type="number" value="" min="0"></div>
       </div>
       <div class="form-group"><label class="form-label">Note chiusura</label>
@@ -1679,9 +1679,9 @@ function openInterventionFromSegnalazione(s){
       </select></div>
     <div id="chiusura-fields" style="display:none">
       <div class="form-row">
-        <div class="form-group inline"><label class="form-label">Data chiusura</label>
+        <div class="form-group"><label class="form-label">Data chiusura</label>
           <input class="form-input" id="int-data-ch" type="date" value="${today()}"></div>
-        <div class="form-group inline"><label class="form-label">KM chiusura</label>
+        <div class="form-group"><label class="form-label">KM chiusura</label>
           <input class="form-input" id="int-km-ch" type="number" value="" min="0"></div>
       </div>
       <div class="form-group"><label class="form-label">Note chiusura</label>
@@ -2130,9 +2130,9 @@ function openInterventionForm(vehicleId, intId){
       </select></div>
     <div id="chiusura-fields" style="${chiusuraDisplay}">
       <div class="form-row">
-        <div class="form-group inline"><label class="form-label">Data chiusura</label>
+        <div class="form-group"><label class="form-label">Data chiusura</label>
           <input class="form-input" id="int-data-ch" type="date" value="${existing?.dataChiusura||today()}"></div>
-        <div class="form-group inline"><label class="form-label">KM chiusura</label>
+        <div class="form-group"><label class="form-label">KM chiusura</label>
           <input class="form-input" id="int-km-ch" type="number" value="${existing?.kmChiusura||''}" min="0"></div>
       </div>
       <div class="form-group"><label class="form-label">Note chiusura</label>
@@ -2693,11 +2693,18 @@ function openHistory(vehicleId){
 
 // Segna anomalia come risolta senza creare intervento
 function risolviAnomalia(vehicleId, checkId, voce, km){
+  const suppliers = DB.suppliers().filter(s=>s.attivo);
+  const suppOpts = '<option value="">— Nessun fornitore —</option>'
+    + suppliers.map(s=>'<option value="'+s.id+'">'+escHtml(s.nome)+' ('+escHtml(s.tipo)+')</option>').join('');
   openModal('✓ Segna come risolto',`
     <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:10px 12px;margin-bottom:14px;">
       <div style="font-size:12px;color:#c2410c;font-weight:700;margin-bottom:2px;">ANOMALIA</div>
       <div style="font-size:14px;color:#1e293b;font-weight:600;">${escHtml(voce)}</div>
     </div>
+    <div class="form-group"><label class="form-label">KM</label>
+      <input class="form-input" id="ris-km" type="number" min="0" value="${km||''}" placeholder="KM veicolo"></div>
+    <div class="form-group"><label class="form-label">Fornitore</label>
+      <select class="form-select" id="ris-fornitore">${suppOpts}</select></div>
     <div class="form-group"><label class="form-label">Come è stata risolta? (opzionale)</label>
       <textarea class="form-input" id="ris-note" rows="3" placeholder="Es: controllato e non necessita intervento, sistemato autonomamente…"></textarea></div>
     <div class="btn-row">
@@ -2709,17 +2716,19 @@ function risolviAnomalia(vehicleId, checkId, voce, km){
 
 function saveRisolviAnomalia(vehicleId, checkId, voce, km){
   const note = document.getElementById('ris-note').value.trim();
+  const kmVal = parseInt(document.getElementById('ris-km')?.value) || parseInt(km) || null;
+  const fornitoreId = document.getElementById('ris-fornitore')?.value || null;
   // Crea un intervento già chiuso per tracciare la risoluzione
   const interventions = DB.interventions();
   interventions.push({
     id: DB.uid(), vehicleId, checkId,
-    dataApertura: today(), kmApertura: parseInt(km)||null,
+    dataApertura: today(), kmApertura: kmVal,
     descrizione: voce + (note ? ' — ' + note : ''),
     stato: 'chiuso',
     origine: 'check',
-    fornitoreId: null,
+    fornitoreId: fornitoreId,
     dataChiusura: today(),
-    kmChiusura: parseInt(km)||null,
+    kmChiusura: kmVal,
     noteChiusura: note || 'Risolto senza intervento esterno',
     createdAt: nowISO()
   });
@@ -5328,10 +5337,14 @@ function plannerNewIntervention(year, month, day) {
     + '<textarea class="form-input" id="pni-desc" rows="3" placeholder="Descrizione intervento..."></textarea></div>'
     + '<div class="form-group"><label class="form-label">Fornitore</label>'
     + '<select class="form-select" id="pni-fornitore">' + suppOpts + '</select></div>'
+    + '<div class="form-row">'
     + '<div class="form-group"><label class="form-label">Data programmazione</label>'
     + '<input class="form-input" id="pni-data-prog" type="date" value="' + dateStr + '"></div>'
     + '<div class="form-group"><label class="form-label">Data intervento</label>'
     + '<input class="form-input" id="pni-data" type="date" value="' + dateStr + '"></div>'
+    + '</div>'
+    + '<div class="form-group"><label class="form-label">KM apertura</label>'
+    + '<input class="form-input" id="pni-km" type="number" min="0" placeholder="KM veicolo"></div>'
     + '<div class="btn-row">'
     + '<button class="btn btn-secondary" onclick="openPlanner(_plannerYear, _plannerMonth)">Annulla</button>'
     + '<button class="btn btn-primary" onclick="savePlannerIntervention()">Crea</button>'
@@ -5347,10 +5360,11 @@ function savePlannerIntervention() {
   var fornitoreId= document.getElementById('pni-fornitore')?.value || null;
   if (!desc) { toast('Inserisci una descrizione','error'); return; }
   var v = DB.vehicles().find(function(x) { return x.id === vehicleId; });
+  var km = parseInt(document.getElementById('pni-km')?.value) || parseInt(v?.km) || null;
   var interventions = DB.interventions();
   interventions.push({
     id: DB.uid(), vehicleId, descrizione: desc,
-    dataApertura: data, dataProgrammazione: dataProg, kmApertura: parseInt(v?.km)||null,
+    dataApertura: data, dataProgrammazione: dataProg, kmApertura: km,
     stato: 'in_lavorazione', fornitoreId: fornitoreId, origine: 'manuale',
     dataChiusura: null, kmChiusura: null, noteChiusura: '',
     createdAt: nowISO()
