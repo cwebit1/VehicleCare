@@ -1079,7 +1079,7 @@ function showRevisioniAlert(list){
       +'<div class="list-item-info">'
       +renderTargaHtml(v.targa)
       +'<div class="list-item-sub" style="margin-top:4px;">'+escHtml(v.nome)+'</div>'
-      +'<div class="list-item-sub">Scadenza: '+fmtMese(v.scadenzaRevisione)+'</div>'
+      +'<div class="list-item-sub">Scadenza: '+fmtDate(v.scadenzaRevisione)+'</div>'
       +'<div style="margin-top:4px;">'+badgeHtml+'</div>'
       +'</div>'
       +'<button class="rev-crea-int" data-vid="'+v.id+'"'
@@ -1431,7 +1431,7 @@ function renderVehicleCard(v, photo){
         <div class="vehicle-meta">
           ${v.km?`<span>🛣️ ${Number(v.km).toLocaleString('it-IT')} km</span>`:''}
           ${v.scadenzaRevisione
-            ? `<span onclick="openRevisioneForm('${v.id}')" style="cursor:pointer;" title="Gestisci revisione">📋 Rev. ${fmtMese(v.scadenzaRevisione)} 🔧</span>`
+            ? `<span onclick="openRevisioneForm('${v.id}')" style="cursor:pointer;" title="Gestisci revisione">📋 Rev. ${fmtDate(v.scadenzaRevisione)} 🔧</span>`
             : `<span onclick="openRevisioneForm('${v.id}')" style="cursor:pointer;color:#1e40af;font-weight:600;" title="Imposta revisione">📋 Revisione 🔧</span>`}
           ${(()=>{ const vc=DB.checks().filter(c=>c.vehicleId===v.id).sort((a,b)=>new Date(b.data)-new Date(a.data)); return vc.length?`<span>✅ Check ${fmtDate(vc[0].data)}</span>`:`<span style="color:#f59e0b;">⚠️ Nessun check</span>`; })()}
         </div>
