@@ -2574,6 +2574,27 @@ function openHistory(vehicleId){
           } else if(anom.length>0){
             anomBoxHtml='<div style="margin-top:6px;font-size:11px;color:#15803d;font-weight:600;">✅ Interventi già creati per tutte le anomalie</div>';
           }
+          // Lista interventi collegati a questo check (qualsiasi stato): sempre rintracciabili qui
+          const linkedInts=allInterventions.filter(i=>i.checkId===c.id);
+          let linkedListHtml='';
+          if(linkedInts.length>0){
+            const badge=function(st){
+              if(st==='chiuso') return '<span style="background:#dcfce7;color:#15803d;padding:1px 7px;border-radius:6px;font-size:10px;font-weight:700;white-space:nowrap;">✅ Chiuso</span>';
+              if(st==='annullato') return '<span style="background:#fef9c3;color:#92400e;padding:1px 7px;border-radius:6px;font-size:10px;font-weight:700;white-space:nowrap;">✕ Annullato</span>';
+              if(st==='anomalia') return '<span style="background:#ffedd5;color:#c2410c;padding:1px 7px;border-radius:6px;font-size:10px;font-weight:700;white-space:nowrap;">⚠️ Anomalia</span>';
+              return '<span style="background:#fef3c7;color:#b45309;padding:1px 7px;border-radius:6px;font-size:10px;font-weight:700;white-space:nowrap;">🔧 In lavorazione</span>';
+            };
+            linkedListHtml='<div style="margin-top:8px;padding-top:8px;border-top:1px dashed #e2e8f0;">'
+              +'<div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:5px;">🔗 INTERVENTI DI QUESTO CHECK ('+linkedInts.length+'):</div>'
+              +linkedInts.map(function(i){
+                const dStr=i.dataChiusura?(' · chiuso '+fmtDate(i.dataChiusura)):'';
+                return '<div onclick="openInterventionForm(\''+i.vehicleId+'\',\''+i.id+'\')" style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 9px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:7px;margin-bottom:4px;cursor:pointer;">'
+                  +'<div style="font-size:11px;color:#334155;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escHtml(i.descrizione||'')+dStr+'</div>'
+                  +badge(i.stato)
+                  +'</div>';
+              }).join('')
+              +'</div>';
+          }
           return '<div class="tl-item">'
             +'<div class="tl-dot '+(anom.length>0?'red':'blue')+'"></div>'
             +'<div class="tl-date">'+fmtDate(c.data)+' · '+fmtKM(c.km)+' · '+escHtml(c.operatore)+'</div>'
@@ -2587,6 +2608,7 @@ function openHistory(vehicleId){
             +(avanzata?'<button onclick="eliminaCheck(\''+c.id+'\')" style="background:#fee2e2;color:#b91c1c;border:none;border-radius:7px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">🗑️ Elimina</button>':'')
             +'</div>'
             +anomBoxHtml
+            +linkedListHtml
             +'</div></div>';
         } else if(ev.type==='intervento'){
           const i=ev.data;
