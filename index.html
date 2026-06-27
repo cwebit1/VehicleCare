@@ -786,18 +786,15 @@ function renderAlerts(){
   const warnDays = settings.revWarningDays||30;
   const now = new Date();
 
-  // Revisioni in scadenza o SCADUTE — logica MENSILE (revStatus)
+  // Revisioni in scadenza o SCADUTE — un chip PER VEICOLO, apre il form revisione di quel mezzo
   const revList = vehicles.filter(v=>!v.venduto && v.scadenzaRevisione && revStatus(v.scadenzaRevisione)!=='ok' && revStatus(v.scadenzaRevisione)!=='none')
     .sort((a,b)=>new Date(a.scadenzaRevisione)-new Date(b.scadenzaRevisione));
-  if(revList.length){
-    const nScad = revList.filter(v=>revStatus(v.scadenzaRevisione)==='scaduta').length;
-    const nNear = revList.length - nScad;
-    const label = nScad>0
-      ? `⚠️ Revisioni: ${nScad} scadut${nScad>1?'e':'a'}${nNear>0?', '+nNear+' in scadenza':''}`
-      : `⚠️ ${revList.length} revisione${revList.length>1?'i':''} in scadenza`;
-    const chip = mkChip('red', label, ()=>showRevisioniAlert(revList));
+  revList.forEach(function(v){
+    const scaduta = revStatus(v.scadenzaRevisione)==='scaduta';
+    const txt = '📋 '+v.targa+' · '+(scaduta?'Revisione scaduta':'Revisione in scadenza');
+    const chip = mkChip('red', txt, ()=>openRevisioneForm(v.id));
     bar.appendChild(chip);
-  }
+  });
 
   // Anomalie — un chip per veicolo, apre il modal anomalie senza intervento
   // Anomalie dai check items (val==='anomalia') senza intervento già creato
@@ -838,13 +835,17 @@ function renderAlerts(){
     bar.appendChild(chip);
   });
 
-  // In lavorazione — un chip per veicolo, apre direttamente l'intervento
+  // Aperti — un chip per intervento: "In lavorazione" se la data intervento è oggi o passata,
+  // altrimenti "In attesa di lavorazione" (fase tratteggiata, deve ancora arrivare il giorno).
+  const oggiStr = today();
   const lav = interventions.filter(i=>i.stato==='in_lavorazione');
   lav.forEach(i=>{
     const v = vehicles.find(x=>x.id===i.vehicleId);
     if(!v || v.venduto) return;
     const targa = v.targa;
-    const chip = mkChip('amber', '🔧 '+targa+' · In lavorazione', ()=>openInterventionDetail(i.id));
+    const inLav = !i.dataApertura || i.dataApertura<=oggiStr;
+    const txt = inLav ? '🔧 '+targa+' · In lavorazione' : '⏳ '+targa+' · In attesa di lavorazione';
+    const chip = mkChip('amber', txt, ()=>openInterventionDetail(i.id));
     bar.appendChild(chip);
   });
 
