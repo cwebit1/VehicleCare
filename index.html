@@ -4594,12 +4594,11 @@ function _buildMonthPanel(Y, M) {
     var endDateStr;
     var earliest = null;
     if (!senzaIntervento && linkedDates.length) {
-      // L'anomalia (arancio) resta fino al giorno PRIMA della data programmazione.
+      // L'arancio arriva FINO al giorno di apertura/creazione intervento (incluso);
+      // la sfumatura dell'apertura gli va SOPRA su quel giorno, così non c'è stacco.
       linkedDates.sort();
       earliest = linkedDates[0];
-      var dA = new Date(earliest+'T00:00:00');
-      dA.setDate(dA.getDate()-1);
-      endDateStr = dA.getFullYear()+'-'+String(dA.getMonth()+1).padStart(2,'0')+'-'+String(dA.getDate()).padStart(2,'0');
+      endDateStr = earliest;
     } else {
       endDateStr = c.data > todayStr ? c.data : todayStr;
     }
@@ -4621,9 +4620,9 @@ function _buildMonthPanel(Y, M) {
     var cut = (linked && linked.dataApertura) ? (linked.dataProgrammazione || linked.dataApertura) : null;
     var endDateStr;
     if (cut) {
-      var dS = new Date(cut+'T00:00:00');
-      dS.setDate(dS.getDate()-1);
-      endDateStr = dS.getFullYear()+'-'+String(dS.getMonth()+1).padStart(2,'0')+'-'+String(dS.getDate()).padStart(2,'0');
+      // Il giallo arriva FINO al giorno di apertura/creazione intervento (incluso).
+      // Su quel giorno la sfumatura dell'apertura gli va SOPRA: così non c'è stacco.
+      endDateStr = cut;
     } else {
       endDateStr = s.data > todayStr ? s.data : todayStr;
     }
@@ -4684,7 +4683,7 @@ function _buildMonthPanel(Y, M) {
       // Mezzo tornato disponibile (intervento chiuso): mezza cella verde sfumata.
       barsHtml += '<button class="pl-bar pl-bar-resolved"'
         +' style="left:calc('+left+'% + 1px);width:calc('+width+'% - 2px);top:'+rowTop+'px;height:'+PL_ROW_H+'px;'
-        +'background:linear-gradient(to top, rgba(74,222,128,0.9), rgba(74,222,128,0));border:none;box-shadow:none;"'
+        +'background:linear-gradient(to right, rgba(74,222,128,0), rgba(74,222,128,0.9));border:none;box-shadow:none;"'
         +' data-iid="'+seg.int.id+'" data-vid="'+seg.int.vehicleId+'">'
         +'<span class="pl-bar-lbl" style="color:#15803d;">'+lbl+'</span></button>';
     } else if (seg.int._isTransition) {
