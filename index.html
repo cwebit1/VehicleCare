@@ -1284,7 +1284,7 @@ async function renderGestioneVeicoli(container){
     ? '<p style="font-size:13px;color:#94a3b8;padding:20px 0;">Nessun veicolo in questa categoria.</p>'
     : filteredByVenduto.map(function(v){
         var vendutoBadge = v.venduto ? '<span class="badge badge-gray" style="margin-left:auto;">Venduto</span>' : '';
-        var vendiLabel   = v.venduto ? 'Ripristina' : 'Segna venduto';
+        var vendiLabel   = v.venduto ? 'Ripristina' : 'Venduto';
         var vendiColor   = v.venduto ? '#dcfce7' : '#f1f5f9';
         var vendiTextCol = v.venduto ? '#15803d' : '#475569';
         var opacity      = v.venduto ? 'opacity:.6;' : '';
@@ -1313,10 +1313,11 @@ async function renderGestioneVeicoli(container){
           + '</div>'
           + '</div>'
           + '</div>'
-          + '<div style="display:flex;gap:6px;margin-top:10px;">'
-          + '<button onclick="openVehicleForm(&quot;'+vid+'&quot;)" style="flex:1;background:#dbeafe;color:#1e40af;border:none;border-radius:8px;padding:9px 6px;font-size:12px;font-weight:700;cursor:pointer;">✏️ Modifica</button>'
-          + '<button onclick="gestioneToggleVenduto(&quot;'+vid+'&quot;,'+(!isVenduto)+')" style="flex:1;background:'+vendiColor+';color:'+vendiTextCol+';border:none;border-radius:8px;padding:9px 6px;font-size:12px;font-weight:700;cursor:pointer;">'+vendiLabel+'</button>'
-          + '<button onclick="deleteVehicle(&quot;'+vid+'&quot;)" style="flex:1;background:#fee2e2;color:#b91c1c;border:none;border-radius:8px;padding:9px 6px;font-size:12px;font-weight:700;cursor:pointer;">🗑️ Elimina</button>'
+          + '<div style="display:flex;gap:5px;margin-top:10px;">'
+          + '<button onclick="openRevisioneForm(&quot;'+vid+'&quot;)" style="flex:1;background:#eff6ff;color:#1e40af;border:none;border-radius:8px;padding:9px 4px;font-size:12px;font-weight:700;cursor:pointer;">📋 Revisione</button>'
+          + '<button onclick="openVehicleForm(&quot;'+vid+'&quot;)" style="flex:1;background:#dbeafe;color:#1e40af;border:none;border-radius:8px;padding:9px 4px;font-size:12px;font-weight:700;cursor:pointer;">✏️ Modifica</button>'
+          + '<button onclick="gestioneToggleVenduto(&quot;'+vid+'&quot;,'+(!isVenduto)+')" style="flex:1;background:'+vendiColor+';color:'+vendiTextCol+';border:none;border-radius:8px;padding:9px 4px;font-size:12px;font-weight:700;cursor:pointer;">'+vendiLabel+'</button>'
+          + '<button onclick="deleteVehicle(&quot;'+vid+'&quot;)" style="flex:1;background:#fee2e2;color:#b91c1c;border:none;border-radius:8px;padding:9px 4px;font-size:12px;font-weight:700;cursor:pointer;">🗑️ Elimina</button>'
           + '</div>'
           + '</div>';
       }).join('');
