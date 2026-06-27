@@ -4745,6 +4745,9 @@ function _buildMonthPanel(Y, M) {
 
   // Barre overlay HTML
   var colWidthPct = 100 / PL_COLS;
+  // Solo grafica: il verde "mezzo disponibile" (risolto) deve stare SOPRA a tutto.
+  // Ordino in modo stabile spostando i segmenti _isResolved in fondo, così sono disegnati per ultimi.
+  segments.sort(function(a,b){ return (a.int._isResolved?1:0) - (b.int._isResolved?1:0); });
   var barsHtml = '';
   segments.forEach(function(seg) {
     var vIdx = vehicles.findIndex(function(v){ return v.id===seg.int.vehicleId; });
