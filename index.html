@@ -4694,6 +4694,8 @@ function _buildMonthPanel(Y, M) {
         +'background:linear-gradient(90deg,'+seg.int._transFrom+' 0%,'+EV_COLORS.intervento+' 100%);"'
         +' data-vid="'+seg.int.vehicleId+'"></button>';
     } else {
+      var color = seg.int.stato==='annullato' ? EV_COLORS.annullato : EV_COLORS.intervento;
+      barsHtml += '<button class="pl-bar"'
         +' style="left:calc('+left+'% + 1px);width:calc('+width+'% - 2px);top:'+rowTop+'px;height:'+PL_ROW_H+'px;background:'+color+';"'
         +' data-iid="'+seg.int.id+'" data-vid="'+seg.int.vehicleId+'">'
         +'<span class="pl-bar-lbl">'+lbl+'</span></button>';
