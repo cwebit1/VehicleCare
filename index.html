@@ -4440,7 +4440,7 @@ function _buildMonthPanel(Y, M) {
       var cls    = stato === 'ok' ? ' ck-ok' : stato === 'anomalia' ? ' ck-anom' : '';
       var lbl    = stato ? escHtml(v.targa) : '';
       var dataCk = cid ? ' data-check-id="' + cid + '" data-vehicle-id="' + v.id + '"' : '';
-      gridHtml += '<div class="pl-vrow' + cls + '"' + dataCk + ' style="height:' + PL_ROW_H + 'px;">' + lbl + '</div>';
+      gridHtml += '<div class="pl-vrow' + cls + '" data-vid="' + v.id + '"' + dataCk + ' style="height:' + PL_ROW_H + 'px;">' + lbl + '</div>';
     });
     gridHtml += '</div></div>';
   }
@@ -4521,23 +4521,15 @@ function _buildMonthPanel(Y, M) {
     // ── FASE 2: LAVORAZIONE (rosso pieno) — da dataApertura in poi ──
     var startDateStr = aperturaDate;
     var endDateStr;
+    var _resolvedDay = null;
     if (isAnnullato) {
       endDateStr = aperturaDate;
     } else if (isChiuso || int.dataChiusura) {
       var chiusuraDate = int.dataChiusura || aperturaDate;
-      // Verde "mezzo tornato disponibile" sul giorno di chiusura (mezza cella sfumata)
-      _pushDateRangeSegments(chiusuraDate, chiusuraDate, {
-        id:int.id, vehicleId:int.vehicleId, _isResolved:true,
-        descrizione:int.descrizione, dataApertura:int.dataApertura, stato:'chiuso',
-        checkId:int.checkId, segnalazioneId:int.segnalazioneId,
-        kmApertura:int.kmApertura, fornitoreId:int.fornitoreId,
-        dataChiusura:int.dataChiusura, kmChiusura:int.kmChiusura, noteChiusura:int.noteChiusura
-      });
-      // Il rosso (mezzo non disponibile) arriva fino al giorno PRIMA della chiusura.
-      // Se apertura == chiusura (risolto in giornata) non c'è rosso: resta solo il verde.
-      var dChiu = new Date(chiusuraDate+'T00:00:00');
-      dChiu.setDate(dChiu.getDate()-1);
-      endDateStr = dChiu.getFullYear()+'-'+String(dChiu.getMonth()+1).padStart(2,'0')+'-'+String(dChiu.getDate()).padStart(2,'0');
+      // Rosso fino al giorno di chiusura INCLUSO. Il verde "mezzo disponibile" va disegnato
+      // SOPRA il rosso, su quel giorno: lo rimandiamo a dopo il push del rosso.
+      endDateStr = chiusuraDate;
+      _resolvedDay = chiusuraDate;
     } else {
       // Aperto e mai chiuso: rosso pieno da dataApertura fino a OGGI (prosegue giorno per
       // giorno fino alla risoluzione). Se l'intervento è programmato nel futuro (apertura > oggi)
@@ -4545,6 +4537,16 @@ function _buildMonthPanel(Y, M) {
       endDateStr = todayStr > aperturaDate ? todayStr : aperturaDate;
     }
     _pushDateRangeSegments(startDateStr, endDateStr, int);
+    if (_resolvedDay) {
+      // Verde "mezzo tornato disponibile" SOPRA il rosso, sul giorno di chiusura (mezza cella sfumata)
+      _pushDateRangeSegments(_resolvedDay, _resolvedDay, {
+        id:int.id, vehicleId:int.vehicleId, _isResolved:true,
+        descrizione:int.descrizione, dataApertura:int.dataApertura, stato:'chiuso',
+        checkId:int.checkId, segnalazioneId:int.segnalazioneId,
+        kmApertura:int.kmApertura, fornitoreId:int.fornitoreId,
+        dataChiusura:int.dataChiusura, kmChiusura:int.kmChiusura, noteChiusura:int.noteChiusura
+      });
+    }
   });
 
   // Anomalie da check senza intervento collegato — traccia fino ad oggi (o fino alla data del check se nel futuro)
@@ -4762,91 +4764,22 @@ function _drawTodayBorder(panel) {
 
 // ── Attacca tutti gli event listener a un pannello mese ──
 function _attachPanelListeners(panel) {
-  // Barre intervento → fumetto
-  panel.querySelectorAll('.pl-bar').forEach(function(btn) {
-    btn.addEventListener('click', function(e) {
-      e.stopPropagation();
-      var iid = btn.dataset.iid;
-      var int = DB.interventions().find(function(x){ return x.id===iid; });
-      var v   = DB.vehicles().find(function(x){ return x.id===btn.dataset.vid; });
-      var sup = int && int.fornitoreId ? DB.suppliers().find(function(x){ return x.id===int.fornitoreId; }) : null;
-      if (!int) return;
-      var statoColor = int.stato==='chiuso'?'#16a34a':int.stato==='anomalia'?'#dc2626':'#d97706';
-      var statoLbl   = int.stato==='chiuso'?'✅ Chiuso':int.stato==='anomalia'?'⚠️ Anomalia':'🔧 In lavorazione';
-      var html = '<div style="font-size:13px;font-weight:700;color:'+statoColor+';margin-bottom:8px;">'+statoLbl+'</div>'
-        +(v?'<div style="margin-bottom:6px;">'+renderTargaHtml(v.targa)+'<span style="font-size:14px;font-weight:600;color:#1e293b;margin-left:8px;">'+escHtml(v.nome)+'</span></div>':'')
-        +'<div style="font-size:13px;color:#334155;margin-bottom:6px;">'+escHtml(int.descrizione||'')+'</div>'
-        +(sup?'<div style="font-size:12px;color:#64748b;margin-bottom:6px;">🏠 '+escHtml(sup.nome)+'</div>':'')
-        +'<div style="font-size:12px;color:#94a3b8;margin-bottom:4px;">📅 Dal '+fmtDate(int.dataApertura)+(int.kmApertura?' · '+fmtKM(int.kmApertura):'')+'</div>'
-        +(int.dataChiusura?'<div style="font-size:12px;color:#94a3b8;margin-bottom:12px;">📅 Al '+fmtDate(int.dataChiusura)+'</div>':'<div style="margin-bottom:12px;"></div>')
-        +'<div class="btn-row">'
-        +(int.stato!=='chiuso'&&int.stato!=='annullato'?'<button onclick="closeModal2();chiudiIntervento(\''+int.id+'\',\''+int.vehicleId+'\')" style="flex:1;background:#16a34a;color:#fff;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;">✅ Chiudi</button>':'')
-        +(int.stato!=='chiuso'&&int.stato!=='annullato'?'<button onclick="closeModal2();annullaIntervento(\''+int.id+'\',\''+int.vehicleId+'\')" style="background:#ca8a04;color:#fff;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;">✕ Annulla</button>':'')
-        +'<button onclick="closeModal2();openInterventionForm(\''+int.vehicleId+'\',\''+int.id+'\')" style="background:#f1f5f9;color:#475569;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;">✏️ Modifica</button>'
-        +'</div>';
-      openModal2('🔧 Intervento', html);
-    });
-  });
-
-  // Barre GOMME → fumetto
-  panel.querySelectorAll('.pl-bar-tire').forEach(function(btn) {
-    btn.addEventListener('click', function(e) {
-      e.stopPropagation();
-      var tiid = btn.dataset.tiid;
-      var ti   = DB.tireInterventions().find(function(x){ return x.id===tiid; });
-      var v    = DB.vehicles().find(function(x){ return x.id===btn.dataset.vid; });
-      if (!ti) return;
-      var html2 = '<div style="font-size:13px;font-weight:700;color:#1e40af;margin-bottom:8px;">🔵 Cambio gomme programmato</div>'
-        +(v?'<div style="margin-bottom:6px;">'+renderTargaHtml(v.targa)+'<span style="font-size:14px;font-weight:600;color:#1e293b;margin-left:8px;">'+escHtml(v.nome)+'</span></div>':'')
-        +'<div style="font-size:12px;color:#94a3b8;margin-bottom:8px;">📅 '+fmtDate(ti.dataProgrammata)+'</div>'
-        +(ti.note?'<div style="font-size:13px;color:#475569;margin-bottom:12px;">'+escHtml(ti.note)+'</div>':'<div style="margin-bottom:12px;"></div>')
-        +'<div class="btn-row"><button onclick="closeModal2();openEditCambioGomme(\''+tiid+'\')" style="flex:1;background:#1e40af;color:#fff;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;">✏️ Edita cambio gomme</button></div>';
-      openModal2('🔵 Gomme', html2);
-    });
-  });
-
-  // Barre ANOMALIA DA CHECK (senza intervento) → apre maschera anomalie del check specifico
-  panel.querySelectorAll('.pl-bar-checkanom').forEach(function(btn) {
-    btn.addEventListener('click', function(e) {
-      e.stopPropagation();
-      var bubble = document.getElementById('pl-bubble');
-      if (bubble) bubble.style.display='none';
-      openCheckAnomalieFromPlanner(btn.dataset.checkanomCid, btn.dataset.checkanomVid);
-    });
-  });
-
-  // Barre SEGNALAZIONE aperta → apre dettaglio segnalazione
-  panel.querySelectorAll('.pl-bar-segnalazione').forEach(function(btn) {
-    btn.addEventListener('click', function(e) {
-      e.stopPropagation();
-      var bubble = document.getElementById('pl-bubble');
-      if (bubble) bubble.style.display='none';
-      openSegnalazioneDetail(btn.dataset.segnId);
-    });
-  });
-
-  // Overlay click → check badge / cella nuova
+  // Click su cella (mezzo × giorno) → elenco di TUTTO cio che c'e in quella cella
   var overlay = panel.querySelector('.pl-bars-overlay');
   if (overlay) {
     overlay.addEventListener('click', function(e) {
-      if (e.target.closest('.pl-bar')) return;
       var bubble = document.getElementById('pl-bubble');
       if (bubble && bubble.style.display !== 'none') { bubble.style.display='none'; return; }
       overlay.style.pointerEvents = 'none';
       var el = document.elementFromPoint(e.clientX, e.clientY);
       overlay.style.pointerEvents = '';
       if (!el) return;
-      var vrow = el.closest('.pl-vrow');
-      if (vrow && (vrow.classList.contains('ck-ok')||vrow.classList.contains('ck-anom'))) {
-        var checkId=vrow.dataset.checkId, vehicleId=vrow.dataset.vehicleId;
-        if (checkId && vehicleId) openCheckViewer(checkId, vehicleId);
-        return;
-      }
       var cell = el.closest('.pl-cell[data-date]');
-      if (cell && cell.dataset.date) {
-        var dd=cell.dataset.date;
-        plannerNewIntervention(parseInt(dd.slice(0,4)),parseInt(dd.slice(5,7))-1,parseInt(dd.slice(8,10)));
-      }
+      if (!cell || !cell.dataset.date) return;
+      var vrow = el.closest('.pl-vrow');
+      var vid = vrow ? vrow.dataset.vid : null;
+      if (!vid) return; // click sull'intestazione del giorno: ignora
+      openPlannerCellDetail(vid, cell.dataset.date);
     });
   }
 
@@ -4857,6 +4790,83 @@ function _attachPanelListeners(panel) {
   panel.querySelectorAll('.pl-btn-mod').forEach(function(el){
     el.addEventListener('click', function(){ openInterventionForm(this.dataset.vid,this.dataset.iid); });
   });
+}
+
+// ═══════════════════════════════════════════════════════
+//  openPlannerCellDetail(vehicleId, dateStr)
+//  Query mezzo+giorno → elenca TUTTO cio che c'e in quella
+//  cella (anomalia arancio, chiuso verde, in lavorazione,
+//  segnalazione, gomme) con i relativi pulsanti operativi.
+// ═══════════════════════════════════════════════════════
+function openPlannerCellDetail(vehicleId, dateStr){
+  var v = DB.vehicles().find(function(x){ return x.id===vehicleId; });
+  var avz = DB.settings().gestioneAvanzata;
+  var cardCSS = 'border:1px solid #e2e8f0;border-radius:9px;padding:10px 12px;margin-bottom:8px;background:#fff;';
+  var titCSS  = 'font-size:13px;font-weight:700;margin-bottom:3px;';
+  var descCSS = 'font-size:12px;color:#475569;margin-bottom:8px;word-break:break-word;';
+  var bBase   = 'color:#fff;border:none;border-radius:8px;padding:8px 11px;font-size:12px;font-weight:700;cursor:pointer;';
+  var cards = [];
+
+  // CHECK del giorno
+  DB.checks().filter(function(c){ return c.vehicleId===vehicleId && c.data===dateStr; }).forEach(function(c){
+    var anomVoci=(c.items||[]).filter(function(it){return it.val==='anomalia';}).map(function(it){return it.voce;});
+    cards.push('<div style="'+cardCSS+'border-left:4px solid '+(anomVoci.length?'#fb923c':'#4ade80')+';">'
+      +'<div style="'+titCSS+'color:'+(anomVoci.length?'#c2410c':'#15803d')+';">'+(anomVoci.length?'🟠 Check con anomalie':'🟢 Check OK')+'</div>'
+      +'<div style="'+descCSS+'">'+(anomVoci.length?escHtml(anomVoci.join(', ')):'Tutto regolare')+'</div>'
+      +'<button onclick="closeModal2();openCheckViewer(\''+c.id+'\',\''+vehicleId+'\')" style="'+bBase+'background:#1e40af;">📋 Apri check</button>'
+      +'</div>');
+  });
+
+  // INTERVENTI che toccano il giorno (apertura / chiusura / programmazione)
+  DB.interventions().filter(function(i){ return i.vehicleId===vehicleId && (i.dataApertura===dateStr || i.dataChiusura===dateStr || i.dataProgrammazione===dateStr); }).forEach(function(i){
+    var lbl, col;
+    if (i.stato==='annullato'){ lbl='🟡 Intervento annullato'; col='#ca8a04'; }
+    else if (i.dataChiusura===dateStr){ lbl='🟢 Chiuso — mezzo disponibile'; col='#16a34a'; }
+    else if (i.dataProgrammazione===dateStr && i.dataApertura!==dateStr){ lbl='⏳ Programmato (attesa)'; col='#dc2626'; }
+    else { lbl='🔴 In lavorazione'; col='#dc2626'; }
+    var btns='';
+    if (i.stato!=='chiuso' && i.stato!=='annullato'){
+      btns+='<button onclick="closeModal2();openChiusuraForm(\''+i.id+'\',\''+vehicleId+'\',true)" style="'+bBase+'background:#16a34a;margin:2px;">✅ Chiudi</button>';
+      btns+='<button onclick="closeModal2();annullaIntervento(\''+i.id+'\',\''+vehicleId+'\',true)" style="'+bBase+'background:#ca8a04;margin:2px;">✕ Annulla</button>';
+    }
+    btns+='<button onclick="closeModal2();openInterventionForm(\''+vehicleId+'\',\''+i.id+'\')" style="'+bBase+'background:#64748b;margin:2px;">✏️ Modifica</button>';
+    if (avz) btns+='<button onclick="closeModal2();eliminaIntervento(\''+i.id+'\')" style="'+bBase+'background:#dc2626;margin:2px;">🗑️ Elimina</button>';
+    cards.push('<div style="'+cardCSS+'border-left:4px solid '+col+';">'
+      +'<div style="'+titCSS+'color:'+col+';">'+lbl+'</div>'
+      +'<div style="'+descCSS+'">'+escHtml(i.descrizione||'')+(i.dataChiusura?' · chiuso '+fmtDate(i.dataChiusura):'')+'</div>'
+      +'<div style="display:flex;flex-wrap:wrap;">'+btns+'</div>'
+      +'</div>');
+  });
+
+  // SEGNALAZIONI del giorno
+  DB.segnalazioni().filter(function(s){ return s.vehicleId===vehicleId && s.data===dateStr; }).forEach(function(s){
+    cards.push('<div style="'+cardCSS+'border-left:4px solid #facc15;">'
+      +'<div style="'+titCSS+'color:#b45309;">🟡 Segnalazione</div>'
+      +'<div style="'+descCSS+'">'+escHtml(s.problema||'')+'</div>'
+      +'<button onclick="closeModal2();openSegnalazioneDetail(\''+s.id+'\')" style="'+bBase+'background:#1e40af;">📢 Apri</button>'
+      +'</div>');
+  });
+
+  // CAMBI GOMME del giorno
+  DB.tireInterventions().filter(function(t){ return t.vehicleId===vehicleId && t.dataProgrammata===dateStr; }).forEach(function(t){
+    cards.push('<div style="'+cardCSS+'border-left:4px solid #60a5fa;">'
+      +'<div style="'+titCSS+'color:#1e40af;">🔵 Cambio gomme</div>'
+      +'<div style="'+descCSS+'">'+escHtml(t.note||'Programmato')+'</div>'
+      +'<button onclick="closeModal2();openEditCambioGomme(\''+t.id+'\')" style="'+bBase+'background:#1e40af;">✏️ Edita</button>'
+      +'</div>');
+  });
+
+  var head = (v?'<div style="margin-bottom:3px;">'+renderTargaHtml(v.targa)+'<span style="font-size:14px;font-weight:600;color:#1e293b;margin-left:8px;">'+escHtml(v.nome||'')+'</span></div>':'')
+    +'<div style="font-size:12px;color:#94a3b8;margin:2px 0 12px;">📅 '+fmtDate(dateStr)+'</div>';
+
+  var body;
+  if (cards.length){
+    body = head + cards.join('');
+  } else {
+    body = head + '<div style="font-size:13px;color:#94a3b8;margin-bottom:12px;">Nessun evento per questo mezzo in questo giorno.</div>'
+      +'<button onclick="closeModal2();plannerNewIntervention('+parseInt(dateStr.slice(0,4))+','+(parseInt(dateStr.slice(5,7))-1)+','+parseInt(dateStr.slice(8,10))+')" style="'+bBase+'background:#16a34a;width:100%;padding:12px;">➕ Nuovo intervento</button>';
+  }
+  openModal2('Dettaglio giorno', body);
 }
 
 // ═══════════════════════════════════════════════════════
