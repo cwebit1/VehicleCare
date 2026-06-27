@@ -2606,8 +2606,9 @@ function openHistory(vehicleId){
               +'<div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:5px;">🔗 INTERVENTI DI QUESTO CHECK ('+linkedInts.length+'):</div>'
               +linkedInts.map(function(i){
                 const dStr=i.dataChiusura?(' · chiuso '+fmtDate(i.dataChiusura)):'';
-                return '<div onclick="openInterventionForm(\''+i.vehicleId+'\',\''+i.id+'\')" style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 9px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:7px;margin-bottom:4px;cursor:pointer;">'
-                  +'<div style="font-size:11px;color:#334155;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escHtml(i.descrizione||'')+dStr+'</div>'
+                return '<div style="display:flex;align-items:center;gap:8px;padding:6px 9px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:7px;margin-bottom:4px;">'
+                  +(avanzata?'<button onclick="event.stopPropagation();eliminaIntervento(\''+i.id+'\')" title="Elimina intervento" style="background:#fee2e2;color:#b91c1c;border:none;border-radius:6px;width:24px;height:24px;font-size:13px;font-weight:700;line-height:1;cursor:pointer;flex-shrink:0;">✕</button>':'')
+                  +'<div onclick="openInterventionForm(\''+i.vehicleId+'\',\''+i.id+'\')" style="font-size:11px;color:#334155;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;">'+escHtml(i.descrizione||'')+dStr+'</div>'
                   +badge(i.stato)
                   +'</div>';
               }).join('')
