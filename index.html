@@ -2553,7 +2553,14 @@ function openHistory(vehicleId){
     ...interventions.map(i=>({type:'intervento',date:i.dataApertura,data:i})),
     ...tires.map(t=>({type:'gomme',date:t.dataMontaggio,data:t})),
     ...segnalazioni.map(s=>({type:'segnalazione',date:s.data,data:s}))
-  ].sort((a,b)=>new Date(b.date)-new Date(a.date));
+  ].sort((a,b)=>{
+    const d=new Date(b.date)-new Date(a.date);
+    if(d!==0) return d;
+    // Stessa data: ordina per momento di creazione (creato dopo = più in alto)
+    const ca=(a.data&&a.data.createdAt)?a.data.createdAt:'';
+    const cb=(b.data&&b.data.createdAt)?b.data.createdAt:'';
+    return cb.localeCompare(ca);
+  });
 
   const timelineHtml=events.length===0
     ? '<div class="empty"><p>Nessun evento registrato</p></div>'
