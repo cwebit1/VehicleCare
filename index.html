@@ -691,6 +691,26 @@ function fmtKM(n){ if(!n&&n!==0) return '—'; return Number(n).toLocaleString('
 function today(){ return new Date().toISOString().slice(0,10); }
 function nowISO(){ return new Date().toISOString(); }
 function daysDiff(dateStr){ const d=new Date(dateStr); const n=new Date(); return Math.round((d-n)/(1000*60*60*24)); }
+// Stato revisione su base MESE: preavviso da 15gg prima dell'inizio del mese di scadenza,
+// per tutto il mese; scaduta quando il mese di scadenza è finito.
+function revStatus(scad){
+  if(!scad) return 'none';
+  const d=new Date(scad+'T00:00:00');
+  if(isNaN(d)) return 'none';
+  const y=d.getFullYear(), m=d.getMonth();
+  const monthEnd=new Date(y, m+1, 0); monthEnd.setHours(23,59,59,999);   // ultimo giorno del mese
+  const warnStart=new Date(y, m, 1); warnStart.setDate(warnStart.getDate()-15); warnStart.setHours(0,0,0,0); // 15gg prima dell'inizio mese
+  const now=new Date(); now.setHours(0,0,0,0);
+  if(now>monthEnd) return 'scaduta';
+  if(now>=warnStart) return 'in_scadenza';
+  return 'ok';
+}
+function fmtMese(scad){
+  const mesi=['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
+  const d=new Date(scad+'T00:00:00');
+  if(isNaN(d)) return '';
+  return mesi[d.getMonth()]+' '+d.getFullYear();
+}
 function formatTarga(s){ return (s||'').toUpperCase().replace(/\s/g,''); }
 function escHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
@@ -766,10 +786,16 @@ function renderAlerts(){
   const warnDays = settings.revWarningDays||30;
   const now = new Date();
 
-  // Revisioni in scadenza
-  const revScad = vehicles.filter(v=>!v.venduto && v.scadenzaRevisione && daysDiff(v.scadenzaRevisione)<=warnDays && daysDiff(v.scadenzaRevisione)>=0);
-  if(revScad.length){
-    const chip = mkChip('red', `⚠️ ${revScad.length} revisione${revScad.length>1?'i':''} in scadenza`, ()=>showRevisioniAlert(revScad));
+  // Revisioni in scadenza o SCADUTE — logica MENSILE (revStatus)
+  const revList = vehicles.filter(v=>!v.venduto && v.scadenzaRevisione && revStatus(v.scadenzaRevisione)!=='ok' && revStatus(v.scadenzaRevisione)!=='none')
+    .sort((a,b)=>new Date(a.scadenzaRevisione)-new Date(b.scadenzaRevisione));
+  if(revList.length){
+    const nScad = revList.filter(v=>revStatus(v.scadenzaRevisione)==='scaduta').length;
+    const nNear = revList.length - nScad;
+    const label = nScad>0
+      ? `⚠️ Revisioni: ${nScad} scadut${nScad>1?'e':'a'}${nNear>0?', '+nNear+' in scadenza':''}`
+      : `⚠️ ${revList.length} revisione${revList.length>1?'i':''} in scadenza`;
+    const chip = mkChip('red', label, ()=>showRevisioniAlert(revList));
     bar.appendChild(chip);
   }
 
@@ -970,24 +996,95 @@ function checkTireAlerts(settings){
   return null;
 }
 
+// ═══════════════════════════════════════════════════════
+//  REVISIONE — form di risoluzione (biennale)
+// ═══════════════════════════════════════════════════════
+function _revPlus2(dateStr){
+  if(!dateStr) return '';
+  var d = new Date(dateStr+'T00:00:00');
+  if(isNaN(d)) return '';
+  d.setFullYear(d.getFullYear()+2);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
+function openRevisioneForm(vehicleId){
+  const v = DB.vehicles().find(x=>x.id===vehicleId);
+  if(!v){ toast('Veicolo non trovato','error'); return; }
+  const suppliers = DB.suppliers().filter(s=>s.attivo);
+  const suppOpts = '<option value="">— Nessun fornitore —</option>'
+    + suppliers.map(s=>'<option value="'+s.id+'">'+escHtml(s.nome)+' ('+escHtml(s.tipo)+')</option>').join('');
+  const oggi = today();
+  openModal('🔧 Revisione — '+escHtml(v.targa||''), `
+    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 12px;margin-bottom:14px;">
+      <div style="font-size:12px;color:#1e40af;font-weight:700;">REVISIONE PERIODICA (biennale)</div>
+      <div style="font-size:12px;color:#475569;margin-top:2px;">Scadenza attuale: ${v.scadenzaRevisione?fmtDate(v.scadenzaRevisione):'—'}</div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Data intervento</label>
+        <input class="form-input" id="rev-data" type="date" value="${oggi}" oninput="var n=document.getElementById('rev-scad'); if(n) n.value=_revPlus2(this.value);"></div>
+      <div class="form-group"><label class="form-label">KM</label>
+        <input class="form-input" id="rev-km" type="number" min="0" value="${v.km||''}" placeholder="KM veicolo"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Fornitore</label>
+      <select class="form-select" id="rev-fornitore">${suppOpts}</select></div>
+    <div class="form-group"><label class="form-label">Nuova scadenza (tra 2 anni)</label>
+      <input class="form-input" id="rev-scad" type="date" value="${_revPlus2(oggi)}"></div>
+    <div class="form-group"><label class="form-label">Note (opzionale)</label>
+      <textarea class="form-input" id="rev-note" rows="2" placeholder="Es: revisione regolare presso…"></textarea></div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="closeModal()">Annulla</button>
+      <button class="btn btn-success" onclick="saveRevisione('${vehicleId}')" style="background:#16a34a;color:#fff;">✅ Risolto</button>
+    </div>
+  `);
+}
+
+function saveRevisione(vehicleId){
+  const v = DB.vehicles().find(x=>x.id===vehicleId);
+  if(!v){ toast('Veicolo non trovato','error'); return; }
+  const data = document.getElementById('rev-data').value || today();
+  const km = parseInt(document.getElementById('rev-km').value) || parseInt(v.km) || null;
+  const fornitoreId = document.getElementById('rev-fornitore').value || null;
+  const nuovaScad = document.getElementById('rev-scad').value || _revPlus2(data);
+  const note = document.getElementById('rev-note').value.trim();
+  // Intervento chiuso "Revisione periodica" — traccia data, km, fornitore nello storico
+  const interventions = DB.interventions();
+  interventions.push({
+    id: DB.uid(), vehicleId,
+    descrizione: 'Revisione periodica',
+    origine: 'revisione',
+    stato: 'chiuso',
+    dataApertura: data, dataProgrammazione: data, dataChiusura: data,
+    kmApertura: km, kmChiusura: km,
+    fornitoreId: fornitoreId,
+    noteChiusura: note || 'Revisione effettuata',
+    createdAt: nowISO()
+  });
+  DB.saveInterventions(interventions);
+  // Aggiorna la scadenza sulla scheda veicolo
+  const vehicles = DB.vehicles();
+  const idx = vehicles.findIndex(x=>x.id===vehicleId);
+  if(idx>-1){ vehicles[idx].scadenzaRevisione = nuovaScad; DB.saveVehicles(vehicles); }
+  closeModal();
+  toast('Revisione registrata · nuova scadenza '+fmtDate(nuovaScad),'success');
+  refreshAll();
+}
+
 function showRevisioniAlert(list){
   const html = list.map(v=>{
-    const days = daysDiff(v.scadenzaRevisione);
-    const badgeHtml = days===0
-      ? '<span class="badge badge-red">Oggi!</span>'
-      : days>0
-        ? '<span class="badge badge-amber">Tra '+days+' giorni</span>'
-        : '<span class="badge badge-red">Scaduta!</span>';
+    const st = revStatus(v.scadenzaRevisione);
+    const badgeHtml = st==='scaduta'
+      ? '<span class="badge badge-red">Scaduta</span>'
+      : '<span class="badge badge-amber">Da fare entro fine '+fmtMese(v.scadenzaRevisione)+'</span>';
     return '<div class="list-item">'
       +'<div class="list-item-info">'
       +renderTargaHtml(v.targa)
       +'<div class="list-item-sub" style="margin-top:4px;">'+escHtml(v.nome)+'</div>'
-      +'<div class="list-item-sub">Scadenza: '+fmtDate(v.scadenzaRevisione)+'</div>'
+      +'<div class="list-item-sub">Scadenza: '+fmtMese(v.scadenzaRevisione)+'</div>'
       +'<div style="margin-top:4px;">'+badgeHtml+'</div>'
       +'</div>'
-      +'<button class="rev-crea-int" data-vid="'+v.id+'" data-targa="'+escHtml(v.targa)+'" data-km="'+(v.km||0)+'"'
-      +' style="background:#1e40af;color:#fff;border:none;border-radius:8px;padding:8px 10px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;">'
-      +'+ Intervento<br>revisione</button>'
+      +'<button class="rev-crea-int" data-vid="'+v.id+'"'
+      +' style="background:#16a34a;color:#fff;border:none;border-radius:8px;padding:8px 10px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;">'
+      +'✅ Risolvi<br>revisione</button>'
       +'</div>';
   }).join('');
   openModal('Revisioni in scadenza', html+'<div style="height:8px;"></div>');
@@ -995,10 +1092,7 @@ function showRevisioniAlert(list){
     document.querySelectorAll('.rev-crea-int').forEach(function(btn){
       btn.addEventListener('click', function(){
         closeModal();
-        var vehicleId = btn.dataset.vid;
-        var targa = btn.dataset.targa;
-        window._preInterventoDesc = 'Revisione periodica — ' + targa;
-        openInterventionForm(vehicleId, null);
+        openRevisioneForm(btn.dataset.vid);
       });
     });
   }, 30);
@@ -1309,8 +1403,9 @@ function renderVehicleCard(v, photo){
   const hasAnomalia=interventions.some(i=>i.vehicleId===v.id&&i.stato==='anomalia');
   const hasLavorazione=interventions.some(i=>i.vehicleId===v.id&&i.stato==='in_lavorazione');
   const settings=DB.settings();
-  const revNear=v.scadenzaRevisione&&daysDiff(v.scadenzaRevisione)<=(settings.revWarningDays||30)&&daysDiff(v.scadenzaRevisione)>=0;
-  const revScad=v.scadenzaRevisione&&daysDiff(v.scadenzaRevisione)<0;
+  const _revSt=v.scadenzaRevisione?revStatus(v.scadenzaRevisione):'none';
+  const revNear=_revSt==='in_scadenza';
+  const revScad=_revSt==='scaduta';
 
   const photoHtml = photo
     ? `<div style="position:absolute;top:14px;right:14px;width:110px;height:84px;border-radius:10px;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,.18);z-index:2;cursor:pointer;" onclick="openDocuments('${v.id}')" title="Gestisci foto in Documenti">
@@ -1389,9 +1484,9 @@ function openVehicleForm(id){
     <div class="form-group inline"><label class="form-label">Nome veicolo *</label>
       <input class="form-input" id="vf-nome" value="${escHtml(v.nome||'')}" placeholder="es. Furgone Iveco" autocomplete="off"></div>
     <div class="form-row">
-      <div class="form-group inline"><label class="form-label">Modello</label>
+      <div class="form-group"><label class="form-label">Modello</label>
         <input class="form-input" id="vf-modello" value="${escHtml(v.modello||'')}" placeholder="Daily 35S15" autocomplete="off"></div>
-      <div class="form-group inline"><label class="form-label">Anno</label>
+      <div class="form-group"><label class="form-label">Anno</label>
         <input class="form-input" id="vf-anno" type="number" value="${v.anno||''}" placeholder="2020" min="1980" max="2030"></div>
     </div>
     <div class="form-group inline"><label class="form-label">KM attuali</label>
