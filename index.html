@@ -331,6 +331,8 @@ body.dark #modal-box-2{background:#2a2a2a;}
   body > *:not(#check-print-frame){ display:none !important; }
   #check-print-frame{ display:block !important; position:fixed; inset:0; background:#fff; z-index:9999; padding:12mm 14mm; font-family:Arial,sans-serif; font-size:10pt; color:#000; }
   #check-print-frame *{ box-sizing:border-box; }
+  #check-print-frame.cpr-img{ padding:0 !important; }
+  #check-print-frame.cpr-img img{ width:100%; height:auto; display:block; }
   .cpr-header{ margin-bottom:8mm; }
   .cpr-title{ font-size:14pt; font-weight:700; margin-bottom:3mm; }
   .cpr-meta{ display:flex; gap:10mm; font-size:9pt; color:#333; margin-bottom:4mm; }
@@ -2252,7 +2254,10 @@ function openCheckViewer(checkId, vehicleId){
     + '<div style="max-height:45vh;overflow-y:auto;margin-bottom:10px;">' + righeHtml + '</div>'
     + (c.note ? '<div style="background:#f8fafc;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:13px;color:#475569;"><strong>Note:</strong> ' + escHtml(c.note) + '</div>' : '')
     + anomBtn
-    + '<button id="ck-stampa-modulo" style="width:100%;background:#1e40af;color:#fff;border:none;border-radius:10px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;">🖨️ Visualizza e stampa</button>'
+    + '<div style="display:flex;gap:8px;">'
+    + '<button id="ck-view-pdf" style="flex:1;background:#1e40af;color:#fff;border:none;border-radius:10px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;">👁️ Visualizza PDF</button>'
+    + '<button id="ck-print-pdf" style="flex:1;background:#0f766e;color:#fff;border:none;border-radius:10px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;">🖨️ Stampa</button>'
+    + '</div>'
     + '</div>';
 
   openModal('', html);
@@ -2263,9 +2268,11 @@ function openCheckViewer(checkId, vehicleId){
     var btnNext = document.getElementById('ck-next');
     if(btnPrev && prevId) btnPrev.addEventListener('click', function(){ openCheckViewer(prevId, vehicleId); });
     if(btnNext && nextId) btnNext.addEventListener('click', function(){ openCheckViewer(nextId, vehicleId); });
-    // Stampa
-    var btnModulo = document.getElementById('ck-stampa-modulo');
-    if(btnModulo) btnModulo.addEventListener('click', function(){ stampaCheckModulo(c.id); });
+    // Stampa / Visualizza PDF
+    var btnView = document.getElementById('ck-view-pdf');
+    if(btnView) btnView.addEventListener('click', function(){ stampaCheckModulo(c.id, 'view'); });
+    var btnPrint = document.getElementById('ck-print-pdf');
+    if(btnPrint) btnPrint.addEventListener('click', function(){ stampaCheckModulo(c.id, 'print'); });
     // Gestisci anomalie
     var btnAnom = document.getElementById('ck-anom-btn');
     if(btnAnom) btnAnom.addEventListener('click', function(){ openCheckAnomalieFromPlanner(c.id, vehicleId); });
@@ -2308,7 +2315,7 @@ const MODULO_NOTE_GEN_X = 100;
 const MODULO_NOTE_GEN_Y = 875;
 const MODULO_NOTE_GEN_W = 600;
 
-function stampaCheckModulo(checkId){
+function stampaCheckModulo(checkId, mode){
   const c = DB.checks().find(x => x.id === checkId);
   if(!c){ toast('Check non trovato','error'); return; }
   const v = DB.vehicles().find(x => x.id === c.vehicleId);
@@ -2433,8 +2440,19 @@ function stampaCheckModulo(checkId){
       }
     }
 
-    // ── 6. Genera PDF con jsPDF e apri per visualizzazione/stampa ──
+    // ── 6. mode 'print' → stampa diretta · altrimenti → apri PDF per visualizzazione ──
     const dataUrl = canvas.toDataURL('image/png');
+    if(mode === 'print'){
+      const frame = document.getElementById('check-print-frame');
+      frame.className = 'cpr-img';
+      frame.innerHTML = '<img src="' + dataUrl + '">';
+      frame.style.display = 'block';
+      setTimeout(function(){
+        window.print();
+        setTimeout(function(){ frame.style.display='none'; frame.innerHTML=''; frame.className=''; }, 500);
+      }, 150);
+      return;
+    }
     try {
       const { jsPDF } = window.jspdf;
       const pdf = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
@@ -2453,7 +2471,7 @@ function stampaCheckModulo(checkId){
     } catch(e) {
       // Fallback se jsPDF non disponibile: mostra PNG in nuova finestra
       const win = window.open('');
-      win.document.write(
+      if(win) win.document.write(
         '<html><head><title>Check '+(v?.targa||'')+' — '+(fmtDate(c.data)||'')+'</title>'
         +'<style>*{margin:0;padding:0;}body{background:#888;display:flex;justify-content:center;}'
         +'img{display:block;max-width:100%;}'
