@@ -4514,15 +4514,32 @@ function _buildMonthPanel(Y, M) {
       var dPrev = new Date(aperturaDate+'T00:00:00');
       dPrev.setDate(dPrev.getDate()-1);
       var attesaEnd = dPrev.getFullYear()+'-'+String(dPrev.getMonth()+1).padStart(2,'0')+'-'+String(dPrev.getDate()).padStart(2,'0');
-      // L'attesa parte dalla data di programmazione dell'intervento
+      // L'attesa parte dalla data di programmazione. Ma se su quel giorno c'è la sfumatura
+      // di transizione (intervento nato da segnalazione/anomalia), il tratteggio parte dal
+      // giorno DOPO, così la sequenza è: sfumatura → poi tratteggiato.
+      var hasTransition = false;
+      if (int.segnalazioneId) {
+        var _sg = DB.segnalazioni().find(function(x){ return x.id===int.segnalazioneId; });
+        if (_sg && progDate > _sg.data) hasTransition = true;
+      } else if (int.checkId) {
+        var _ck = DB.checks().find(function(x){ return x.id===int.checkId; });
+        if (_ck && progDate > _ck.data) hasTransition = true;
+      }
       var attesaStart = progDate;
-      _pushDateRangeSegments(attesaStart, attesaEnd, {
-        id:int.id, vehicleId:int.vehicleId, _isAttesa:true,
-        descrizione:int.descrizione, dataApertura:int.dataApertura, stato:int.stato,
-        checkId:int.checkId, segnalazioneId:int.segnalazioneId,
-        kmApertura:int.kmApertura, fornitoreId:int.fornitoreId,
-        dataChiusura:int.dataChiusura, kmChiusura:int.kmChiusura, noteChiusura:int.noteChiusura
-      });
+      if (hasTransition) {
+        var dN = new Date(progDate+'T00:00:00');
+        dN.setDate(dN.getDate()+1);
+        attesaStart = dN.getFullYear()+'-'+String(dN.getMonth()+1).padStart(2,'0')+'-'+String(dN.getDate()).padStart(2,'0');
+      }
+      if (attesaStart <= attesaEnd) {
+        _pushDateRangeSegments(attesaStart, attesaEnd, {
+          id:int.id, vehicleId:int.vehicleId, _isAttesa:true,
+          descrizione:int.descrizione, dataApertura:int.dataApertura, stato:int.stato,
+          checkId:int.checkId, segnalazioneId:int.segnalazioneId,
+          kmApertura:int.kmApertura, fornitoreId:int.fornitoreId,
+          dataChiusura:int.dataChiusura, kmChiusura:int.kmChiusura, noteChiusura:int.noteChiusura
+        });
+      }
     }
 
     // ── FASE 2: LAVORAZIONE (rosso pieno) — da dataApertura in poi ──
@@ -4575,15 +4592,11 @@ function _buildMonthPanel(Y, M) {
       }
     });
     var endDateStr;
+    var earliest = null;
     if (!senzaIntervento && linkedDates.length) {
-      // L'anomalia (giallo) resta fino al giorno PRIMA della data intervento.
-      // Il giorno della data intervento è rosso pieno (mezzo non disponibile).
-      // La tratteggiata è una storia separata che coesiste con il giallo.
+      // L'anomalia (arancio) resta fino al giorno PRIMA della data programmazione.
       linkedDates.sort();
-      var earliest = linkedDates[0];
-      // Il colore anomalia si interrompe SEMPRE al giorno PRIMA della programmazione.
-      // Se la programmazione è <= data check (gestione immediata) non resta alcuna barra arancio:
-      // il giorno è rappresentato dal verde "mezzo disponibile" dell'intervento chiuso.
+      earliest = linkedDates[0];
       var dA = new Date(earliest+'T00:00:00');
       dA.setDate(dA.getDate()-1);
       endDateStr = dA.getFullYear()+'-'+String(dA.getMonth()+1).padStart(2,'0')+'-'+String(dA.getDate()).padStart(2,'0');
@@ -4591,6 +4604,10 @@ function _buildMonthPanel(Y, M) {
       endDateStr = c.data > todayStr ? c.data : todayStr;
     }
     _pushDateRangeSegments(c.data, endDateStr, { id:c.id, vehicleId:c.vehicleId, _isCheckAnom:true, _checkId:c.id, stato:'anomalia_check' });
+    // Giorno di creazione intervento: sfumatura arancio→rosso (poi prosegue la tratteggiata)
+    if (earliest && earliest > c.data) {
+      _pushDateRangeSegments(earliest, earliest, { id:c.id, vehicleId:c.vehicleId, _isTransition:true, _transFrom:EV_COLORS.checkAnom, stato:'anomalia_check' });
+    }
   });
 
   // Segnalazioni — traccia in giallo da s.data fino al giorno prima dell'apertura
@@ -4601,14 +4618,9 @@ function _buildMonthPanel(Y, M) {
   DB.segnalazioni().forEach(function(s) {
     if (!s.data) return;
     var linked = interventions.find(function(i){ return i.segnalazioneId===s.id && i.stato!=='annullato'; });
+    var cut = (linked && linked.dataApertura) ? (linked.dataProgrammazione || linked.dataApertura) : null;
     var endDateStr;
-    if (linked && linked.dataApertura) {
-      // La segnalazione (giallo) resta fino al giorno PRIMA della data di PROGRAMMAZIONE dell'intervento.
-      // Da lì parte la tratteggiata di attesa; il giorno della data intervento è rosso pieno.
-      var cut = linked.dataProgrammazione || linked.dataApertura;
-      // Il giallo si interrompe SEMPRE al giorno PRIMA della programmazione.
-      // Gestione immediata (programmazione <= data segnalazione) ⇒ nessuna barra gialla:
-      // il giorno è rappresentato dal verde "mezzo disponibile" dell'intervento chiuso.
+    if (cut) {
       var dS = new Date(cut+'T00:00:00');
       dS.setDate(dS.getDate()-1);
       endDateStr = dS.getFullYear()+'-'+String(dS.getMonth()+1).padStart(2,'0')+'-'+String(dS.getDate()).padStart(2,'0');
@@ -4616,6 +4628,10 @@ function _buildMonthPanel(Y, M) {
       endDateStr = s.data > todayStr ? s.data : todayStr;
     }
     _pushDateRangeSegments(s.data, endDateStr, { id:s.id, vehicleId:s.vehicleId, _isSegnalazione:true, _segnalazioneId:s.id, stato:'segnalazione' });
+    // Giorno di creazione intervento: sfumatura giallo→rosso (poi prosegue la tratteggiata)
+    if (cut && cut > s.data) {
+      _pushDateRangeSegments(cut, cut, { id:s.id, vehicleId:s.vehicleId, _isTransition:true, _transFrom:EV_COLORS.segnalazione, stato:'segnalazione' });
+    }
   });
 
   // Gomme programmate
@@ -4657,14 +4673,12 @@ function _buildMonthPanel(Y, M) {
         +' data-segn-id="'+seg.int._segnalazioneId+'">'
         +'<span class="pl-bar-lbl">'+lbl+'</span></button>';
     } else if (seg.int._isAttesa) {
-      // Fase di attesa: trattino rosso centrale, alto 6px e lungo metà del segmento (centrato),
-      // così non si salda in una linea continua e gli eventi sotto restano visibili/cliccabili.
-      var attTop  = rowTop + (PL_ROW_H/2 - 3);
-      var attLeft = left + width/4;
-      var attW    = width/2;
+      // Fase di attesa: linea rossa TRATTEGGIATA (trattini corti), centrata in verticale.
+      var attTop = rowTop + (PL_ROW_H/2 - 3);
       barsHtml += '<button class="pl-bar pl-bar-attesa"'
-        +' style="left:'+attLeft+'%;width:'+attW+'%;top:'+attTop+'px;height:6px;'
-        +'background:'+EV_COLORS.intervento+';border:none;box-shadow:none;border-radius:3px;"'
+        +' style="left:calc('+left+'% + 1px);width:calc('+width+'% - 2px);top:'+attTop+'px;height:6px;'
+        +'background:repeating-linear-gradient(90deg,'+EV_COLORS.intervento+' 0,'+EV_COLORS.intervento+' 5px,transparent 5px,transparent 11px);'
+        +'border:none;box-shadow:none;"'
         +' data-iid="'+seg.int.id+'" data-vid="'+seg.int.vehicleId+'"></button>';
     } else if (seg.int._isResolved) {
       // Mezzo tornato disponibile (intervento chiuso): mezza cella verde sfumata.
@@ -4673,9 +4687,13 @@ function _buildMonthPanel(Y, M) {
         +'background:linear-gradient(to top, rgba(74,222,128,0.9), rgba(74,222,128,0));border:none;box-shadow:none;"'
         +' data-iid="'+seg.int.id+'" data-vid="'+seg.int.vehicleId+'">'
         +'<span class="pl-bar-lbl" style="color:#15803d;">'+lbl+'</span></button>';
-    } else {
-      var color = seg.int.stato==='annullato' ? EV_COLORS.annullato : EV_COLORS.intervento;
+    } else if (seg.int._isTransition) {
+      // Giorno di creazione intervento: sfumatura dal colore origine (giallo/arancio) al rosso
       barsHtml += '<button class="pl-bar"'
+        +' style="left:calc('+left+'% + 1px);width:calc('+width+'% - 2px);top:'+rowTop+'px;height:'+PL_ROW_H+'px;'
+        +'background:linear-gradient(90deg,'+seg.int._transFrom+' 0%,'+EV_COLORS.intervento+' 100%);"'
+        +' data-vid="'+seg.int.vehicleId+'"></button>';
+    } else {
         +' style="left:calc('+left+'% + 1px);width:calc('+width+'% - 2px);top:'+rowTop+'px;height:'+PL_ROW_H+'px;background:'+color+';"'
         +' data-iid="'+seg.int.id+'" data-vid="'+seg.int.vehicleId+'">'
         +'<span class="pl-bar-lbl">'+lbl+'</span></button>';
