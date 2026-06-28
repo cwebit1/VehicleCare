@@ -872,13 +872,19 @@ function openInterventionDetail(interventionId){
     + '<div style="background:#f8fafc;border-radius:10px;padding:12px;">'
     + '<div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:6px;">'+escHtml(i.descrizione||'—')+'</div>'
     + (v ? '<div style="margin-bottom:6px;">'+renderTargaHtml(v.targa)+'<span style="font-size:12px;color:#64748b;margin-left:8px;">'+escHtml(v.nome)+'</span></div>' : '')
-    + '<div style="font-size:12px;color:#64748b;">📅 Apertura: '+fmtDate(i.dataApertura)+(i.dataChiusura?' → Chiusura: '+fmtDate(i.dataChiusura):'')+'</div>'
-    + (i.kmApertura ? '<div style="font-size:12px;color:#64748b;">🛣️ Km: '+Number(i.kmApertura).toLocaleString('it-IT')+'</div>' : '')
-    + (sup ? '<div style="font-size:12px;color:#64748b;">🏠 '+escHtml(sup.nome)+'</div>' : '')
+    + (i.kmApertura ? '<div style="font-size:12px;color:#64748b;margin-bottom:8px;">🛣️ Km: '+Number(i.kmApertura).toLocaleString('it-IT')+'</div>' : '')
+    + '<div style="font-size:14px;font-weight:700;color:#1e293b;">📅 Intervento programmato per il : '+fmtDate(i.dataApertura)+'</div>'
+    + (i.dataChiusura ? '<div style="font-size:12px;color:#64748b;margin-top:2px;">Chiusura: '+fmtDate(i.dataChiusura)+'</div>' : '')
+    + '<div style="height:10px;"></div>'
+    + (sup ? '<div style="font-size:13px;color:#334155;">🏠 Presso : '+escHtml(sup.nome)+'</div>' : '')
     + (function(){
         var bgMap={in_lavorazione:'#fef3c7',anomalia:'#fee2e2',chiuso:'#dcfce7',annullato:'#f1f5f9'};
         var clMap={in_lavorazione:'#92400e',anomalia:'#b91c1c',chiuso:'#15803d',annullato:'#475569'};
-        return '<div style="margin-top:8px;"><span style="background:'+(bgMap[i.stato]||'#f1f5f9')+';color:'+(clMap[i.stato]||'#475569')+';border-radius:20px;padding:3px 10px;font-size:12px;font-weight:700;">'+(statoMap[i.stato]||i.stato)+'</span></div>';
+        var txt = statoMap[i.stato]||i.stato;
+        if(i.stato==='in_lavorazione' && i.dataApertura && i.dataApertura>today()){
+          txt = '⏳ In attesa di lavorazione';
+        }
+        return '<div style="margin-top:8px;"><span style="background:'+(bgMap[i.stato]||'#f1f5f9')+';color:'+(clMap[i.stato]||'#475569')+';border-radius:20px;padding:3px 10px;font-size:12px;font-weight:700;">'+txt+'</span></div>';
       })()
     + '</div>'
     + (i.noteChiusura ? '<div style="font-size:12px;color:#64748b;padding:0 2px;">📝 '+escHtml(i.noteChiusura)+'</div>' : '')
@@ -5626,7 +5632,7 @@ function openSettings(){
       </label>
     </div>
     <button class="btn btn-danger" onclick="confirmResetAll()">🗑️ Azzera tutti i dati</button>
-    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.0 — VehicleCare Pro</p>
+    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.97 — VehicleCare Pro</p>
     <div style="height:10px;"></div>
   `);
   renderBackupStatus();
