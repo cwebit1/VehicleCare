@@ -5776,7 +5776,7 @@ function openSettings(){
       </label>
     </div>
     <button class="btn btn-danger" onclick="confirmResetAll()">🗑️ Azzera tutti i dati</button>
-    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.1.02 — VehicleCare Pro</p>
+    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.1.03 — VehicleCare Pro</p>
     <div style="height:10px;"></div>
   `);
   renderBackupStatus();
@@ -6080,9 +6080,11 @@ async function exportData(){
     const backup={
       version:2, exportedAt:nowISO(),
       vehicles:DB.vehicles(), checks:DB.checks(),
-      interventions:DB.interventions(), suppliers:DB.suppliers(),
+      interventions:DB.interventions(), segnalazioni:DB.segnalazioni(),
+      suppliers:DB.suppliers(),
       tires:DB.tires(), tiresStorico:DB.tiresStorico(),
-      tireInterventions:DB.tireInterventions(), settings:DB.settings()
+      tireInterventions:DB.tireInterventions(), settings:DB.settings(),
+      calibration:DB.get('calibration')
     };
     zip.file('dati.json', JSON.stringify(backup, null, 2));
     // Foto veicoli da IndexedDB (vehicle_photos)
@@ -6197,6 +6199,7 @@ function _showImportConfirm(data, docsCount){
       🚗 ${data.vehicles?.length||0} veicoli<br>
       📋 ${data.checks?.length||0} check mensili<br>
       🔧 ${data.interventions?.length||0} interventi<br>
+      📣 ${data.segnalazioni?.length||0} segnalazioni<br>
       🔵 ${data.tires?.length||0} set gomme<br>
       🏠 ${data.suppliers?.length||0} fornitori<br>
       ${docsCount!==false?`📎 ${docsCount} documenti allegati`:''}
@@ -6218,11 +6221,13 @@ async function _doImport(){
     if(data.vehicles) DB.saveVehicles(data.vehicles);
     if(data.checks) DB.saveChecks(data.checks);
     if(data.interventions) DB.saveInterventions(data.interventions);
+    if(data.segnalazioni) DB.saveSegnalazioni(data.segnalazioni);
     if(data.suppliers) DB.saveSuppliers(data.suppliers);
     if(data.tires) DB.saveTires(data.tires);
     if(data.tiresStorico) DB.saveTiresStorico(data.tiresStorico);
     if(data.tireInterventions) DB.saveTireInterventions(data.tireInterventions);
     if(data.settings){ const s={...DB.settings(),...data.settings}; DB.saveSettings(s); }
+    if(data.calibration) DB.set('calibration', data.calibration);
     // Ripristina documenti in IDB
     if(docs.length>0){
       await IDB.clear();
