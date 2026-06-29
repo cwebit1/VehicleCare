@@ -2545,24 +2545,34 @@ function stampaCheckModulo(checkId, mode){
       }
     }
 
-    // ── 6. mode 'print' → stampa diretta · altrimenti → apri PDF per visualizzazione ──
+    // ── 6. Genera il PDF (stesso identico output per anteprima e stampa) ──
     const dataUrl = canvas.toDataURL('image/png');
-    if(mode === 'print'){
-      const frame = document.getElementById('check-print-frame');
-      frame.className = 'cpr-img';
-      frame.innerHTML = '<img src="' + dataUrl + '">';
-      frame.style.display = 'block';
-      setTimeout(function(){
-        window.print();
-        setTimeout(function(){ frame.style.display='none'; frame.innerHTML=''; frame.className=''; }, 500);
-      }, 150);
-      return;
-    }
     try {
       const { jsPDF } = window.jspdf;
       const pdf = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
       // A4 = 210x297mm — adatta immagine 800x1101px
       pdf.addImage(dataUrl, 'PNG', 0, 0, 210, 297);
+
+      if(mode === 'print'){
+        // Invia in stampa esattamente il PDF generato (apertura PDF con stampa automatica)
+        pdf.autoPrint();
+        const blobUrl = pdf.output('bloburl');
+        const w = window.open(blobUrl, '_blank');
+        if(!w){
+          // Popup bloccato → iframe nascosto come fallback di stampa
+          let ifr = document.getElementById('pdf-print-iframe');
+          if(ifr) ifr.remove();
+          ifr = document.createElement('iframe');
+          ifr.id = 'pdf-print-iframe';
+          ifr.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+          ifr.onload = function(){ try{ ifr.contentWindow.focus(); ifr.contentWindow.print(); }catch(err){} };
+          ifr.src = blobUrl;
+          document.body.appendChild(ifr);
+        }
+        return;
+      }
+
+      // Anteprima: apri il PDF in una nuova scheda
       const pdfBlob = pdf.output('blob');
       const pdfUrl = URL.createObjectURL(pdfBlob);
       const win = window.open(pdfUrl, '_blank');
@@ -2574,15 +2584,19 @@ function stampaCheckModulo(checkId, mode){
         a.click();
       }
     } catch(e) {
-      // Fallback se jsPDF non disponibile: mostra PNG in nuova finestra
+      // Fallback se jsPDF non disponibile: mostra PNG in nuova finestra (con stampa se richiesta)
       const win = window.open('');
-      if(win) win.document.write(
-        '<html><head><title>Check '+(v?.targa||'')+' — '+(fmtDate(c.data)||'')+'</title>'
-        +'<style>*{margin:0;padding:0;}body{background:#888;display:flex;justify-content:center;}'
-        +'img{display:block;max-width:100%;}'
-        +'@media print{body{background:#fff;}img{width:100%;height:auto;}@page{size:A4;margin:0;}}</style></head>'
-        +'<body><img src="'+dataUrl+'"></body></html>'
-      );
+      if(win){
+        win.document.write(
+          '<html><head><title>Check '+(v?.targa||'')+' — '+(fmtDate(c.data)||'')+'</title>'
+          +'<style>*{margin:0;padding:0;}body{background:#888;display:flex;justify-content:center;}'
+          +'img{display:block;max-width:100%;}'
+          +'@media print{body{background:#fff;}img{width:100%;height:auto;}@page{size:A4;margin:0;}}</style></head>'
+          +'<body><img src="'+dataUrl+'"></body></html>'
+        );
+        win.document.close();
+        if(mode === 'print'){ win.onload = function(){ win.focus(); win.print(); }; }
+      }
     }
   };
   img.src = sfondo;
@@ -5632,7 +5646,7 @@ function openSettings(){
       </label>
     </div>
     <button class="btn btn-danger" onclick="confirmResetAll()">🗑️ Azzera tutti i dati</button>
-    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.97 — VehicleCare Pro</p>
+    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.98 — VehicleCare Pro</p>
     <div style="height:10px;"></div>
   `);
   renderBackupStatus();
