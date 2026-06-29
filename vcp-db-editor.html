@@ -7,98 +7,95 @@
 <title>VehicleCare · DB Editor</title>
 <style>
   :root{
-    --bg:#0f1318; --panel:#161b22; --panel2:#1c232d; --bd:#243040;
-    --tx:#e6edf3; --mut:#8b95a3; --acc:#fb923c; --acc2:#f59e0b;
+    --bg:#0f1318; --panel:#161b22; --panel2:#1c232d; --bd:#243040; --bd2:#1e2733;
+    --tx:#e6edf3; --mut:#8b95a3; --acc:#fb923c;
     --dng:#f87171; --dngbg:#3a1d1d; --ok:#34d399; --okbg:#13312a;
     --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Roboto Mono",monospace;
     --ui:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
   html,body{margin:0;background:var(--bg);color:var(--tx);font-family:var(--ui);}
-  body{padding-bottom:40px;}
-  a{color:var(--acc);}
-  /* Header */
-  header{position:sticky;top:0;z-index:20;background:#0b0e12;border-bottom:1px solid var(--bd);
-    padding:env(safe-area-inset-top) 12px 0;}
+  body{padding-bottom:48px;}
+  header{position:sticky;top:0;z-index:20;background:#0b0e12;border-bottom:1px solid var(--bd);padding:env(safe-area-inset-top) 12px 0;}
   .hbar{display:flex;align-items:center;gap:10px;padding:12px 0 10px;}
-  .logo{font-weight:800;font-size:15px;letter-spacing:.2px;display:flex;align-items:center;gap:8px;}
+  .logo{font-weight:800;font-size:15px;display:flex;align-items:center;gap:8px;}
   .logo .dot{width:9px;height:9px;border-radius:2px;background:var(--acc);box-shadow:0 0 10px var(--acc);}
   .logo small{font-family:var(--mono);font-weight:500;color:var(--mut);font-size:11px;}
   .htools{margin-left:auto;display:flex;gap:6px;}
-  .ic{background:var(--panel);border:1px solid var(--bd);color:var(--tx);border-radius:8px;
-    padding:7px 10px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:var(--ui);}
+  .ic{background:var(--panel);border:1px solid var(--bd);color:var(--tx);border-radius:8px;padding:7px 10px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;}
   .ic:active{transform:scale(.96);}
   .ic.dng{color:var(--dng);border-color:#552;background:var(--dngbg);}
-  /* Store chips */
   .chips{display:flex;gap:6px;overflow-x:auto;padding:0 0 11px;scrollbar-width:none;}
   .chips::-webkit-scrollbar{display:none;}
-  .chip{flex:0 0 auto;background:var(--panel);border:1px solid var(--bd);border-radius:999px;
-    padding:7px 12px;font-size:12px;font-weight:600;color:var(--mut);cursor:pointer;display:flex;gap:7px;align-items:center;}
-  .chip .n{font-family:var(--mono);font-size:11px;background:#0b0e12;border-radius:999px;padding:1px 7px;color:var(--mut);}
+  .chip{flex:0 0 auto;background:var(--panel);border:1px solid var(--bd);border-radius:999px;padding:7px 12px;font-size:12px;font-weight:600;color:var(--mut);cursor:pointer;display:flex;gap:7px;align-items:center;}
+  .chip .n{font-family:var(--mono);font-size:11px;background:#0b0e12;border-radius:999px;padding:1px 7px;}
   .chip.act{color:#0b0e12;background:var(--acc);border-color:var(--acc);font-weight:800;}
   .chip.act .n{background:rgba(0,0,0,.25);color:#1a1208;}
   .chip.idb{border-style:dashed;}
-  /* Main */
   main{padding:14px 12px;max-width:920px;margin:0 auto;}
   .stbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
   .sttitle{font-size:17px;font-weight:800;}
   .stkey{font-family:var(--mono);font-size:11px;color:var(--mut);}
   .stbar .sp{flex:1;}
-  .btn{border:1px solid var(--bd);background:var(--panel);color:var(--tx);border-radius:8px;
-    padding:8px 11px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--ui);}
+  .btn{border:1px solid var(--bd);background:var(--panel);color:var(--tx);border-radius:8px;padding:8px 11px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--ui);}
   .btn:active{transform:scale(.97);}
   .btn.acc{background:var(--acc);color:#0b0e12;border-color:var(--acc);}
   .btn.ok{background:var(--okbg);color:var(--ok);border-color:#1d5;}
   .btn.dng{background:var(--dngbg);color:var(--dng);border-color:#633;}
   .btn.sm{padding:6px 9px;font-size:11px;}
-  .search{width:100%;background:var(--panel);border:1px solid var(--bd);border-radius:9px;color:var(--tx);
-    padding:10px 12px;font-size:13px;font-family:var(--mono);margin-bottom:12px;outline:none;}
+  .search{width:100%;background:var(--panel);border:1px solid var(--bd);border-radius:9px;color:var(--tx);padding:10px 12px;font-size:13px;font-family:var(--mono);margin-bottom:12px;outline:none;}
   .search:focus{border-color:var(--acc);}
-  .hint{font-size:12px;color:var(--mut);background:var(--panel);border:1px solid var(--bd);border-left:3px solid var(--acc);
-    border-radius:8px;padding:9px 11px;margin-bottom:12px;line-height:1.5;}
-  /* Record card */
-  .rec{background:var(--panel);border:1px solid var(--bd);border-radius:11px;margin-bottom:9px;overflow:hidden;}
-  .rec>summary{list-style:none;cursor:pointer;padding:12px 13px;display:flex;align-items:center;gap:10px;}
-  .rec>summary::-webkit-details-marker{display:none;}
-  .rec[open]>summary{border-bottom:1px solid var(--bd);}
-  .rec .idx{font-family:var(--mono);font-size:11px;color:var(--mut);flex:0 0 auto;min-width:24px;}
+  .hint{font-size:12px;color:var(--mut);background:var(--panel);border:1px solid var(--bd);border-left:3px solid var(--acc);border-radius:8px;padding:9px 11px;margin-bottom:12px;line-height:1.5;}
+  .rec{background:var(--panel);border:1px solid var(--bd);border-radius:11px;margin-bottom:9px;padding:12px 13px;display:flex;align-items:center;gap:10px;cursor:pointer;}
+  .rec:active{border-color:var(--acc);}
+  .rec .idx{font-family:var(--mono);font-size:11px;color:var(--mut);min-width:22px;}
   .rec .sum{font-weight:700;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;}
   .rec .sub{font-family:var(--mono);font-size:11px;color:var(--mut);}
-  .rec .thumb{width:40px;height:30px;border-radius:5px;object-fit:cover;flex:0 0 auto;background:#0b0e12;border:1px solid var(--bd);}
-  .rec .chev{color:var(--mut);font-size:12px;flex:0 0 auto;}
-  .body{padding:12px 13px;}
-  textarea{width:100%;background:#0b0e12;border:1px solid var(--bd);border-radius:9px;color:#cfe;
-    font-family:var(--mono);font-size:12.5px;line-height:1.55;padding:11px;resize:vertical;outline:none;min-height:120px;}
-  textarea:focus{border-color:var(--acc);}
-  textarea.big{min-height:340px;}
-  textarea.err{border-color:var(--dng);}
-  .rowbtns{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px;}
-  .kv{display:grid;grid-template-columns:auto 1fr;gap:7px 10px;align-items:center;font-size:12px;margin-bottom:11px;}
-  .kv label{color:var(--mut);font-family:var(--mono);font-size:11px;}
-  .kv input,.kv select{background:#0b0e12;border:1px solid var(--bd);border-radius:7px;color:var(--tx);
-    padding:8px 9px;font-size:12.5px;font-family:var(--mono);outline:none;width:100%;}
-  .kv input:focus{border-color:var(--acc);}
+  .rec .thumb{width:40px;height:30px;border-radius:5px;object-fit:cover;background:#0b0e12;border:1px solid var(--bd);}
+  .rec .go{color:var(--mut);font-size:14px;}
   .empty{text-align:center;color:var(--mut);padding:34px 0;font-size:13px;}
   .meta{font-family:var(--mono);font-size:11px;color:var(--mut);}
   .pill{font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:999px;border:1px solid var(--bd);color:var(--mut);}
   .pillimg{color:var(--ok);border-color:#1d5;}
-  /* Toast */
-  #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);opacity:0;
-    background:#0b0e12;border:1px solid var(--bd);border-radius:10px;padding:11px 16px;font-size:13px;font-weight:600;
-    z-index:60;transition:.25s;max-width:90vw;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.5);}
+  /* Editor a campi */
+  .editbar{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+  .frow{display:flex;flex-direction:column;gap:5px;padding:10px 0;border-bottom:1px solid var(--bd2);}
+  .flab{font-family:var(--mono);font-size:11px;color:var(--mut);display:flex;align-items:center;gap:8px;}
+  .cell{background:#0b0e12;border:1px solid var(--bd);border-radius:8px;color:var(--tx);padding:9px 10px;font-size:13px;font-family:var(--mono);outline:none;width:100%;}
+  .cell:focus{border-color:var(--acc);}
+  textarea.cell{resize:vertical;line-height:1.5;min-height:64px;}
+  .grp{border:1px solid var(--bd);border-radius:10px;margin:9px 0;background:var(--panel2);}
+  .grp>summary{list-style:none;cursor:pointer;padding:9px 11px;display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;}
+  .grp>summary::-webkit-details-marker{display:none;}
+  .grp .gk{font-weight:700;color:var(--tx);}
+  .grp .gc{color:var(--mut);font-size:11px;}
+  .gin{padding:2px 11px 10px;border-top:1px solid var(--bd);}
+  .addrow{padding:9px 0 2px;}
+  .xbtn{margin-left:auto;background:var(--dngbg);color:var(--dng);border:1px solid #633;border-radius:6px;width:24px;height:24px;font-size:12px;cursor:pointer;flex:0 0 auto;}
+  .tog{position:relative;display:inline-block;width:46px;height:26px;flex:0 0 auto;}
+  .tog input{opacity:0;width:0;height:0;position:absolute;}
+  .tog .ts{position:absolute;inset:0;background:#33415a;border-radius:26px;transition:.15s;cursor:pointer;}
+  .tog .ts:before{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.15s;}
+  .tog input:checked + .ts{background:var(--ok);}
+  .tog input:checked + .ts:before{left:23px;}
+  .togwrap{display:flex;align-items:center;gap:10px;}
+  .togwrap .tv{font-family:var(--mono);font-size:12px;color:var(--mut);}
+  .imgprev{width:100%;max-height:210px;object-fit:contain;border-radius:9px;background:#0b0e12;border:1px solid var(--bd);}
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:7px 10px;align-items:center;font-size:12px;margin-bottom:11px;}
+  .kv label{color:var(--mut);font-family:var(--mono);font-size:11px;}
+  .kv input{background:#0b0e12;border:1px solid var(--bd);border-radius:7px;color:var(--tx);padding:8px 9px;font-size:12.5px;font-family:var(--mono);outline:none;width:100%;}
+  .rowbtns{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px;}
+  #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);opacity:0;background:#0b0e12;border:1px solid var(--bd);border-radius:10px;padding:11px 16px;font-size:13px;font-weight:600;z-index:60;transition:.25s;max-width:90vw;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.5);}
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
   #toast.ok{border-color:#1d5;color:var(--ok);}
   #toast.err{border-color:#633;color:var(--dng);}
-  /* Modal */
   #ov{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:50;display:none;align-items:center;justify-content:center;padding:20px;}
   #ov.show{display:flex;}
   .modal{background:var(--panel);border:1px solid var(--bd);border-radius:14px;padding:18px;max-width:380px;width:100%;}
   .modal h3{margin:0 0 8px;font-size:16px;}
   .modal p{margin:0 0 14px;font-size:13px;color:var(--mut);line-height:1.55;}
   .modal .mrow{display:flex;gap:8px;justify-content:flex-end;}
-  .modal input{width:100%;background:#0b0e12;border:1px solid var(--bd);border-radius:8px;color:var(--tx);
-    padding:10px;font-family:var(--mono);margin-bottom:14px;outline:none;}
-  .hidden{display:none!important;}
+  .modal input{width:100%;background:#0b0e12;border:1px solid var(--bd);border-radius:8px;color:var(--tx);padding:10px;font-family:var(--mono);margin-bottom:14px;outline:none;}
 </style>
 </head>
 <body>
@@ -120,9 +117,6 @@
 
 <script>
 "use strict";
-// ─────────────────────────────────────────────
-//  Definizione store
-// ─────────────────────────────────────────────
 const STORES = [
   {id:'vehicles',          key:'vcp_vehicles',          kind:'ls-array',  label:'Veicoli'},
   {id:'checks',            key:'vcp_checks',            kind:'ls-array',  label:'Check'},
@@ -139,457 +133,217 @@ const STORES = [
   {id:'idb_photos',        kind:'idb-photos', store:'vehicle_photos', label:'Foto veicoli (IDB)'},
 ];
 const IDB_NAME='VehicleCarePro', IDB_VER=2;
-let current = STORES[0].id;
-let filter = '';
-let _idbCache = {}; // storeName -> array (per render)
+let current=STORES[0].id, filter='', _idbCache={};
+let _editing=null, _fmap={}, _cmap={}, _fid=0, _cid=0;
 
-// ─────────────────────────────────────────────
-//  Helper localStorage
-// ─────────────────────────────────────────────
-function lsGet(key, kind){
-  const raw = localStorage.getItem(key);
-  if(raw===null) return kind==='ls-object'?{}:[];
-  try{ return JSON.parse(raw); }catch(e){ return kind==='ls-object'?{}:[]; }
-}
-function lsSet(key, val){ localStorage.setItem(key, JSON.stringify(val)); }
+function lsGet(key,kind){ const raw=localStorage.getItem(key); if(raw===null) return kind==='ls-object'?{}:[]; try{ return JSON.parse(raw); }catch(e){ return kind==='ls-object'?{}:[]; } }
+function lsSet(key,val){ localStorage.setItem(key,JSON.stringify(val)); }
 function storeById(id){ return STORES.find(s=>s.id===id); }
-function countOf(s){
-  try{
-    if(s.kind==='ls-array')  return lsGet(s.key,s.kind).length;
-    if(s.kind==='ls-object') return Object.keys(lsGet(s.key,s.kind)).length;
-    if(s.kind.startsWith('idb')) return (_idbCache[s.store]||[]).length;
-  }catch(e){}
-  return 0;
-}
-
-// ─────────────────────────────────────────────
-//  Helper IndexedDB
-// ─────────────────────────────────────────────
-function idbOpen(){
-  return new Promise((res,rej)=>{
-    const r=indexedDB.open(IDB_NAME,IDB_VER);
-    r.onupgradeneeded=e=>{
-      const db=e.target.result, tx=e.target.transaction;
-      let st;
-      if(!db.objectStoreNames.contains('documents')){ st=db.createObjectStore('documents',{keyPath:'id'}); }
-      else st=tx.objectStore('documents');
-      if(st && !st.indexNames.contains('vehicleId')) st.createIndex('vehicleId','vehicleId',{unique:false});
-      if(!db.objectStoreNames.contains('vehicle_photos')) db.createObjectStore('vehicle_photos',{keyPath:'vehicleId'});
-    };
-    r.onsuccess=e=>res(e.target.result);
-    r.onerror=e=>rej(e.target.error);
-  });
-}
-async function idbAll(store){
-  const db=await idbOpen();
-  return new Promise((res,rej)=>{
-    const tx=db.transaction(store,'readonly');
-    const rq=tx.objectStore(store).getAll();
-    rq.onsuccess=()=>res(rq.result||[]); rq.onerror=e=>rej(e.target.error);
-  });
-}
-async function idbPut(store,val){
-  const db=await idbOpen();
-  return new Promise((res,rej)=>{
-    const tx=db.transaction(store,'readwrite');
-    tx.objectStore(store).put(val);
-    tx.oncomplete=res; tx.onerror=e=>rej(e.target.error);
-  });
-}
-async function idbDel(store,key){
-  const db=await idbOpen();
-  return new Promise((res,rej)=>{
-    const tx=db.transaction(store,'readwrite');
-    tx.objectStore(store).delete(key);
-    tx.oncomplete=res; tx.onerror=e=>rej(e.target.error);
-  });
-}
-async function idbClear(store){
-  const db=await idbOpen();
-  return new Promise((res,rej)=>{
-    const tx=db.transaction(store,'readwrite');
-    tx.objectStore(store).clear();
-    tx.oncomplete=res; tx.onerror=e=>rej(e.target.error);
-  });
-}
-
-// ─────────────────────────────────────────────
-//  UI base
-// ─────────────────────────────────────────────
-function toast(msg,type){
-  const t=document.getElementById('toast');
-  t.textContent=msg; t.className='show'+(type?' '+type:'');
-  clearTimeout(t._t); t._t=setTimeout(()=>t.className=t.className.replace('show','').trim(),2600);
-}
+function clone(x){ return JSON.parse(JSON.stringify(x)); }
+function uuid(){ try{ return crypto.randomUUID(); }catch(e){ return 'x-'+Date.now()+'-'+Math.random().toString(16).slice(2,8); } }
 function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
-function confirmDanger(title, body, cb, typeWord){
-  const ov=document.getElementById('ov'), m=document.getElementById('modal');
-  if(typeWord){
-    m.innerHTML=`<h3>${esc(title)}</h3><p>${body}</p>
-      <input id="cfx" placeholder="scrivi ${typeWord}" autocomplete="off">
-      <div class="mrow"><button class="btn" onclick="closeOv()">Annulla</button>
-      <button class="btn dng" id="cfgo">Conferma</button></div>`;
-    ov.classList.add('show');
-    document.getElementById('cfgo').onclick=()=>{
-      if((document.getElementById('cfx').value||'').trim().toUpperCase()!==typeWord){ toast('Parola di conferma errata','err'); return; }
-      closeOv(); cb();
-    };
-  }else{
-    m.innerHTML=`<h3>${esc(title)}</h3><p>${body}</p>
-      <div class="mrow"><button class="btn" onclick="closeOv()">Annulla</button>
-      <button class="btn dng" id="cfgo">Conferma</button></div>`;
-    ov.classList.add('show');
-    document.getElementById('cfgo').onclick=()=>{ closeOv(); cb(); };
-  }
-}
+function countOf(s){ try{
+  if(s.kind==='ls-array') return lsGet(s.key,s.kind).length;
+  if(s.kind==='ls-object') return Object.keys(lsGet(s.key,s.kind)).length;
+  if(s.kind.indexOf('idb')===0) return (_idbCache[s.store]||[]).length;
+}catch(e){} return 0; }
+
+// IndexedDB
+function idbOpen(){ return new Promise((res,rej)=>{ const r=indexedDB.open(IDB_NAME,IDB_VER);
+  r.onupgradeneeded=e=>{ const db=e.target.result, tx=e.target.transaction; let st;
+    if(!db.objectStoreNames.contains('documents')) st=db.createObjectStore('documents',{keyPath:'id'}); else st=tx.objectStore('documents');
+    if(st && !st.indexNames.contains('vehicleId')) st.createIndex('vehicleId','vehicleId',{unique:false});
+    if(!db.objectStoreNames.contains('vehicle_photos')) db.createObjectStore('vehicle_photos',{keyPath:'vehicleId'}); };
+  r.onsuccess=e=>res(e.target.result); r.onerror=e=>rej(e.target.error); }); }
+async function idbAll(store){ const db=await idbOpen(); return new Promise((res,rej)=>{ const tx=db.transaction(store,'readonly'); const rq=tx.objectStore(store).getAll(); rq.onsuccess=()=>res(rq.result||[]); rq.onerror=e=>rej(e.target.error); }); }
+async function idbPut(store,val){ const db=await idbOpen(); return new Promise((res,rej)=>{ const tx=db.transaction(store,'readwrite'); tx.objectStore(store).put(val); tx.oncomplete=res; tx.onerror=e=>rej(e.target.error); }); }
+async function idbDel(store,key){ const db=await idbOpen(); return new Promise((res,rej)=>{ const tx=db.transaction(store,'readwrite'); tx.objectStore(store).delete(key); tx.oncomplete=res; tx.onerror=e=>rej(e.target.error); }); }
+async function idbClear(store){ const db=await idbOpen(); return new Promise((res,rej)=>{ const tx=db.transaction(store,'readwrite'); tx.objectStore(store).clear(); tx.oncomplete=res; tx.onerror=e=>rej(e.target.error); }); }
+
+// UI base
+function toast(msg,type){ const t=document.getElementById('toast'); t.textContent=msg; t.className='show'+(type?' '+type:''); clearTimeout(t._t); t._t=setTimeout(()=>t.className=t.className.replace('show','').trim(),2600); }
+function confirmDanger(title,body,cb,word){ const ov=document.getElementById('ov'), m=document.getElementById('modal');
+  if(word){ m.innerHTML=`<h3>${esc(title)}</h3><p>${body}</p><input id="cfx" placeholder="scrivi ${word}" autocomplete="off"><div class="mrow"><button class="btn" onclick="closeOv()">Annulla</button><button class="btn dng" id="cfgo">Conferma</button></div>`;
+    ov.classList.add('show'); document.getElementById('cfgo').onclick=()=>{ if((document.getElementById('cfx').value||'').trim().toUpperCase()!==word){ toast('Parola di conferma errata','err'); return; } closeOv(); cb(); }; }
+  else { m.innerHTML=`<h3>${esc(title)}</h3><p>${body}</p><div class="mrow"><button class="btn" onclick="closeOv()">Annulla</button><button class="btn dng" id="cfgo">Conferma</button></div>`;
+    ov.classList.add('show'); document.getElementById('cfgo').onclick=()=>{ closeOv(); cb(); }; } }
+function promptText(title,cb){ const ov=document.getElementById('ov'), m=document.getElementById('modal');
+  m.innerHTML=`<h3>${esc(title)}</h3><input id="cfx" placeholder="nome campo" autocomplete="off"><div class="mrow"><button class="btn" onclick="closeOv()">Annulla</button><button class="btn acc" id="cfgo">Aggiungi</button></div>`;
+  ov.classList.add('show'); setTimeout(()=>document.getElementById('cfx').focus(),50);
+  document.getElementById('cfgo').onclick=()=>{ const v=(document.getElementById('cfx').value||'').trim(); if(!v){ toast('Nome vuoto','err'); return; } closeOv(); cb(v); }; }
 function closeOv(){ document.getElementById('ov').classList.remove('show'); }
 
-// ─────────────────────────────────────────────
-//  Chips + selezione
-// ─────────────────────────────────────────────
-function renderChips(){
-  const c=document.getElementById('chips');
-  c.innerHTML=STORES.map(s=>{
-    const n=countOf(s);
-    const idb=s.kind.startsWith('idb')?' idb':'';
-    return `<div class="chip${s.id===current?' act':''}${idb}" onclick="selectStore('${s.id}')">
-      ${esc(s.label)}<span class="n">${n}</span></div>`;
-  }).join('');
-  const act=c.querySelector('.act'); if(act) act.scrollIntoView({inline:'center',block:'nearest'});
-}
-function selectStore(id){ current=id; filter=''; renderChips(); renderMain(); window.scrollTo(0,0); }
+function renderChips(){ const c=document.getElementById('chips');
+  c.innerHTML=STORES.map(s=>`<div class="chip${s.id===current?' act':''}${s.kind.indexOf('idb')===0?' idb':''}" onclick="selectStore('${s.id}')">${esc(s.label)}<span class="n">${countOf(s)}</span></div>`).join('');
+  const a=c.querySelector('.act'); if(a) a.scrollIntoView({inline:'center',block:'nearest'}); }
+function selectStore(id){ current=id; filter=''; _editing=null; renderChips(); renderMain(); window.scrollTo(0,0); }
+async function reloadAll(){ try{ _idbCache['documents']=await idbAll('documents'); }catch(e){ _idbCache['documents']=[]; } try{ _idbCache['vehicle_photos']=await idbAll('vehicle_photos'); }catch(e){ _idbCache['vehicle_photos']=[]; } _editing=null; renderChips(); renderMain(); toast('Ricaricato','ok'); }
 
-async function reloadAll(){
-  // ricarica cache IDB e ridisegna
-  try{ _idbCache['documents']=await idbAll('documents'); }catch(e){ _idbCache['documents']=[]; }
-  try{ _idbCache['vehicle_photos']=await idbAll('vehicle_photos'); }catch(e){ _idbCache['vehicle_photos']=[]; }
-  renderChips(); renderMain(); toast('Ricaricato','ok');
-}
-
-// ─────────────────────────────────────────────
-//  Render principale
-// ─────────────────────────────────────────────
-function renderMain(){
-  const s=storeById(current);
-  if(s.kind==='ls-array')  return renderLsArray(s);
+function renderMain(){ _editing=null; const s=storeById(current);
+  if(s.kind==='ls-array') return renderLsArray(s);
   if(s.kind==='ls-object') return renderLsObject(s);
-  if(s.kind==='idb-docs')  return renderIdbDocs(s);
-  if(s.kind==='idb-photos')return renderIdbPhotos(s);
-}
+  if(s.kind==='idb-docs') return renderIdbDocs(s);
+  if(s.kind==='idb-photos') return renderIdbPhotos(s); }
 
-function summaryOf(rec,i){
-  if(rec && typeof rec==='object'){
-    const t = rec.targa||rec.nome||rec.descrizione||rec.voce||rec.tipo||'';
-    const d = rec.data||rec.dataApertura||rec.dataProgrammazione||rec.createdAt||'';
-    const main = t || (rec.id?('id '+String(rec.id).slice(0,8)):'');
-    return {main: main||('#'+i), sub: d?String(d).slice(0,19):''};
-  }
-  return {main:'#'+i, sub:String(rec).slice(0,40)};
-}
-function matchFilter(rec){
-  if(!filter) return true;
-  try{ return JSON.stringify(rec).toLowerCase().includes(filter.toLowerCase()); }catch(e){ return true; }
-}
+function summaryOf(rec,i){ if(rec&&typeof rec==='object'){ const t=rec.targa||rec.nome||rec.descrizione||rec.voce||rec.tipo||''; const d=rec.data||rec.dataApertura||rec.dataProgrammazione||rec.createdAt||''; const main=t||(rec.id?('id '+String(rec.id).slice(0,8)):''); return {main:main||('#'+i), sub:d?String(d).slice(0,19):''}; } return {main:'#'+i, sub:String(rec).slice(0,40)}; }
+function matchFilter(rec){ if(!filter) return true; try{ return JSON.stringify(rec).toLowerCase().includes(filter.toLowerCase()); }catch(e){ return true; } }
 
-// ── localStorage ARRAY ──
-function renderLsArray(s){
-  const arr=lsGet(s.key,s.kind);
-  const idxs=arr.map((r,i)=>i).filter(i=>matchFilter(arr[i]));
-  const head=`
-    <div class="stbar">
-      <div><div class="sttitle">${esc(s.label)}</div><div class="stkey">${s.key} · array[${arr.length}]</div></div>
-      <div class="sp"></div>
-      <button class="btn acc sm" onclick="addRecord('${s.id}')">+ Aggiungi</button>
-      <button class="btn sm" onclick="rawEdit('${s.id}')">{ } JSON</button>
-      <button class="btn dng sm" onclick="wipeStore('${s.id}')">Svuota</button>
-    </div>
-    <input class="search" placeholder="filtra record…" value="${esc(filter)}" oninput="filter=this.value;renderMain();this.focus();">`;
+// ── Lista array → tap apre editor a celle ──
+function renderLsArray(s){ const arr=lsGet(s.key,s.kind);
+  const head=`<div class="stbar"><div><div class="sttitle">${esc(s.label)}</div><div class="stkey">${s.key} · array[${arr.length}]</div></div><div class="sp"></div>
+    <button class="btn acc sm" onclick="addRecord('${s.id}')">+ Aggiungi</button>
+    <button class="btn dng sm" onclick="wipeStore('${s.id}')">Svuota</button></div>
+    <input class="search" id="srch" placeholder="filtra record…" value="${esc(filter)}" oninput="filter=this.value;fillList('${s.id}')"><div id="lst"></div>`;
+  document.getElementById('main').innerHTML=head; fillList(s.id); }
+function fillList(id){ const s=storeById(id), arr=lsGet(s.key,s.kind); const idxs=arr.map((r,i)=>i).filter(i=>matchFilter(arr[i]));
   let list;
   if(arr.length===0) list=`<div class="empty">Nessun record. Usa “+ Aggiungi”.</div>`;
   else if(idxs.length===0) list=`<div class="empty">Nessun record corrisponde al filtro.</div>`;
-  else list=idxs.map(i=>{
-    const sm=summaryOf(arr[i],i);
-    return `<details class="rec">
-      <summary><span class="idx">${i}</span>
-        <span class="sum">${esc(sm.main)}</span>
-        ${sm.sub?`<span class="sub">${esc(sm.sub)}</span>`:''}
-        <span class="chev">▾</span></summary>
-      <div class="body">
-        <textarea id="ta-${s.id}-${i}" spellcheck="false">${esc(JSON.stringify(arr[i],null,2))}</textarea>
-        <div class="rowbtns">
-          <button class="btn ok sm" onclick="saveRecord('${s.id}',${i})">Salva</button>
-          <button class="btn sm" onclick="dupRecord('${s.id}',${i})">Duplica</button>
-          <button class="btn dng sm" onclick="delRecord('${s.id}',${i})">Elimina</button>
-        </div>
-      </div></details>`;
-  }).join('');
-  document.getElementById('main').innerHTML=head+list;
-}
-function saveRecord(id,i){
-  const s=storeById(id), arr=lsGet(s.key,s.kind);
-  const ta=document.getElementById('ta-'+id+'-'+i);
-  let val; try{ val=JSON.parse(ta.value); }catch(e){ ta.classList.add('err'); toast('JSON non valido: '+e.message,'err'); return; }
-  arr[i]=val; lsSet(s.key,arr); toast('Record '+i+' salvato','ok'); renderChips();
-}
-function delRecord(id,i){
-  confirmDanger('Eliminare record?', `Record #${i} di <b>${storeById(id).label}</b>. Operazione non annullabile.`,()=>{
-    const s=storeById(id), arr=lsGet(s.key,s.kind); arr.splice(i,1); lsSet(s.key,arr);
-    toast('Record eliminato','ok'); renderChips(); renderMain();
-  });
-}
-function dupRecord(id,i){
-  const s=storeById(id), arr=lsGet(s.key,s.kind);
-  const copy=JSON.parse(JSON.stringify(arr[i]));
-  if(copy && typeof copy==='object' && 'id' in copy){ try{ copy.id=(crypto.randomUUID&&crypto.randomUUID())||('dup-'+Date.now()); }catch(e){ copy.id='dup-'+Date.now(); } }
-  arr.splice(i+1,0,copy); lsSet(s.key,arr); toast('Record duplicato','ok'); renderChips(); renderMain();
-}
-function addRecord(id){
-  const s=storeById(id), arr=lsGet(s.key,s.kind);
-  const tpl={}; try{ tpl.id=(crypto.randomUUID&&crypto.randomUUID())||('new-'+Date.now()); }catch(e){ tpl.id='new-'+Date.now(); }
-  arr.push(tpl); lsSet(s.key,arr); toast('Record aggiunto in fondo','ok'); renderChips(); renderMain();
-}
+  else list=idxs.map(i=>{ const sm=summaryOf(arr[i],i); return `<div class="rec" onclick="editRecord('${id}',${i})"><span class="idx">${i}</span><span class="sum">${esc(sm.main)}</span>${sm.sub?`<span class="sub">${esc(sm.sub)}</span>`:''}<span class="go">›</span></div>`; }).join('');
+  const el=document.getElementById('lst'); if(el) el.innerHTML=list; }
 
-// ── localStorage OBJECT (settings/calibration) ──
-function renderLsObject(s){
-  const obj=lsGet(s.key,s.kind);
+function addRecord(id){ const s=storeById(id), arr=lsGet(s.key,s.kind); arr.push({id:uuid()}); lsSet(s.key,arr); editRecord(id, arr.length-1); }
+
+// ── Editor a celle (record array oppure oggetto) ──
+function editRecord(id,i){ const s=storeById(id), arr=lsGet(s.key,s.kind); _editing={storeId:id, index:i, data:clone(arr[i])}; renderEditor(); }
+function editObject(id){ const s=storeById(id); _editing={storeId:id, index:null, data:clone(lsGet(s.key,'ls-object'))}; renderEditor(); }
+
+function valType(v){ if(v===null) return 'null'; if(Array.isArray(v)) return 'array'; const t=typeof v; if(t==='object') return 'object'; if(t==='boolean') return 'boolean'; if(t==='number') return 'number'; return 'string'; }
+function getAt(root,path){ let o=root; for(let k=0;k<path.length;k++) o=o[path[k]]; return o; }
+function setAt(root,path,val){ let o=root; for(let k=0;k<path.length-1;k++) o=o[path[k]]; o[path[path.length-1]]=val; }
+function regF(path,type){ const id=++_fid; _fmap[id]={path:path.slice(),type}; return id; }
+function regC(path,kind){ const id=++_cid; _cmap[id]={path:path.slice(),kind}; return id; }
+
+function renderEditor(){ _fmap={};_cmap={};_fid=0;_cid=0; const e=_editing, s=storeById(e.storeId);
+  const title = e.index!=null ? `${esc(s.label)} · record ${e.index}` : esc(s.label);
+  let fields;
+  if(e.data && typeof e.data==='object') fields=renderEntries(e.data,[]);
+  else fields=`<div class="frow"><div class="flab">valore</div><input class="cell" data-fid="${regF([], valType(e.data))}" value="${esc(e.data===null?'':e.data)}" onchange="onField(${_fid})"></div>`;
+  const actions=`<div class="rowbtns" style="margin-top:16px;">
+    <button class="btn ok" onclick="saveEditing()">Salva</button>
+    <button class="btn" onclick="renderMain()">Annulla</button>
+    ${e.index!=null?`<button class="btn sm" onclick="dupFromEdit()">Duplica</button><button class="btn dng sm" onclick="delFromEdit()">Elimina</button>`:''}</div>`;
   document.getElementById('main').innerHTML=`
-    <div class="stbar">
-      <div><div class="sttitle">${esc(s.label)}</div><div class="stkey">${s.key} · object</div></div>
-      <div class="sp"></div>
-      <button class="btn dng sm" onclick="wipeStore('${s.id}')">Svuota</button>
-    </div>
-    <div class="hint">Oggetto singolo: modifica il JSON e salva. Le immagini base64 (es. <span class="meta">pdfBg</span>) possono essere molto lunghe.</div>
-    <textarea id="ta-obj-${s.id}" class="big" spellcheck="false">${esc(JSON.stringify(obj,null,2))}</textarea>
-    <div class="rowbtns">
-      <button class="btn ok" onclick="saveObject('${s.id}')">Salva</button>
-      <button class="btn" onclick="formatObject('${s.id}')">Formatta</button>
-    </div>`;
-}
-function saveObject(id){
-  const s=storeById(id), ta=document.getElementById('ta-obj-'+id);
-  let val; try{ val=JSON.parse(ta.value); }catch(e){ ta.classList.add('err'); toast('JSON non valido: '+e.message,'err'); return; }
-  lsSet(s.key,val); toast(s.label+' salvato','ok'); renderChips();
-}
-function formatObject(id){
-  const ta=document.getElementById('ta-obj-'+id);
-  try{ ta.value=JSON.stringify(JSON.parse(ta.value),null,2); ta.classList.remove('err'); }catch(e){ toast('JSON non valido','err'); }
-}
+    <div class="editbar"><button class="btn sm" onclick="renderMain()">‹ Indietro</button></div>
+    <div class="stbar"><div><div class="sttitle">${title}</div><div class="stkey">${s.key}</div></div></div>
+    <div class="hint">Ogni valore ha la sua cella. Modifica e premi <b>Salva</b>. Niente JSON da scrivere: tipi, interruttori e immagini sono gestiti per te.</div>
+    ${fields}${actions}`; }
 
-// ── Raw JSON dell'intero array ──
-function rawEdit(id){
-  const s=storeById(id), arr=lsGet(s.key,s.kind);
-  document.getElementById('main').innerHTML=`
-    <div class="stbar">
-      <div><div class="sttitle">${esc(s.label)} · JSON grezzo</div><div class="stkey">${s.key}</div></div>
-      <div class="sp"></div>
-      <button class="btn sm" onclick="renderMain()">‹ Torna ai record</button>
-    </div>
-    <div class="hint">Modifica l'intero array. Deve restare un array JSON valido.</div>
-    <textarea id="ta-raw-${id}" class="big" spellcheck="false">${esc(JSON.stringify(arr,null,2))}</textarea>
-    <div class="rowbtns">
-      <button class="btn ok" onclick="saveRaw('${id}')">Salva tutto</button>
-      <button class="btn" onclick="(function(){var t=document.getElementById('ta-raw-${id}');try{t.value=JSON.stringify(JSON.parse(t.value),null,2);t.classList.remove('err');}catch(e){toast('JSON non valido','err');}})()">Formatta</button>
-    </div>`;
-}
-function saveRaw(id){
-  const s=storeById(id), ta=document.getElementById('ta-raw-'+id);
-  let val; try{ val=JSON.parse(ta.value); }catch(e){ ta.classList.add('err'); toast('JSON non valido: '+e.message,'err'); return; }
-  if(!Array.isArray(val)){ toast('Deve essere un array','err'); return; }
-  lsSet(s.key,val); toast(s.label+' salvato ('+val.length+' record)','ok'); renderChips(); renderMain();
-}
+function renderEntries(val,path){ let html='';
+  if(Array.isArray(val)){ const cid=regC(path,'array');
+    val.forEach((el,i)=>{ html+=renderEntry(String(i), el, path.concat(i), true, cid, i); });
+    html+=`<div class="addrow"><button class="btn sm" onclick="addElem(${cid})">+ elemento</button></div>`;
+  } else { const cid=regC(path,'object');
+    Object.keys(val).forEach(k=>{ html+=renderEntry(k, val[k], path.concat(k), false, cid, k); });
+    html+=`<div class="addrow"><button class="btn sm" onclick="addField(${cid})">+ campo</button></div>`; }
+  return html; }
 
-// ── IndexedDB: documenti ──
-function renderIdbDocs(s){
-  const docs=_idbCache['documents']||[];
-  const list=docs.filter(matchFilter);
-  const head=`
-    <div class="stbar">
-      <div><div class="sttitle">Documenti (IDB)</div><div class="stkey">VehicleCarePro · documents[${docs.length}]</div></div>
-      <div class="sp"></div>
-      <button class="btn acc sm" onclick="addDoc()">+ Carica file</button>
-      <button class="btn dng sm" onclick="wipeStore('idb_documents')">Svuota</button>
-    </div>
-    <div class="hint">File allegati ai veicoli (binari). Puoi modificare i metadati, scaricare, sostituire il file o eliminare.</div>
-    <input class="search" placeholder="filtra…" value="${esc(filter)}" oninput="filter=this.value;renderMain();this.focus();">`;
+function renderEntry(label,v,path,inArray,pcid,keyOrIdx){ const t=valType(v);
+  const rm = inArray ? `<button class="xbtn" onclick="removeElem(${pcid},${keyOrIdx})">✕</button>`
+                     : `<button class="xbtn" onclick="removeField(${pcid},${JSON.stringify(String(keyOrIdx))})">✕</button>`;
+  if(t==='object'||t==='array'){ const cnt=t==='array'?`[${v.length}]`:`{${Object.keys(v).length}}`;
+    return `<details class="grp" open><summary><span class="gk">${esc(label)}</span><span class="gc">${cnt}</span>${rm}</summary><div class="gin">${renderEntries(v,path)}</div></details>`; }
+  return primRow(label,v,path,t,rm); }
+
+function primRow(label,v,path,t,rm){ const fid=regF(path,t); let cell;
+  if(t==='boolean'){ cell=`<div class="togwrap"><label class="tog"><input type="checkbox" data-fid="${fid}" ${v?'checked':''} onchange="onField(${fid})"><span class="ts"></span></label><span class="tv" id="tv-${fid}">${v?'true':'false'}</span></div>`; }
+  else if(t==='number'){ cell=`<input class="cell" inputmode="decimal" data-fid="${fid}" value="${esc(v)}" onchange="onField(${fid})">`; }
+  else if(t==='null'){ cell=`<input class="cell" data-fid="${fid}" value="" placeholder="(null)" onchange="onField(${fid})">`; }
+  else { const sv=String(v);
+    if(sv.indexOf('data:image')===0){ return `<div class="frow"><div class="flab">${esc(label)} <span class="meta">immagine · ${Math.round(sv.length/1024)} KB</span>${rm}</div><img class="imgprev" src="${sv}"><div class="rowbtns"><button class="btn sm" onclick="replaceImg(${fid})">Sostituisci</button><button class="btn dng sm" onclick="clearImg(${fid})">Rimuovi</button></div></div>`; }
+    if(sv.length>110||sv.indexOf('\n')>=0){ cell=`<textarea class="cell" data-fid="${fid}" rows="3" onchange="onField(${fid})">${esc(sv)}</textarea>`; }
+    else { cell=`<input class="cell" data-fid="${fid}" value="${esc(sv)}" onchange="onField(${fid})">`; } }
+  return `<div class="frow"><div class="flab">${esc(label)}${rm}</div>${cell}</div>`; }
+
+function coerce(fid){ const m=_fmap[fid]; const el=document.querySelector('[data-fid="'+fid+'"]'); if(!el) return undefined;
+  if(m.type==='boolean') return el.checked;
+  if(m.type==='number'){ const raw=el.value.trim(); if(raw==='') return null; const n=Number(raw); return isNaN(n)?el.value:n; }
+  if(m.type==='null'){ return el.value===''?null:el.value; }
+  return el.value; }
+function onField(fid){ const v=coerce(fid); if(v===undefined) return; setAt(_editing.data,_fmap[fid].path,v); const tv=document.getElementById('tv-'+fid); if(tv) tv.textContent=v?'true':'false'; }
+function syncFields(){ Object.keys(_fmap).forEach(fid=>{ const v=coerce(fid); if(v!==undefined) setAt(_editing.data,_fmap[fid].path,v); }); }
+
+function addField(cid){ syncFields(); const c=_cmap[cid], obj=getAt(_editing.data,c.path); promptText('Nuovo campo', name=>{ if(name in obj){ toast('Campo già esistente','err'); return; } obj[name]=''; renderEditor(); }); }
+function removeField(cid,key){ syncFields(); const obj=getAt(_editing.data,_cmap[cid].path); delete obj[key]; renderEditor(); }
+function addElem(cid){ syncFields(); const arr=getAt(_editing.data,_cmap[cid].path); let tpl=''; if(arr.length){ const f=arr[0]; if(Array.isArray(f)) tpl=[]; else if(f&&typeof f==='object') tpl={}; else if(typeof f==='number') tpl=0; else if(typeof f==='boolean') tpl=false; } arr.push(tpl); renderEditor(); }
+function removeElem(cid,idx){ syncFields(); const arr=getAt(_editing.data,_cmap[cid].path); arr.splice(idx,1); renderEditor(); }
+function replaceImg(fid){ const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.onchange=async e=>{ const f=e.target.files[0]; if(!f) return; const url=await fileToDataUrl(f); setAt(_editing.data,_fmap[fid].path,url); renderEditor(); toast('Immagine sostituita (ricorda Salva)'); }; inp.click(); }
+function clearImg(fid){ setAt(_editing.data,_fmap[fid].path,''); renderEditor(); }
+
+function saveEditing(){ syncFields(); const e=_editing, s=storeById(e.storeId);
+  if(e.index!=null){ const arr=lsGet(s.key,'ls-array'); arr[e.index]=e.data; lsSet(s.key,arr); }
+  else { lsSet(s.key,e.data); }
+  toast('Salvato','ok'); renderChips(); renderMain(); }
+function dupFromEdit(){ syncFields(); const e=_editing, s=storeById(e.storeId), arr=lsGet(s.key,'ls-array'); const cp=clone(e.data); if(cp&&typeof cp==='object'&&'id' in cp) cp.id=uuid(); arr.splice(e.index+1,0,cp); lsSet(s.key,arr); toast('Duplicato','ok'); renderChips(); renderMain(); }
+function delFromEdit(){ const e=_editing, s=storeById(e.storeId); confirmDanger('Eliminare record?',`Record #${e.index} di <b>${esc(s.label)}</b>.`,()=>{ const arr=lsGet(s.key,'ls-array'); arr.splice(e.index,1); lsSet(s.key,arr); toast('Eliminato','ok'); renderChips(); renderMain(); }); }
+
+// ── Oggetti (settings/calibration) → stesso editor a celle ──
+function renderLsObject(s){ const obj=lsGet(s.key,s.kind);
+  document.getElementById('main').innerHTML=`<div class="stbar"><div><div class="sttitle">${esc(s.label)}</div><div class="stkey">${s.key} · object · ${Object.keys(obj).length} campi</div></div><div class="sp"></div><button class="btn dng sm" onclick="wipeStore('${s.id}')">Svuota</button></div>
+    <div class="hint">Oggetto di configurazione. Apri per modificare ogni campo nella sua cella.</div>
+    <div class="rec" onclick="editObject('${s.id}')"><span class="sum">Modifica ${esc(s.label)}</span><span class="go">›</span></div>`; }
+
+// ── IDB documenti ──
+function renderIdbDocs(s){ const docs=_idbCache['documents']||[];
+  const head=`<div class="stbar"><div><div class="sttitle">Documenti (IDB)</div><div class="stkey">VehicleCarePro · documents[${docs.length}]</div></div><div class="sp"></div><button class="btn acc sm" onclick="addDoc()">+ Carica file</button><button class="btn dng sm" onclick="wipeStore('idb_documents')">Svuota</button></div>
+    <div class="hint">File allegati (binari). Metadati in celle; puoi scaricare, sostituire il file o eliminare.</div>
+    <input class="search" id="srch" placeholder="filtra…" value="${esc(filter)}" oninput="filter=this.value;fillDocs()"><div id="lst"></div>`;
+  document.getElementById('main').innerHTML=head; fillDocs(); }
+function fillDocs(){ const docs=_idbCache['documents']||[], list=docs.filter(matchFilter);
   let body;
   if(docs.length===0) body=`<div class="empty">Nessun documento in IndexedDB.</div>`;
   else if(list.length===0) body=`<div class="empty">Nessun documento corrisponde al filtro.</div>`;
-  else body=list.map(d=>{
-    const isImg=d.mime&&d.mime.startsWith('image/');
-    const size=d.data?(d.data.byteLength||d.data.length||0):0;
-    let thumb='';
-    if(isImg && d.data){ try{ const u=URL.createObjectURL(new Blob([d.data],{type:d.mime})); thumb=`<img class="thumb" src="${u}">`; }catch(e){} }
-    return `<details class="rec">
-      <summary>${thumb||'<span class="thumb"></span>'}
-        <span class="sum">${esc(d.tipo||'—')}</span>
-        <span class="sub">${esc((d.nome||'').slice(0,22))}</span>
-        <span class="chev">▾</span></summary>
-      <div class="body">
-        <div class="kv">
-          <label>id</label><input value="${esc(d.id||'')}" id="d-id-${esc(d.id)}" disabled>
-          <label>vehicleId</label><input value="${esc(d.vehicleId||'')}" id="d-vid-${esc(d.id)}">
-          <label>tipo</label><input value="${esc(d.tipo||'')}" id="d-tipo-${esc(d.id)}">
-          <label>nome</label><input value="${esc(d.nome||'')}" id="d-nome-${esc(d.id)}">
-          <label>mime</label><input value="${esc(d.mime||'')}" id="d-mime-${esc(d.id)}">
-        </div>
-        <div class="meta">${size?(Math.round(size/1024)+' KB · '):''}${esc(d.createdAt||'')} <span class="pill ${isImg?'pillimg':''}">${esc(d.mime||'bin')}</span></div>
-        <div class="rowbtns">
-          <button class="btn ok sm" onclick="saveDocMeta('${esc(d.id)}')">Salva metadati</button>
-          <button class="btn sm" onclick="downloadDoc('${esc(d.id)}')">Scarica</button>
-          <button class="btn sm" onclick="replaceDoc('${esc(d.id)}')">Sostituisci file</button>
-          <button class="btn dng sm" onclick="delDoc('${esc(d.id)}')">Elimina</button>
-        </div>
-      </div></details>`;
-  }).join('');
-  document.getElementById('main').innerHTML=head+body;
-}
+  else body=list.map(d=>{ const isImg=d.mime&&d.mime.indexOf('image/')===0; const size=d.data?(d.data.byteLength||d.data.length||0):0; let thumb='';
+    if(isImg&&d.data){ try{ thumb=`<img class="thumb" src="${URL.createObjectURL(new Blob([d.data],{type:d.mime}))}">`; }catch(e){} }
+    return `<details class="grp" open><summary>${thumb||'<span class="thumb"></span>'}<span class="gk">${esc(d.tipo||'—')}</span><span class="gc">${esc((d.nome||'').slice(0,20))}</span></summary><div class="gin">
+      <div class="kv"><label>id</label><input value="${esc(d.id||'')}" disabled>
+      <label>vehicleId</label><input value="${esc(d.vehicleId||'')}" id="d-vid-${esc(d.id)}">
+      <label>tipo</label><input value="${esc(d.tipo||'')}" id="d-tipo-${esc(d.id)}">
+      <label>nome</label><input value="${esc(d.nome||'')}" id="d-nome-${esc(d.id)}">
+      <label>mime</label><input value="${esc(d.mime||'')}" id="d-mime-${esc(d.id)}"></div>
+      <div class="meta">${size?(Math.round(size/1024)+' KB · '):''}${esc(d.createdAt||'')} <span class="pill ${isImg?'pillimg':''}">${esc(d.mime||'bin')}</span></div>
+      <div class="rowbtns"><button class="btn ok sm" onclick="saveDocMeta('${esc(d.id)}')">Salva</button><button class="btn sm" onclick="downloadDoc('${esc(d.id)}')">Scarica</button><button class="btn sm" onclick="replaceDoc('${esc(d.id)}')">Sostituisci</button><button class="btn dng sm" onclick="delDoc('${esc(d.id)}')">Elimina</button></div>
+    </div></details>`; }).join('');
+  const el=document.getElementById('lst'); if(el) el.innerHTML=body; }
 function findDoc(id){ return (_idbCache['documents']||[]).find(d=>String(d.id)===String(id)); }
-async function saveDocMeta(id){
-  const d=findDoc(id); if(!d){ toast('Documento non trovato','err'); return; }
-  d.vehicleId=document.getElementById('d-vid-'+id).value;
-  d.tipo=document.getElementById('d-tipo-'+id).value;
-  d.nome=document.getElementById('d-nome-'+id).value;
-  d.mime=document.getElementById('d-mime-'+id).value;
-  await idbPut('documents',d); toast('Metadati salvati','ok'); await reloadAll();
-}
-function downloadDoc(id){
-  const d=findDoc(id); if(!d||!d.data){ toast('Nessun dato','err'); return; }
-  const blob=new Blob([d.data],{type:d.mime||'application/octet-stream'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=d.nome||(d.id+'.bin'); a.click();
-}
-function replaceDoc(id){
-  const d=findDoc(id); if(!d) return;
-  const inp=document.createElement('input'); inp.type='file';
-  inp.onchange=async e=>{ const f=e.target.files[0]; if(!f) return;
-    d.data=await f.arrayBuffer(); d.mime=f.type||d.mime; d.nome=f.name;
-    await idbPut('documents',d); toast('File sostituito','ok'); await reloadAll();
-  };
-  inp.click();
-}
-function delDoc(id){
-  confirmDanger('Eliminare documento?','Il file binario verrà rimosso da IndexedDB.',async()=>{
-    await idbDel('documents',id); toast('Documento eliminato','ok'); await reloadAll();
-  });
-}
-function addDoc(){
-  const inp=document.createElement('input'); inp.type='file';
-  inp.onchange=async e=>{ const f=e.target.files[0]; if(!f) return;
-    let id; try{ id=crypto.randomUUID(); }catch(_){ id='doc-'+Date.now(); }
-    const doc={id, vehicleId:'', tipo:'Altro', nome:f.name, mime:f.type, data:await f.arrayBuffer(), createdAt:new Date().toISOString()};
-    await idbPut('documents',doc); toast('Documento caricato — imposta vehicleId/tipo','ok'); await reloadAll();
-  };
-  inp.click();
-}
+async function saveDocMeta(id){ const d=findDoc(id); if(!d) return; d.vehicleId=document.getElementById('d-vid-'+id).value; d.tipo=document.getElementById('d-tipo-'+id).value; d.nome=document.getElementById('d-nome-'+id).value; d.mime=document.getElementById('d-mime-'+id).value; await idbPut('documents',d); toast('Metadati salvati','ok'); await reloadAll(); }
+function downloadDoc(id){ const d=findDoc(id); if(!d||!d.data){ toast('Nessun dato','err'); return; } const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([d.data],{type:d.mime||'application/octet-stream'})); a.download=d.nome||(d.id+'.bin'); a.click(); }
+function replaceDoc(id){ const d=findDoc(id); if(!d) return; const inp=document.createElement('input'); inp.type='file'; inp.onchange=async e=>{ const f=e.target.files[0]; if(!f) return; d.data=await f.arrayBuffer(); d.mime=f.type||d.mime; d.nome=f.name; await idbPut('documents',d); toast('File sostituito','ok'); await reloadAll(); }; inp.click(); }
+function delDoc(id){ confirmDanger('Eliminare documento?','Il file verrà rimosso da IndexedDB.',async()=>{ await idbDel('documents',id); toast('Eliminato','ok'); await reloadAll(); }); }
+function addDoc(){ const inp=document.createElement('input'); inp.type='file'; inp.onchange=async e=>{ const f=e.target.files[0]; if(!f) return; const doc={id:uuid(),vehicleId:'',tipo:'Altro',nome:f.name,mime:f.type,data:await f.arrayBuffer(),createdAt:new Date().toISOString()}; await idbPut('documents',doc); toast('Caricato — imposta vehicleId/tipo','ok'); await reloadAll(); }; inp.click(); }
 
-// ── IndexedDB: foto veicoli ──
-function renderIdbPhotos(s){
-  const ph=_idbCache['vehicle_photos']||[];
-  const list=ph.filter(matchFilter);
-  const head=`
-    <div class="stbar">
-      <div><div class="sttitle">Foto veicoli (IDB)</div><div class="stkey">VehicleCarePro · vehicle_photos[${ph.length}]</div></div>
-      <div class="sp"></div>
-      <button class="btn acc sm" onclick="addPhoto()">+ Aggiungi</button>
-      <button class="btn dng sm" onclick="wipeStore('idb_photos')">Svuota</button>
-    </div>
-    <div class="hint">Foto mostrate in dashboard. Chiave = <span class="meta">vehicleId</span>. Sostituisci o elimina per ciascun veicolo.</div>
-    <input class="search" placeholder="filtra per vehicleId…" value="${esc(filter)}" oninput="filter=this.value;renderMain();this.focus();">`;
+// ── IDB foto ──
+function renderIdbPhotos(s){ const ph=_idbCache['vehicle_photos']||[];
+  const head=`<div class="stbar"><div><div class="sttitle">Foto veicoli (IDB)</div><div class="stkey">VehicleCarePro · vehicle_photos[${ph.length}]</div></div><div class="sp"></div><button class="btn acc sm" onclick="addPhoto()">+ Aggiungi</button><button class="btn dng sm" onclick="wipeStore('idb_photos')">Svuota</button></div>
+    <div class="hint">Foto mostrate in dashboard. Chiave = vehicleId.</div>
+    <input class="search" id="srch" placeholder="filtra per vehicleId…" value="${esc(filter)}" oninput="filter=this.value;fillPhotos()"><div id="lst"></div>`;
+  document.getElementById('main').innerHTML=head; fillPhotos(); }
+function fillPhotos(){ const ph=_idbCache['vehicle_photos']||[], list=ph.filter(matchFilter);
   let body;
   if(ph.length===0) body=`<div class="empty">Nessuna foto in IndexedDB.</div>`;
   else if(list.length===0) body=`<div class="empty">Nessuna foto corrisponde al filtro.</div>`;
-  else body=list.map(p=>{
-    const len=(p.dataUrl||'').length;
-    return `<details class="rec">
-      <summary><img class="thumb" src="${p.dataUrl||''}">
-        <span class="sum">${esc(p.vehicleId||'—')}</span>
-        <span class="sub">${Math.round(len/1024)} KB</span>
-        <span class="chev">▾</span></summary>
-      <div class="body">
-        <img src="${p.dataUrl||''}" style="width:100%;max-height:240px;object-fit:contain;border-radius:9px;background:#0b0e12;border:1px solid var(--bd);margin-bottom:11px;">
-        <div class="kv"><label>vehicleId</label><input value="${esc(p.vehicleId||'')}" id="p-vid-${esc(p.vehicleId)}"></div>
-        <div class="rowbtns">
-          <button class="btn ok sm" onclick="savePhotoVid('${esc(p.vehicleId)}')">Salva vehicleId</button>
-          <button class="btn sm" onclick="replacePhoto('${esc(p.vehicleId)}')">Sostituisci immagine</button>
-          <button class="btn dng sm" onclick="delPhoto('${esc(p.vehicleId)}')">Elimina</button>
-        </div>
-      </div></details>`;
-  }).join('');
-  document.getElementById('main').innerHTML=head+body;
-}
+  else body=list.map(p=>{ const len=(p.dataUrl||'').length; return `<details class="grp" open><summary><img class="thumb" src="${p.dataUrl||''}"><span class="gk">${esc(p.vehicleId||'—')}</span><span class="gc">${Math.round(len/1024)} KB</span></summary><div class="gin">
+      <img src="${p.dataUrl||''}" class="imgprev" style="margin-bottom:11px;">
+      <div class="kv"><label>vehicleId</label><input value="${esc(p.vehicleId||'')}" id="p-vid-${esc(p.vehicleId)}"></div>
+      <div class="rowbtns"><button class="btn ok sm" onclick="savePhotoVid('${esc(p.vehicleId)}')">Salva vehicleId</button><button class="btn sm" onclick="replacePhoto('${esc(p.vehicleId)}')">Sostituisci</button><button class="btn dng sm" onclick="delPhoto('${esc(p.vehicleId)}')">Elimina</button></div>
+    </div></details>`; }).join('');
+  const el=document.getElementById('lst'); if(el) el.innerHTML=body; }
 function findPhoto(vid){ return (_idbCache['vehicle_photos']||[]).find(p=>String(p.vehicleId)===String(vid)); }
-async function savePhotoVid(vid){
-  const p=findPhoto(vid); if(!p) return;
-  const nv=document.getElementById('p-vid-'+vid).value.trim();
-  if(!nv){ toast('vehicleId vuoto','err'); return; }
-  if(nv!==p.vehicleId){ await idbDel('vehicle_photos',p.vehicleId); }
-  await idbPut('vehicle_photos',{vehicleId:nv,dataUrl:p.dataUrl}); toast('vehicleId aggiornato','ok'); await reloadAll();
-}
+async function savePhotoVid(vid){ const p=findPhoto(vid); if(!p) return; const nv=document.getElementById('p-vid-'+vid).value.trim(); if(!nv){ toast('vehicleId vuoto','err'); return; } if(nv!==p.vehicleId) await idbDel('vehicle_photos',p.vehicleId); await idbPut('vehicle_photos',{vehicleId:nv,dataUrl:p.dataUrl}); toast('vehicleId aggiornato','ok'); await reloadAll(); }
 function fileToDataUrl(f){ return new Promise(res=>{ const r=new FileReader(); r.onload=e=>res(e.target.result); r.readAsDataURL(f); }); }
-function replacePhoto(vid){
-  const p=findPhoto(vid); if(!p) return;
-  const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*';
-  inp.onchange=async e=>{ const f=e.target.files[0]; if(!f) return;
-    const url=await fileToDataUrl(f); await idbPut('vehicle_photos',{vehicleId:p.vehicleId,dataUrl:url});
-    toast('Immagine sostituita','ok'); await reloadAll();
-  };
-  inp.click();
-}
-function delPhoto(vid){
-  confirmDanger('Eliminare foto?','La foto del veicolo verrà rimossa.',async()=>{
-    await idbDel('vehicle_photos',vid); toast('Foto eliminata','ok'); await reloadAll();
-  });
-}
-function addPhoto(){
-  const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*';
-  inp.onchange=async e=>{ const f=e.target.files[0]; if(!f) return;
-    const url=await fileToDataUrl(f);
-    await idbPut('vehicle_photos',{vehicleId:'NUOVO-'+Date.now(),dataUrl:url});
-    toast('Foto aggiunta — imposta il vehicleId corretto','ok'); await reloadAll();
-  };
-  inp.click();
-}
+function replacePhoto(vid){ const p=findPhoto(vid); if(!p) return; const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.onchange=async e=>{ const f=e.target.files[0]; if(!f) return; await idbPut('vehicle_photos',{vehicleId:p.vehicleId,dataUrl:await fileToDataUrl(f)}); toast('Sostituita','ok'); await reloadAll(); }; inp.click(); }
+function delPhoto(vid){ confirmDanger('Eliminare foto?','La foto verrà rimossa.',async()=>{ await idbDel('vehicle_photos',vid); toast('Eliminata','ok'); await reloadAll(); }); }
+function addPhoto(){ const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.onchange=async e=>{ const f=e.target.files[0]; if(!f) return; await idbPut('vehicle_photos',{vehicleId:'NUOVO-'+Date.now(),dataUrl:await fileToDataUrl(f)}); toast('Aggiunta — imposta il vehicleId','ok'); await reloadAll(); }; inp.click(); }
 
-// ─────────────────────────────────────────────
-//  Azzeramenti / Export
-// ─────────────────────────────────────────────
-function wipeStore(id){
-  const s=storeById(id);
-  confirmDanger('Svuotare “'+s.label+'”?', 'Tutti i record di questo store verranno eliminati.', async()=>{
-    if(s.kind==='ls-array') lsSet(s.key,[]);
-    else if(s.kind==='ls-object') lsSet(s.key,{});
-    else if(s.kind.startsWith('idb')) await idbClear(s.store);
-    toast(s.label+' svuotato','ok'); await reloadAll();
-  }, 'SVUOTA');
-}
-function wipeAll(){
-  confirmDanger('Azzerare TUTTO il database?',
-    'Verranno cancellati <b>tutti</b> i dati VehicleCare: localStorage e IndexedDB (documenti e foto). Irreversibile.',
-    async()=>{
-      STORES.forEach(s=>{ if(s.key) localStorage.removeItem(s.key); });
-      try{ await idbClear('documents'); }catch(e){}
-      try{ await idbClear('vehicle_photos'); }catch(e){}
-      toast('Database azzerato','ok'); await reloadAll();
-    }, 'AZZERA');
-}
-function exportAll(){
-  const dump={ _meta:{app:'VehicleCare', exportedAt:new Date().toISOString(), source:'db-editor'}, localStorage:{} };
+// ── Azzera / Export ──
+function wipeStore(id){ const s=storeById(id); confirmDanger('Svuotare “'+s.label+'”?','Tutti i record verranno eliminati.',async()=>{ if(s.kind==='ls-array') lsSet(s.key,[]); else if(s.kind==='ls-object') lsSet(s.key,{}); else if(s.kind.indexOf('idb')===0) await idbClear(s.store); toast(s.label+' svuotato','ok'); await reloadAll(); },'SVUOTA'); }
+function wipeAll(){ confirmDanger('Azzerare TUTTO il database?','Verranno cancellati <b>tutti</b> i dati VehicleCare (localStorage + IndexedDB). Irreversibile.',async()=>{ STORES.forEach(s=>{ if(s.key) localStorage.removeItem(s.key); }); try{ await idbClear('documents'); }catch(e){} try{ await idbClear('vehicle_photos'); }catch(e){} toast('Database azzerato','ok'); await reloadAll(); },'AZZERA'); }
+function exportAll(){ const dump={_meta:{app:'VehicleCare',exportedAt:new Date().toISOString(),source:'db-editor'},localStorage:{}};
   STORES.forEach(s=>{ if(s.key){ const raw=localStorage.getItem(s.key); if(raw!==null){ try{ dump.localStorage[s.key]=JSON.parse(raw); }catch(e){ dump.localStorage[s.key]=raw; } } } });
-  dump.indexedDB={ documents:(_idbCache['documents']||[]).map(d=>({id:d.id,vehicleId:d.vehicleId,tipo:d.tipo,nome:d.nome,mime:d.mime,bytes:d.data?(d.data.byteLength||0):0,createdAt:d.createdAt})),
-                   vehicle_photos:(_idbCache['vehicle_photos']||[]).map(p=>({vehicleId:p.vehicleId,bytes:(p.dataUrl||'').length})) };
-  const blob=new Blob([JSON.stringify(dump,null,2)],{type:'application/json'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
-  a.download='vcp_db_dump_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
-  toast('Export JSON (binari IDB esclusi — usa il backup ZIP dell\'app per quelli)','ok');
-}
+  dump.indexedDB={documents:(_idbCache['documents']||[]).map(d=>({id:d.id,vehicleId:d.vehicleId,tipo:d.tipo,nome:d.nome,mime:d.mime,bytes:d.data?(d.data.byteLength||0):0,createdAt:d.createdAt})),vehicle_photos:(_idbCache['vehicle_photos']||[]).map(p=>({vehicleId:p.vehicleId,bytes:(p.dataUrl||'').length}))};
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(dump,null,2)],{type:'application/json'})); a.download='vcp_db_dump_'+new Date().toISOString().slice(0,10)+'.json'; a.click(); toast('Export JSON (binari IDB esclusi)','ok'); }
 
-// ─────────────────────────────────────────────
-//  Avvio
-// ─────────────────────────────────────────────
-(async function(){
-  try{ _idbCache['documents']=await idbAll('documents'); }catch(e){ _idbCache['documents']=[]; }
-  try{ _idbCache['vehicle_photos']=await idbAll('vehicle_photos'); }catch(e){ _idbCache['vehicle_photos']=[]; }
-  renderChips(); renderMain();
-})();
+(async function(){ try{ _idbCache['documents']=await idbAll('documents'); }catch(e){ _idbCache['documents']=[]; } try{ _idbCache['vehicle_photos']=await idbAll('vehicle_photos'); }catch(e){ _idbCache['vehicle_photos']=[]; } renderChips(); renderMain(); })();
 </script>
 </body>
 </html>
