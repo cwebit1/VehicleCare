@@ -626,9 +626,13 @@ const IDB = {
     const db = await this.open();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(this.STORE, 'readonly');
-      const idx = tx.objectStore(this.STORE).index('vehicleId');
-      const req = idx.getAll(vehicleId);
-      req.onsuccess = () => resolve(req.result || []);
+      const store = tx.objectStore(this.STORE);
+      const hasIdx = store.indexNames.contains('vehicleId');
+      const req = hasIdx ? store.index('vehicleId').getAll(vehicleId) : store.getAll();
+      req.onsuccess = () => {
+        const all = req.result || [];
+        resolve(hasIdx ? all : all.filter(d => d.vehicleId === vehicleId));
+      };
       req.onerror = e => reject(e.target.error);
     });
   },
@@ -3011,7 +3015,13 @@ const DOC_TYPES=['Foto veicolo','Libretto circolazione (fronte)','Libretto circo
 
 async function openDocuments(vehicleId){
   const v=DB.vehicles().find(x=>x.id===vehicleId);
-  const docs=await IDB.getByVehicle(vehicleId);
+  let docs;
+  try{
+    docs=await IDB.getByVehicle(vehicleId);
+  }catch(e){
+    toast('Errore lettura documenti: '+((e&&e.name)||e),'error');
+    docs=[];
+  }
 
   // Genera preview URL per immagini (blob URL, liberato dopo)
   const previewUrls={};
@@ -5766,7 +5776,7 @@ function openSettings(){
       </label>
     </div>
     <button class="btn btn-danger" onclick="confirmResetAll()">🗑️ Azzera tutti i dati</button>
-    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.1.01 — VehicleCare Pro</p>
+    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.1.02 — VehicleCare Pro</p>
     <div style="height:10px;"></div>
   `);
   renderBackupStatus();
@@ -6377,6 +6387,11 @@ async function syncVehiclePhotosFromDocs(){
 
 function init(){
   initPWA();
+  // Richiede storage persistente: evita che il browser svuoti IndexedDB
+  // (foto/documenti) sotto pressione di memoria su mobile.
+  if(navigator.storage && navigator.storage.persist){
+    navigator.storage.persist().catch(()=>{});
+  }
   // Migrazione: rinomina 'Libretto circolazione' → 'Libretto circolazione (fronte)'
   (async()=>{
     try{
