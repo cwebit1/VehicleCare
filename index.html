@@ -478,6 +478,10 @@ body.dark .backup-banner-text{color:#fcd34d;}
       <span class="ni" style="background:#F0FDF4;color:#16a34a;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
       <span class="nav-label">Analytics</span>
     </button>
+    <button class="nav-tab" id="tab-stampacheck" onclick="openStampaCheck();closeNav();">
+      <span class="ni" style="background:#eff6ff;color:#1e40af;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg></span>
+      <span class="nav-label">Stampa check</span>
+    </button>
     <button class="nav-tab" id="tab-impostazioni" onclick="openSettings();closeNav();">
       <span class="ni ni-gear"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg></span>
       <span class="nav-label">Impostazioni</span>
@@ -2420,20 +2424,125 @@ const MODULO_NOTE_GEN_X = 100;
 const MODULO_NOTE_GEN_Y = 875;
 const MODULO_NOTE_GEN_W = 600;
 
-function stampaCheckModulo(checkId, mode){
-  const c = DB.checks().find(x => x.id === checkId);
-  if(!c){ toast('Check non trovato','error'); return; }
-  const v = DB.vehicles().find(x => x.id === c.vehicleId);
+// ═══════════════════════════════════════════════════════
+//  STAMPA CHECK — selettore mese + lista + PDF multipagina
+// ═══════════════════════════════════════════════════════
+function openStampaCheck(year, month){
+  const now = new Date();
+  if(year===undefined){ year = now.getFullYear(); month = now.getMonth(); }
+  if(month<0){ month=11; year--; }
+  if(month>11){ month=0; year++; }
+  window._stampaCheckYM = {year:year, month:month};
+  const mesi=['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+  const vById = {}; DB.vehicles().forEach(v=>vById[v.id]=v);
+  const checks = DB.checks().filter(function(c){
+    if(!c.data) return false;
+    const d=new Date(c.data+'T00:00:00');
+    return d.getFullYear()===year && d.getMonth()===month;
+  }).sort((a,b)=> a.data<b.data?-1 : a.data>b.data?1 : 0);
+
+  let listHtml;
+  if(checks.length===0){
+    listHtml = '<div style="text-align:center;color:#94a3b8;font-size:13px;padding:24px 0;">Nessun check eseguito in questo mese.</div>';
+  } else {
+    listHtml = checks.map(function(c){
+      const v=vById[c.vehicleId];
+      const anom=(c.items||[]).some(it=>it.val==='anomalia');
+      return '<label style="display:flex;align-items:center;gap:10px;padding:9px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;margin-bottom:6px;cursor:pointer;">'
+        +'<input type="checkbox" class="stc-chk" value="'+c.id+'" checked style="width:18px;height:18px;flex-shrink:0;">'
+        +'<span style="font-weight:700;color:#1e293b;font-size:13px;">'+escHtml(v?v.targa:'—')+'</span>'
+        +'<span style="color:#64748b;font-size:12px;">'+fmtDate(c.data)+'</span>'
+        +(anom?'<span title="Con anomalie" style="margin-left:auto;width:9px;height:9px;border-radius:50%;background:#fb923c;flex-shrink:0;"></span>':'')
+        +'</label>';
+    }).join('');
+  }
+
+  const html =
+    '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;">'
+    +'<button onclick="openStampaCheck('+year+','+(month-1)+')" style="background:#eff6ff;color:#1e40af;border:none;border-radius:10px;width:42px;height:42px;font-size:20px;font-weight:700;cursor:pointer;">‹</button>'
+    +'<div style="font-weight:800;color:#1e293b;font-size:15px;">'+mesi[month]+' '+year+'</div>'
+    +'<button onclick="openStampaCheck('+year+','+(month+1)+')" style="background:#eff6ff;color:#1e40af;border:none;border-radius:10px;width:42px;height:42px;font-size:20px;font-weight:700;cursor:pointer;">›</button>'
+    +'</div>'
+    + (checks.length? '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">'
+        +'<button onclick="_stcToggleAll()" id="stc-toggle" style="background:none;border:none;color:#1e40af;font-size:12px;font-weight:700;cursor:pointer;padding:0;">Deseleziona tutti</button>'
+        +'<span id="stc-count" style="font-size:12px;color:#64748b;">'+checks.length+' selezionati</span>'
+        +'</div>' : '')
+    + '<div style="max-height:48vh;overflow-y:auto;">'+listHtml+'</div>'
+    + (checks.length? '<div style="display:flex;gap:8px;margin-top:14px;">'
+        +'<button onclick="stampaCheckBatch(\'view\')" style="flex:1;background:#1e40af;color:#fff;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;">👁️ Apri PDF</button>'
+        +'<button onclick="stampaCheckBatch(\'print\')" style="flex:1;background:#0f766e;color:#fff;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;">🖨️ Stampa</button>'
+        +'</div>' : '');
+
+  openModal('🖨️ Stampa check', html);
+  setTimeout(function(){
+    document.querySelectorAll('.stc-chk').forEach(function(ch){ ch.addEventListener('change', _stcUpdateCount); });
+  }, 30);
+}
+
+function _stcUpdateCount(){
+  const all=document.querySelectorAll('.stc-chk');
+  const sel=document.querySelectorAll('.stc-chk:checked');
+  const cnt=document.getElementById('stc-count');
+  if(cnt) cnt.textContent=sel.length+' selezionati';
+  const tg=document.getElementById('stc-toggle');
+  if(tg) tg.textContent = (all.length>0 && sel.length===all.length) ? 'Deseleziona tutti' : 'Seleziona tutti';
+}
+
+function _stcToggleAll(){
+  const all=document.querySelectorAll('.stc-chk');
+  const sel=document.querySelectorAll('.stc-chk:checked');
+  const check = sel.length!==all.length;
+  all.forEach(ch=>ch.checked=check);
+  _stcUpdateCount();
+}
+
+function stampaCheckBatch(mode){
+  const ids = Array.from(document.querySelectorAll('.stc-chk:checked')).map(ch=>ch.value);
+  if(ids.length===0){ toast('Nessun check selezionato','error'); return; }
   const sfondo = DB.settings().pdfBg;
   if(!sfondo){ toast('Carica prima il modulo in Impostazioni','error'); return; }
+  toast('Generazione in corso…');
+  const img = new Image();
+  img.onload = function(){
+    const vById={}; DB.vehicles().forEach(v=>vById[v.id]=v);
+    const checks = ids.map(id=>DB.checks().find(c=>c.id===id)).filter(Boolean);
+    if(mode==='print'){
+      const frame=document.getElementById('check-print-frame');
+      if(!frame) return;
+      frame.className='cpr-img';
+      frame.innerHTML = checks.map(function(c, idx){
+        const cv=_drawCheckCanvas(c, vById[c.vehicleId], img);
+        const brk = idx<checks.length-1 ? 'page-break-after:always;' : '';
+        return '<img src="'+cv.toDataURL('image/png')+'" style="'+brk+'">';
+      }).join('');
+      frame.style.display='block';
+      setTimeout(function(){
+        window.print();
+        setTimeout(function(){ frame.style.display='none'; frame.innerHTML=''; frame.className=''; }, 1000);
+      }, 300);
+      return;
+    }
+    // Anteprima: PDF multipagina
+    try{
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+      checks.forEach(function(c, idx){
+        if(idx>0) pdf.addPage();
+        const cv=_drawCheckCanvas(c, vById[c.vehicleId], img);
+        pdf.addImage(cv.toDataURL('image/png'), 'PNG', 0, 0, 210, 297);
+      });
+      const url=URL.createObjectURL(pdf.output('blob'));
+      const w=window.open(url,'_blank');
+      if(!w){ const a=document.createElement('a'); a.href=url; a.download='Check_'+(window._stampaCheckYM?window._stampaCheckYM.year:'')+'.pdf'; a.click(); }
+    }catch(e){ toast('Errore generazione PDF','error'); }
+  };
+  img.src = sfondo;
+}
 
-  // Canvas 800x1101
+function _drawCheckCanvas(c, v, img){
   const canvas = document.createElement('canvas');
   canvas.width = 800; canvas.height = 1101;
   const ctx = canvas.getContext('2d');
-
-  const img = new Image();
-  img.onload = function(){
     ctx.drawImage(img, 0, 0, 800, 1101);
 
     // ── Font e colori ──
@@ -2544,6 +2653,19 @@ function stampaCheckModulo(checkId, mode){
         ctx.fillText(line, lineX, noteLineYs[lineIdx]);
       }
     }
+
+  return canvas;
+}
+
+function stampaCheckModulo(checkId, mode){
+  const c = DB.checks().find(x => x.id === checkId);
+  if(!c){ toast('Check non trovato','error'); return; }
+  const v = DB.vehicles().find(x => x.id === c.vehicleId);
+  const sfondo = DB.settings().pdfBg;
+  if(!sfondo){ toast('Carica prima il modulo in Impostazioni','error'); return; }
+  const img = new Image();
+  img.onload = function(){
+    const canvas = _drawCheckCanvas(c, v, img);
 
     // ── 6. Genera il PDF (stesso identico output per anteprima e stampa) ──
     const dataUrl = canvas.toDataURL('image/png');
@@ -5644,7 +5766,7 @@ function openSettings(){
       </label>
     </div>
     <button class="btn btn-danger" onclick="confirmResetAll()">🗑️ Azzera tutti i dati</button>
-    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.99 — VehicleCare Pro</p>
+    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.1.01 — VehicleCare Pro</p>
     <div style="height:10px;"></div>
   `);
   renderBackupStatus();
