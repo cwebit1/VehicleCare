@@ -2554,20 +2554,18 @@ function stampaCheckModulo(checkId, mode){
       pdf.addImage(dataUrl, 'PNG', 0, 0, 210, 297);
 
       if(mode === 'print'){
-        // Invia in stampa esattamente il PDF generato (apertura PDF con stampa automatica)
-        pdf.autoPrint();
-        const blobUrl = pdf.output('bloburl');
-        const w = window.open(blobUrl, '_blank');
-        if(!w){
-          // Popup bloccato → iframe nascosto come fallback di stampa
-          let ifr = document.getElementById('pdf-print-iframe');
-          if(ifr) ifr.remove();
-          ifr = document.createElement('iframe');
-          ifr.id = 'pdf-print-iframe';
-          ifr.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
-          ifr.onload = function(){ try{ ifr.contentWindow.focus(); ifr.contentWindow.print(); }catch(err){} };
-          ifr.src = blobUrl;
-          document.body.appendChild(ifr);
+        // Stampa affidabile su mobile: inietto l'immagine del modulo nel print-frame e apro
+        // la finestra di stampa di sistema. L'autoPrint del PDF su Chrome mobile non funziona
+        // (apre solo il visualizzatore con la matita "modifica"), quindi NON lo uso.
+        const frame = document.getElementById('check-print-frame');
+        if(frame){
+          frame.className = 'cpr-img';
+          frame.innerHTML = '<img src="'+dataUrl+'">';
+          frame.style.display = 'block';
+          setTimeout(function(){
+            window.print();
+            setTimeout(function(){ frame.style.display='none'; frame.innerHTML=''; frame.className=''; }, 800);
+          }, 200);
         }
         return;
       }
@@ -5646,7 +5644,7 @@ function openSettings(){
       </label>
     </div>
     <button class="btn btn-danger" onclick="confirmResetAll()">🗑️ Azzera tutti i dati</button>
-    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.98 — VehicleCare Pro</p>
+    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.99 — VehicleCare Pro</p>
     <div style="height:10px;"></div>
   `);
   renderBackupStatus();
