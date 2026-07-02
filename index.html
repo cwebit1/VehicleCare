@@ -4648,6 +4648,16 @@ function _buildMonthPanel(Y, M) {
   var monthStr = Y + '-' + String(M + 1).padStart(2, '0');
   var daysInMonth     = new Date(Y, M + 1, 0).getDate();
   var startDayOfWeek  = (new Date(Y, M, 1).getDay() + 6) % 7; // lun=0
+  // ── Range dell'intera griglia visibile (include code del mese prec./succ.) ──
+  var beforeDays = startDayOfWeek;
+  var afterDays  = (7 - ((beforeDays + daysInMonth) % 7)) % 7;
+  var totalGridCells = beforeDays + daysInMonth + afterDays;
+  function _ymd(dt){ return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0'); }
+  var gridStartDate = new Date(Y, M, 1 - beforeDays);
+  var gridStartStr  = _ymd(gridStartDate);
+  var gridEndStr    = _ymd(new Date(Y, M, 1 - beforeDays + (totalGridCells - 1)));
+  function _cellDateStr(i){ var dt=new Date(gridStartDate); dt.setDate(dt.getDate()+i); return _ymd(dt); }
+  function _idxOfDate(ds){ return Math.round((new Date(ds+'T00:00:00') - gridStartDate)/86400000); }
   var MONTHS = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno',
     'Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
 
@@ -4658,7 +4668,7 @@ function _buildMonthPanel(Y, M) {
   // Mappa check del mese
   var checkMap = {};
   checks.forEach(function(c) {
-    if (!c.data || !c.data.startsWith(monthStr)) return;
+    if (!c.data || c.data < gridStartStr || c.data > gridEndStr) return;
     if (!checkMap[c.data]) checkMap[c.data] = {};
     var hasAnom = c.items && c.items.some(function(it){ return it.val === 'anomalia'; });
     checkMap[c.data][c.vehicleId] = { stato: hasAnom ? 'anomalia' : 'ok', checkId: c.id };
@@ -4668,26 +4678,16 @@ function _buildMonthPanel(Y, M) {
   var cellBodyH = vehicles.length * PL_ROW_H + Math.max(0, vehicles.length - 1) * PL_ROW_GAP;
   var cellH     = PL_HDR_H + cellBodyH;
 
-  // Celle prima/dopo
-  var beforeDays = startDayOfWeek;
-  var totalCells = beforeDays + daysInMonth;
-  var afterDays  = (7 - (totalCells % 7)) % 7;
-
-  // Griglia celle
+  // Griglia celle — un'unica passata su tutte le celle visibili (incluse code adiacenti)
   var gridHtml = '';
-  for (var i = 0; i < beforeDays; i++) {
-    gridHtml += '<div class="pl-cell" style="height:' + cellH + 'px;">';
-    gridHtml += '<div class="pl-cell-hdr" style="height:' + PL_HDR_H + 'px;"></div>';
-    gridHtml += '<div style="display:flex;flex-direction:column;gap:' + PL_ROW_GAP + 'px;">';
-    vehicles.forEach(function(){ gridHtml += '<div class="pl-vrow" style="height:' + PL_ROW_H + 'px;"></div>'; });
-    gridHtml += '</div></div>';
-  }
-  for (var d = 1; d <= daysInMonth; d++) {
-    var dateStr   = monthStr + '-' + String(d).padStart(2, '0');
+  for (var i = 0; i < totalGridCells; i++) {
+    var dateStr   = _cellDateStr(i);
+    var inMonth   = dateStr.slice(0, 7) === monthStr;
+    var dnum      = parseInt(dateStr.slice(8, 10), 10);
     var isToday   = dateStr === todayStr;
     var dayChecks = checkMap[dateStr] || {};
     gridHtml += '<div class="pl-cell' + (isToday ? ' is-today' : '') + '" style="height:' + cellH + 'px;" data-date="' + dateStr + '">';
-    gridHtml += '<div class="pl-cell-hdr" style="height:' + PL_HDR_H + 'px;">' + d + '</div>';
+    gridHtml += '<div class="pl-cell-hdr" style="height:' + PL_HDR_H + 'px;' + (inMonth ? '' : 'color:#cbd5e1;') + '">' + dnum + '</div>';
     gridHtml += '<div style="display:flex;flex-direction:column;gap:' + PL_ROW_GAP + 'px;">';
     vehicles.forEach(function(v) {
       var ck     = dayChecks[v.id];
@@ -4700,34 +4700,26 @@ function _buildMonthPanel(Y, M) {
     });
     gridHtml += '</div></div>';
   }
-  for (var i = 0; i < afterDays; i++) {
-    gridHtml += '<div class="pl-cell" style="height:' + cellH + 'px;">';
-    gridHtml += '<div class="pl-cell-hdr" style="height:' + PL_HDR_H + 'px;"></div>';
-    gridHtml += '<div style="display:flex;flex-direction:column;gap:' + PL_ROW_GAP + 'px;">';
-    vehicles.forEach(function(){ gridHtml += '<div class="pl-vrow" style="height:' + PL_ROW_H + 'px;"></div>'; });
-    gridHtml += '</div></div>';
-  }
 
   // Segmenti barre intervento
   var mStart = Y + '-' + String(M+1).padStart(2,'0') + '-01';
   var mEnd   = Y + '-' + String(M+1).padStart(2,'0') + '-' + String(daysInMonth).padStart(2,'0');
   var segments = [];
 
-  // Helper riutilizzabile: spezza un intervallo [startDateStr,endDateStr] (clippato al mese)
-  // in segmenti contigui riga/colonna della griglia, e li accoda a `segments`.
+  // Helper riutilizzabile: spezza un intervallo [startDateStr,endDateStr] (clippato alla
+  // griglia visibile, code adiacenti incluse) in segmenti contigui riga/colonna e li accoda.
   function _pushDateRangeSegments(startDateStr, endDateStr, item) {
     if (!startDateStr) return;
     if (!endDateStr) endDateStr = startDateStr;
-    if (startDateStr > mEnd || endDateStr < mStart) return;
-    var absStart = startDateStr > mStart ? startDateStr : mStart;
-    var absEnd   = endDateStr < mEnd ? endDateStr : mEnd;
+    if (startDateStr > gridEndStr || endDateStr < gridStartStr) return;
+    var absStart = startDateStr > gridStartStr ? startDateStr : gridStartStr;
+    var absEnd   = endDateStr < gridEndStr ? endDateStr : gridEndStr;
     if (absEnd < absStart) return;
-    var giornoInizio = parseInt(absStart.slice(8, 10));
-    var giornoFine   = parseInt(absEnd.slice(8, 10));
+    var idxStart = _idxOfDate(absStart);
+    var idxEnd   = _idxOfDate(absEnd);
     var giorni = [];
-    for (var d = giornoInizio; d <= giornoFine; d++) {
-      var idx = startDayOfWeek + (d - 1);
-      giorni.push({ riga: Math.floor(idx / PL_COLS), colonna: idx % PL_COLS });
+    for (var ii = idxStart; ii <= idxEnd; ii++) {
+      giorni.push({ riga: Math.floor(ii / PL_COLS), colonna: ii % PL_COLS });
     }
     if (!giorni.length) return;
     var cur = { riga: giorni[0].riga, colStart: giorni[0].colonna, colEnd: giorni[0].colonna, isFirst: true };
@@ -4886,7 +4878,7 @@ function _buildMonthPanel(Y, M) {
   var tireInts = DB.tireInterventions();
   tireInts.filter(function(ti){ return ti.stato==='programmato'; }).forEach(function(ti){
     var dp = ti.dataProgrammata;
-    if (!dp || dp < mStart || dp > mEnd) return;
+    if (!dp || dp < gridStartStr || dp > gridEndStr) return;
     var vIdx = vehicles.findIndex(function(v){ return v.id===ti.vehicleId; });
     if (vIdx===-1) return;
     var g = parseInt(dp.slice(8,10));
@@ -5776,7 +5768,7 @@ function openSettings(){
       </label>
     </div>
     <button class="btn btn-danger" onclick="confirmResetAll()">🗑️ Azzera tutti i dati</button>
-    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.1.03 — VehicleCare Pro</p>
+    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.1.04 — VehicleCare Pro</p>
     <div style="height:10px;"></div>
   `);
   renderBackupStatus();
