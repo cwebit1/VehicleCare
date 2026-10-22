@@ -2,6 +2,17 @@
 
 ---
 
+## v108 — 2026-10-22
+### Interventi: maschere separate per Crea e Modifica
+- **Crea** e **Modifica** intervento sono ora due maschere distinte (prima un'unica maschera per entrambe)
+- Modifica: mostra il record com'è (campi vuoti restano vuoti) e salva **solo i campi cambiati**; non riscrive più origine, non aggiunge data programmazione né km, non perde il fornitore se non attivo (mostrato come "non attivo"), non aggiunge collegamenti a check da creazioni abbandonate
+- Riepilogo origine (check/segnalazione/revisione/manuale) e data di creazione in testa alla modifica
+- Controlli su entrambe: data intervento obbligatoria, programmazione non successiva all'intervento, chiusura non precedente all'apertura, km chiusura non inferiori ai km apertura
+- Campi di chiusura solo con stato "Chiuso"; riaprendo un intervento chiuso compare l'avviso che i dati di chiusura verranno rimossi
+- In-app 1.1.09
+
+---
+
 ## v107 — 2026-10-22
 ### Avviso cambio gomme secondo il Codice della Strada
 - Le date in Impostazioni sono ora le **scadenze**: invernali entro il **15/11**, estive entro il **15/05** (prima 15/10 e 15/04, che sono inizio finestra e fine obbligo)

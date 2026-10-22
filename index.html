@@ -3180,102 +3180,211 @@ function saveAnnullaIntervento(intId, vehicleId, fromPlanner){
 // ═══════════════════════════════════════════════════════
 //  INTERVENTI
 // ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
+//  INTERVENTI — maschere separate: CREA e MODIFICA
+// ═══════════════════════════════════════════════════════
+// Punto d'ingresso unico usato da tutta l'app: con un id apre la MODIFICA,
+// senza id apre la CREAZIONE.
 function openInterventionForm(vehicleId, intId){
+  if(intId) return openInterventionEditForm(intId);
+  return openInterventionCreateForm(vehicleId);
+}
+
+// Controlli comuni su date e km. Restituisce il messaggio d'errore o null.
+function _checkInterventionData(d){
+  if(!d.descrizione) return 'Inserisci una descrizione';
+  if(!d.dataApertura) return 'Inserisci la data intervento';
+  if(d.dataProgrammazione && d.dataProgrammazione > d.dataApertura) return 'La data programmazione non può essere successiva alla data intervento';
+  if(d.stato==='chiuso'){
+    if(!d.dataChiusura) return 'Inserisci la data di chiusura';
+    if(d.dataChiusura < d.dataApertura) return 'La data di chiusura non può essere precedente alla data intervento';
+    if(d.kmChiusura!=null && d.kmApertura!=null && d.kmChiusura < d.kmApertura) return 'I km di chiusura non possono essere inferiori ai km di apertura';
+  }
+  return null;
+}
+function _kmVal(id){ const v=document.getElementById(id).value; return v==='' ? null : (parseInt(v)||0); }
+
+const INT_STATI=[['in_lavorazione','🔧 In lavorazione'],['anomalia','⚠️ Anomalia'],['chiuso','✅ Chiuso'],['annullato','✕ Annullato']];
+
+// ── CREA ──────────────────────────────────────────────
+function openInterventionCreateForm(vehicleId){
   const v=DB.vehicles().find(x=>x.id===vehicleId);
-  const interventions=DB.interventions();
-  const existing=intId?interventions.find(i=>i.id===intId):null;
-  const newFromAnomaly=window._newIntervention||null;
+  // Il contesto "da anomalia" vale solo per QUESTA creazione e viene consumato subito
+  window._intCreateCtx = window._newIntervention || null;
+  window._newIntervention = null;
+  const ctx = window._intCreateCtx;
   const suppliers=DB.suppliers().filter(s=>s.attivo);
-
-  const suppliersOptions=suppliers.map(s=>`<option value="${s.id}" ${existing?.fornitoreId===s.id?'selected':''}>${escHtml(s.nome)} (${escHtml(s.tipo)})</option>`).join('');
-  const chiusuraDisplay=existing?.stato==='chiuso'?'':'display:none';
-
-  const descrizione = existing?.descrizione || newFromAnomaly?.descrizione || (window._preInterventoDesc||'');
-  const dataApertura = existing?.dataApertura || newFromAnomaly?.dataApertura || today();
-  const dataProgrammazione = existing?.dataProgrammazione || newFromAnomaly?.dataProgrammazione || dataApertura;
-  const kmApertura = existing?.kmApertura || newFromAnomaly?.km || v?.km || '';
-
+  const suppliersOptions=suppliers.map(s=>`<option value="${s.id}">${escHtml(s.nome)} (${escHtml(s.tipo)})</option>`).join('');
+  const descrizione = ctx?.descrizione || (window._preInterventoDesc||'');
   window._preInterventoDesc = null;
-  openModal(intId?'Modifica Intervento':'Nuovo Intervento — '+(v?.targa||''), `
+  const dataApertura = ctx?.dataApertura || today();
+  const kmApertura = ctx?.km || v?.km || '';
+  const statoOpts = INT_STATI.map(([val,lab])=>`<option value="${val}" ${val==='in_lavorazione'?'selected':''}>${lab}</option>`).join('');
+
+  openModal('Nuovo Intervento — '+(v?.targa||''), `
     <div class="form-group"><label class="form-label">Descrizione problema *</label>
       <textarea class="form-input" id="int-desc" rows="3" placeholder="Descrivi il problema o l'intervento…">${escHtml(descrizione)}</textarea></div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Data programmazione</label>
-        <input class="form-input" id="int-data-prog" type="date" value="${dataProgrammazione}"></div>
-      <div class="form-group"><label class="form-label">Data intervento</label>
+        <input class="form-input" id="int-data-prog" type="date" value="${dataApertura}"></div>
+      <div class="form-group"><label class="form-label">Data intervento *</label>
         <input class="form-input" id="int-data" type="date" value="${dataApertura}"></div>
     </div>
     <div class="form-group"><label class="form-label">KM apertura</label>
       <input class="form-input" id="int-km" type="number" value="${kmApertura}" min="0"></div>
     <div class="form-group"><label class="form-label">Stato</label>
-      <select class="form-select" id="int-stato">
-        <option value="in_lavorazione" ${(!existing||existing.stato==='in_lavorazione')?'selected':''}>🔧 In lavorazione</option>
-        <option value="anomalia" ${existing?.stato==='anomalia'?'selected':''}>⚠️ Anomalia</option>
-        <option value="chiuso" ${existing?.stato==='chiuso'?'selected':''}>✅ Chiuso</option>
-        <option value="annullato" ${existing?.stato==='annullato'?'selected':''}>✕ Annullato</option>
-      </select></div>
+      <select class="form-select" id="int-stato">${statoOpts}</select></div>
     <div class="form-group"><label class="form-label">Fornitore</label>
       <select class="form-select" id="int-fornitore">
         <option value="">— Nessun fornitore —</option>
         ${suppliersOptions}
       </select></div>
-    <div id="chiusura-fields" style="${chiusuraDisplay}">
+    <div id="chiusura-fields" style="display:none">
       <div class="form-row">
-        <div class="form-group"><label class="form-label">Data chiusura</label>
-          <input class="form-input" id="int-data-ch" type="date" value="${existing?.dataChiusura||today()}"></div>
+        <div class="form-group"><label class="form-label">Data chiusura *</label>
+          <input class="form-input" id="int-data-ch" type="date" value="${today()}"></div>
         <div class="form-group"><label class="form-label">KM chiusura</label>
-          <input class="form-input" id="int-km-ch" type="number" value="${existing?.kmChiusura||''}" min="0"></div>
+          <input class="form-input" id="int-km-ch" type="number" value="" min="0"></div>
       </div>
       <div class="form-group"><label class="form-label">Note chiusura</label>
-        <textarea class="form-input" id="int-note-ch" rows="2" placeholder="Cosa è stato fatto…">${escHtml(existing?.noteChiusura||'')}</textarea></div>
+        <textarea class="form-input" id="int-note-ch" rows="2" placeholder="Cosa è stato fatto…"></textarea></div>
     </div>
     <div class="btn-row">
-      <button class="btn btn-secondary" onclick="closeModal()">Annulla</button>
-      <button class="btn btn-primary" onclick="saveIntervention('${vehicleId}','${intId||''}')">Salva</button>
+      <button class="btn btn-secondary" onclick="window._intCreateCtx=null;closeModal()">Annulla</button>
+      <button class="btn btn-primary" onclick="saveInterventionCreate('${vehicleId}')">Crea intervento</button>
     </div>
   `);
   setTimeout(()=>{
     const sel=document.getElementById('int-stato');
     if(sel) sel.onchange=function(){
-      document.getElementById('chiusura-fields').style.display=
-        (this.value==='chiuso'||this.value==='annullato')?'':'none';
+      document.getElementById('chiusura-fields').style.display = this.value==='chiuso' ? '' : 'none';
     };
   },10);
 }
 
-function saveIntervention(vehicleId, intId){
-  const desc=document.getElementById('int-desc').value.trim();
-  if(!desc){ toast('Inserisci una descrizione','error'); return; }
+function saveInterventionCreate(vehicleId){
+  const ctx = window._intCreateCtx || null;
   const stato=document.getElementById('int-stato').value;
-  const interventions=DB.interventions();
   const data={
-    vehicleId, descrizione:desc,
+    vehicleId,
+    descrizione:document.getElementById('int-desc').value.trim(),
     dataApertura:document.getElementById('int-data').value,
     dataProgrammazione:document.getElementById('int-data-prog').value||null,
-    kmApertura:parseInt(document.getElementById('int-km').value)||null,
+    kmApertura:_kmVal('int-km'),
     stato, fornitoreId:document.getElementById('int-fornitore').value||null,
     origine:'manuale',
     dataChiusura:stato==='chiuso'?document.getElementById('int-data-ch').value:null,
-    kmChiusura:stato==='chiuso'?parseInt(document.getElementById('int-km-ch').value)||null:null,
+    kmChiusura:stato==='chiuso'?_kmVal('int-km-ch'):null,
     noteChiusura:stato==='chiuso'?document.getElementById('int-note-ch').value:'',
   };
-  // Se viene da anomalia, aggiungi checkId e imposta origine='check'
-  const newFromAnomaly=window._newIntervention||null;
-  if(newFromAnomaly){
-    data.checkId=newFromAnomaly.checkId;
-    data.origine='check';
-  }
-
-  if(intId){
-    const idx=interventions.findIndex(i=>i.id===intId);
-    if(idx>-1) interventions[idx]={...interventions[idx],...data};
-    toast('Intervento aggiornato','success');
-  } else {
-    interventions.push({id:DB.uid(),...data,createdAt:nowISO()});
-    toast('Intervento creato','success');
-  }
+  const err=_checkInterventionData(data);
+  if(err){ toast(err,'error'); return; }
+  if(ctx && ctx.checkId){ data.checkId=ctx.checkId; data.origine='check'; }
+  const interventions=DB.interventions();
+  interventions.push({id:DB.uid(),...data,createdAt:nowISO()});
   DB.saveInterventions(interventions);
-  window._newIntervention=null;
+  window._intCreateCtx=null;
+  toast('Intervento creato','success');
+  closeModalSmart();
+  refreshAll();
+}
+
+// ── MODIFICA ──────────────────────────────────────────
+// Mostra il record così com'è (campi vuoti restano vuoti) e salva SOLO i campi cambiati.
+function openInterventionEditForm(intId){
+  const it=DB.interventions().find(i=>i.id===intId);
+  if(!it){ toast('Intervento non trovato','error'); return; }
+  const v=DB.vehicles().find(x=>x.id===it.vehicleId);
+  // Fornitori attivi + quello già assegnato (anche se nel frattempo disattivato)
+  const suppliers=DB.suppliers().filter(s=>s.attivo || s.id===it.fornitoreId);
+  const suppliersOptions=suppliers.map(s=>`<option value="${s.id}" ${it.fornitoreId===s.id?'selected':''}>${escHtml(s.nome)} (${escHtml(s.tipo)})${s.attivo?'':' — non attivo'}</option>`).join('');
+  const stati = INT_STATI.some(([val])=>val===it.stato) ? INT_STATI : INT_STATI.concat([[it.stato, it.stato]]);
+  const statoOpts = stati.map(([val,lab])=>`<option value="${escHtml(String(val))}" ${it.stato===val?'selected':''}>${lab}</option>`).join('');
+  const origineLbl = {check:'📋 Da anomalia check', segnalazione:'📣 Da segnalazione', revisione:'📅 Da revisione', manuale:'✏️ Manuale'}[it.origine] || (it.origine||'—');
+  const chiuso = it.stato==='chiuso';
+  const val = x => x==null ? '' : escHtml(String(x));
+
+  openModal('Modifica Intervento — '+(v?.targa||''), `
+    <div style="background:#f8fafc;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:#64748b;">
+      ${origineLbl}${it.createdAt?' · creato il '+fmtDate(it.createdAt):''}
+    </div>
+    <div class="form-group"><label class="form-label">Descrizione problema *</label>
+      <textarea class="form-input" id="int-desc" rows="3">${escHtml(it.descrizione||'')}</textarea></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Data programmazione</label>
+        <input class="form-input" id="int-data-prog" type="date" value="${val(it.dataProgrammazione)}"></div>
+      <div class="form-group"><label class="form-label">Data intervento *</label>
+        <input class="form-input" id="int-data" type="date" value="${val(it.dataApertura)}"></div>
+    </div>
+    <div class="form-group"><label class="form-label">KM apertura</label>
+      <input class="form-input" id="int-km" type="number" value="${val(it.kmApertura)}" min="0"></div>
+    <div class="form-group"><label class="form-label">Stato</label>
+      <select class="form-select" id="int-stato">${statoOpts}</select></div>
+    <div id="int-chiusura-warn" style="display:none;background:#fef3c7;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:#92400e;font-weight:600;">
+      ⚠️ Cambiando stato, data, km e note di chiusura verranno rimossi.
+    </div>
+    <div class="form-group"><label class="form-label">Fornitore</label>
+      <select class="form-select" id="int-fornitore">
+        <option value="" ${it.fornitoreId?'':'selected'}>— Nessun fornitore —</option>
+        ${suppliersOptions}
+      </select></div>
+    <div id="chiusura-fields" style="${chiuso?'':'display:none'}">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Data chiusura *</label>
+          <input class="form-input" id="int-data-ch" type="date" value="${chiuso?val(it.dataChiusura):today()}"></div>
+        <div class="form-group"><label class="form-label">KM chiusura</label>
+          <input class="form-input" id="int-km-ch" type="number" value="${chiuso?val(it.kmChiusura):''}" min="0"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Note chiusura</label>
+        <textarea class="form-input" id="int-note-ch" rows="2" placeholder="Cosa è stato fatto…">${chiuso?escHtml(it.noteChiusura||''):''}</textarea></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="closeModal()">Annulla</button>
+      <button class="btn btn-primary" onclick="saveInterventionEdit('${intId}')">Salva modifiche</button>
+    </div>
+  `);
+  setTimeout(()=>{
+    const sel=document.getElementById('int-stato');
+    if(sel) sel.onchange=function(){
+      document.getElementById('chiusura-fields').style.display = this.value==='chiuso' ? '' : 'none';
+      document.getElementById('int-chiusura-warn').style.display = (chiuso && this.value!=='chiuso') ? '' : 'none';
+    };
+  },10);
+}
+
+function saveInterventionEdit(intId){
+  const interventions=DB.interventions();
+  const idx=interventions.findIndex(i=>i.id===intId);
+  if(idx<0){ toast('Intervento non trovato','error'); return; }
+  const it=interventions[idx];
+  const stato=document.getElementById('int-stato').value;
+  // Valori del modulo (stessa forma dei campi del record)
+  const form={
+    descrizione:document.getElementById('int-desc').value.trim(),
+    dataProgrammazione:document.getElementById('int-data-prog').value||null,
+    dataApertura:document.getElementById('int-data').value,
+    kmApertura:_kmVal('int-km'),
+    stato,
+    fornitoreId:document.getElementById('int-fornitore').value||null,
+  };
+  if(stato==='chiuso'){
+    form.dataChiusura=document.getElementById('int-data-ch').value||null;
+    form.kmChiusura=_kmVal('int-km-ch');
+    form.noteChiusura=document.getElementById('int-note-ch').value;
+  }else if(it.stato==='chiuso'){
+    // Riaperto/annullato un intervento chiuso: i dati di chiusura non valgono più
+    form.dataChiusura=null; form.kmChiusura=null; form.noteChiusura='';
+  }
+  const err=_checkInterventionData({...it,...form});
+  if(err){ toast(err,'error'); return; }
+  // Solo i campi effettivamente cambiati (vuoto e assente valgono uguale)
+  const norm=x=>(x===undefined||x===null||x==='')?null:String(x);
+  const patch={};
+  Object.keys(form).forEach(k=>{ if(norm(form[k])!==norm(it[k])) patch[k]=form[k]; });
+  if(!Object.keys(patch).length){ toast('Nessuna modifica'); closeModalSmart(); return; }
+  interventions[idx]={...it,...patch};
+  DB.saveInterventions(interventions);
+  toast('Intervento aggiornato','success');
   closeModalSmart();
   refreshAll();
 }
@@ -6751,7 +6860,7 @@ function openSettings(){
       </label>
     </div>
     <button class="btn btn-danger" onclick="confirmResetAll()">🗑️ Azzera tutti i dati</button>
-    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.1.08 — VehicleCare Pro</p>
+    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.1.09 — VehicleCare Pro</p>
     <div style="height:10px;"></div>
   `);
   renderBackupStatus();
