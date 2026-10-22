@@ -560,7 +560,7 @@ const DB = {
     try{ CloudSync.onLocalSet(k, prev, v); }catch(e){ console.warn('[cloud] onLocalSet:', e); }
   },
   defaults(k){
-    if(k==='settings') return {operator:'Operatore',revWarningDays:30,tireEstate:'04-15',tireInverno:'10-15',pdfBg:null};
+    if(k==='settings') return {operator:'Operatore',revWarningDays:30,tireEstate:'05-15',tireInverno:'11-15',tireWarnDays:30,pdfBg:null};
     if(k==='calibration') return {};
     return [];
   },
@@ -1788,7 +1788,7 @@ function renderAlerts(){
   // Cambio gomme
   const alertGomme = checkTireAlerts(settings);
   if(alertGomme){
-    const chip = mkChip('blue', `🔵 ${alertGomme}`, ()=>{switchTab('gomme');});
+    const chip = mkChip(alertGomme.scaduto?'red':'blue', `🔵 ${alertGomme.testo}`, ()=>{switchTab('gomme');});
     bar.appendChild(chip);
   }
 
@@ -1920,23 +1920,44 @@ function mkChip(type, text, cb){
   return c;
 }
 
+// Cambio gomme: le date in Impostazioni sono le SCADENZE (Codice della Strada:
+// invernali entro il 15/11, estive entro il 15/05). L'avviso compare dal preavviso
+// (default 30 giorni) e conta i mezzi attivi che hanno ancora montate le gomme
+// dell'altra stagione; dopo la scadenza diventa rosso finché il cambio non è registrato.
 function checkTireAlerts(settings){
-  const now = new Date();
-  const mm = String(now.getMonth()+1).padStart(2,'0');
-  const dd = String(now.getDate()).padStart(2,'0');
-  const today_mmdd = `${mm}-${dd}`;
-
-  function alertNear(targetMMDD){
-    const [tm,td]=targetMMDD.split('-');
-    const target=new Date(now.getFullYear(),parseInt(tm)-1,parseInt(td));
-    if(target<now){ target.setFullYear(now.getFullYear()+1); }
-    const diff=Math.round((target-now)/(1000*60*60*24));
-    return diff>=0&&diff<=14;
-  }
-
-  if(alertNear(settings.tireEstate||'04-15')) return 'Cambio gomme estive tra <14gg';
-  if(alertNear(settings.tireInverno||'10-15')) return 'Cambio gomme invernali tra <14gg';
-  return null;
+  const warn = parseInt(settings.tireWarnDays)||30;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const scad = (mmdd, y)=>{ const p=String(mmdd||'').split('-'); return new Date(y, (parseInt(p[0])||1)-1, parseInt(p[1])||1); };
+  const stagioni = [
+    {stagione:'inverno', nome:'invernali', mmdd:settings.tireInverno||'11-15'},
+    {stagione:'estate',  nome:'estive',    mmdd:settings.tireEstate||'05-15'}
+  ];
+  // Periodo in corso: quello con l'inizio del preavviso più recente non successivo a oggi
+  let cur=null;
+  const y=today.getFullYear();
+  stagioni.forEach(st=>{
+    [y-1,y,y+1].forEach(yy=>{
+      const dl=scad(st.mmdd, yy);
+      const start=new Date(dl); start.setDate(start.getDate()-warn);
+      if(start<=today && (!cur || start>cur.start)) cur={...st, deadline:dl, start};
+    });
+  });
+  if(!cur) return null;
+  const montate = DB.tires().filter(t=>t.stato==='montata');
+  const mezzi = DB.vehicles().filter(v=>!v.venduto).filter(v=>{
+    const m = montate.filter(t=>t.vehicleId===v.id);
+    return m.length>0 && m.some(t=>t.stagione!==cur.stagione);
+  });
+  if(!mezzi.length) return null;
+  const p2=n=>String(n).padStart(2,'0');
+  const startStr = cur.start.getFullYear()+'-'+p2(cur.start.getMonth()+1)+'-'+p2(cur.start.getDate());
+  const programmati = mezzi.filter(v=>DB.tireInterventions().some(t=>t.vehicleId===v.id && t.stato==='programmato' && (t.dataProgrammata||'')>=startStr)).length;
+  const data = cur.deadline.toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit'});
+  const scaduto = today>cur.deadline;
+  const n = mezzi.length===1 ? '1 mezzo' : mezzi.length+' mezzi';
+  const testo = (scaduto ? `Gomme ${cur.nome} scadute il ${data}: ${n}` : `Gomme ${cur.nome} entro il ${data}: ${n}`)
+    + (programmati ? ` (${programmati} programmat${programmati===1?'o':'i'})` : '');
+  return {testo, scaduto, mezzi:mezzi.map(v=>v.targa)};
 }
 
 // ═══════════════════════════════════════════════════════
@@ -6680,11 +6701,14 @@ function openSettings(){
     <div class="settings-section">
       <div class="settings-section-title">Cambio Gomme</div>
       <div class="form-row">
-        <div class="form-group"><label class="form-label">Estive (MM-GG)</label>
-          <input class="form-input" id="st-te" value="${s.tireEstate||'04-15'}" placeholder="04-15"></div>
-        <div class="form-group"><label class="form-label">Invernali (MM-GG)</label>
-          <input class="form-input" id="st-ti" value="${s.tireInverno||'10-15'}" placeholder="10-15"></div>
+        <div class="form-group"><label class="form-label">Scadenza estive (MM-GG)</label>
+          <input class="form-input" id="st-te" value="${s.tireEstate||'05-15'}" placeholder="05-15"></div>
+        <div class="form-group"><label class="form-label">Scadenza invernali (MM-GG)</label>
+          <input class="form-input" id="st-ti" value="${s.tireInverno||'11-15'}" placeholder="11-15"></div>
       </div>
+      <div class="form-group"><label class="form-label">Preavviso cambio gomme (giorni)</label>
+        <input class="form-input" id="st-tw" type="number" value="${s.tireWarnDays||30}" min="1" max="120"></div>
+      <div style="font-size:11px;color:#94a3b8;margin-top:-4px;">Codice della Strada: invernali entro il 15/11, estive entro il 15/05.</div>
     </div>
     <button class="btn btn-primary" onclick="saveSettings()">Salva impostazioni</button>
 
@@ -6727,7 +6751,7 @@ function openSettings(){
       </label>
     </div>
     <button class="btn btn-danger" onclick="confirmResetAll()">🗑️ Azzera tutti i dati</button>
-    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.1.07 — VehicleCare Pro</p>
+    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.1.08 — VehicleCare Pro</p>
     <div style="height:10px;"></div>
   `);
   renderBackupStatus();
@@ -6782,8 +6806,9 @@ function saveSettings(){
   const s=DB.settings();
   s.operator=document.getElementById('st-op').value.trim();
   s.revWarningDays=parseInt(document.getElementById('st-rev').value)||30;
-  s.tireEstate=document.getElementById('st-te').value.trim()||'04-15';
-  s.tireInverno=document.getElementById('st-ti').value.trim()||'10-15';
+  s.tireEstate=document.getElementById('st-te').value.trim()||'05-15';
+  s.tireInverno=document.getElementById('st-ti').value.trim()||'11-15';
+  s.tireWarnDays=parseInt(document.getElementById('st-tw').value)||30;
   s.backupWarningDays=parseInt(document.getElementById('st-bkdays').value)||7;
   DB.saveSettings(s);
   closeModal();

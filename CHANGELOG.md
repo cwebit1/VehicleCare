@@ -2,6 +2,15 @@
 
 ---
 
+## v107 — 2026-10-22
+### Avviso cambio gomme secondo il Codice della Strada
+- Le date in Impostazioni sono ora le **scadenze**: invernali entro il **15/11**, estive entro il **15/05** (prima 15/10 e 15/04, che sono inizio finestra e fine obbligo)
+- Nuovo campo **Preavviso cambio gomme (giorni)**, default 30 (prima 14 fissi nel codice)
+- Avviso per mezzo: conta i mezzi attivi con montate le gomme dell'altra stagione e indica quanti hanno già un cambio programmato; dopo la scadenza il chip diventa rosso finché il cambio non è registrato
+- In-app 1.1.08
+
+---
+
 ## v106 — 2026-10-22
 ### Revisione integrità cloud + correzioni (roadmap del 22/10)
 - **DB Editor compatibile con il cloud**: ogni modifica/aggiunta/eliminazione fatta in `vcp-db-editor.html` viene accodata e inviata al cloud dall'app (alla riapertura, o subito se l'app è aperta in un'altra scheda); documenti modificati e foto sostituite arrivano a tutti i dispositivi
