@@ -2,6 +2,210 @@
 
 ---
 
+## v106 — 2026-10-22
+### Revisione integrità cloud + correzioni (roadmap del 22/10)
+- **DB Editor compatibile con il cloud**: ogni modifica/aggiunta/eliminazione fatta in `vcp-db-editor.html` viene accodata e inviata al cloud dall'app (alla riapertura, o subito se l'app è aperta in un'altra scheda); documenti modificati e foto sostituite arrivano a tutti i dispositivi
+- **Azzera tutti i dati**: se collegato al cloud, copia di sicurezza automatica e cancellazione su tutti i dispositivi (prima i dati ricomparivano alla riapertura)
+- **Ripristina da ZIP**: copia di sicurezza automatica, poi sostituzione completa anche nel cloud; i documenti assenti dallo ZIP vengono eliminati ovunque (un backup senza documenti non li cancella)
+- Fix: nel ripristino da copia/ZIP le impostazioni non arrivavano al cloud
+- Fix: foto veicolo sostituita non arrivava agli altri dispositivi; foto scaricata dal cloud non viene più ricaricata come doppione
+- Fix: voce check "Lavavetri posteriori" controllata su `lavavetriPost` (prima su `spazzolePost`)
+- Fix: il Cronologico mostra i cambi gomme chiusi (stato `completato`, prima cercava `eseguito`)
+- Rimossa `vehiclecare-pro (71).html` (versione obsoleta ancora pubblicata, incompatibile col database attuale)
+- In-app 1.1.07
+
+---
+
+## v105 — 2026-10-22 `a94acf8`
+- Copia di sicurezza automatica settimanale nel cloud (conservazione 30 giorni, ripristino da Impostazioni → Cloud con copia preventiva dello stato attuale). File eliminati conservati 30 giorni. In-app 1.1.06.
+
+---
+
+## v104 — 2026-10-22 `55ebe91`
+- Sincronizzazione cloud Firebase: copia principale di dati, foto e documenti su Firestore (login Google, ripristino automatico dopo pulizia cache, coda offline). Sezione Cloud in Impostazioni. In-app 1.1.05.
+
+---
+
+## v103 — 2026-07-02 `3ff55ac`
+- Fix planner: i giorni di coda del mese prec./succ. mostrano data reale, check ed eventi; range eventi esteso all intera griglia visibile (aggancio per data reale in _pushDateRangeSegments). In-app 1.1.04.
+
+---
+
+## v102 — 2026-06-29 `6d02e96`
+- Backup completo: include segnalazioni (export+import+conteggio conferma) e calibration (vcp_calibration) in export e ripristino. In-app 1.1.03.
+
+---
+
+## v101 — 2026-06-29 `195427a`
+- Fix pulsante Documenti: getByVehicle con fallback se manca indice vehicleId; openDocuments mostra errore invece di fallire muto; richiesta storage persistente per evitare sfratto IndexedDB (foto/documenti). In-app 1.1.02.
+
+---
+
+## v100 — 2026-06-29 `36d29e3`
+- Nuova voce menu Stampa check: selettore mese + lista check del mese (checkbox, targa, data, pallino anomalie), PDF multipagina Apri/Stampa. Rendering modulo estratto in _drawCheckCanvas e riusato. Versione in-app 1.1.01.
+
+---
+
+## v99 — 2026-06-29 `ec5f5d6`
+- Fix stampa su mobile: il pulsante Stampa inietta il modulo nel print-frame e apre la finestra di stampa di sistema (window.print), invece dellautoPrint del PDF che Chrome mobile ignorava. Versione 1.99.
+
+---
+
+## v98 — 2026-06-29 `7616745`
+- Fix pulsante stampa (file fornito dall utente). Versione 1.98.
+
+---
+
+## v97 — 2026-06-28 `bafc3da`
+- Dettaglio intervento: km sotto il nome mezzo, label data 📅 Intervento programmato per il, riga vuota e 🏠 Presso : fornitore; badge In attesa di lavorazione anche nel dettaglio. Dicitura versione 1.97.
+
+---
+
+## v96 — 2026-06-27 `80c1e55`
+- Chip notifiche: revisione un chip per veicolo che apre openRevisioneForm del mezzo; chip lavorazione distingue In lavorazione (data oggi/passata) da In attesa di lavorazione (data futura).
+
+---
+
+## v95 — 2026-06-27 `b43c48a`
+- Planner (solo grafica): le barre verdi -risolto- vengono disegnate per ultime (sort stabile) cosi restano sopra arancio/transizione e tornano visibili sulle anomalie risolte in giornata.
+
+---
+
+## v94 — 2026-06-27 `bd8f577`
+- Ripristinata la visualizzazione della data reale di scadenza revisione (fmtDate) su scheda veicolo e modale alert; la logica mensile resta solo per stato/preavviso.
+
+---
+
+## v93 — 2026-06-27 `d705d2a`
+- Card gestione: pulsante Revisione prima di Modifica, 4 pulsanti in linea, Segna venduto rinominato Venduto.
+
+---
+
+## v92 — 2026-06-27 `1f0e750`
+- Revisione: pulsante spostato dalle azioni alla data revisione sulla scheda (cliccabile, mostra mese); note precompilate con Revisione regolare.
+
+---
+
+## v91 — 2026-06-27 `6274525`
+- Aggiunto pulsante Revisione sulla scheda veicolo che apre il form di risoluzione revisione (oltre che dall alert).
+
+---
+
+## v90 — 2026-06-27 `0242939`
+- Gestione revisione: logica su base mese (preavviso 15gg prima del mese, scaduta a fine mese), alert include scadute, form risoluzione revisione (data/km/fornitore/nuova scadenza +2 anni/Risolto) che crea intervento chiuso Revisione periodica nello storico e aggiorna la scadenza sul veicolo; nel planner rosso senza tratteggio.
+
+---
+
+## v88 — 2026-06-27 `d1fa91b`
+- Planner: giallo/arancio fino al giorno di apertura incluso (sfumatura sopra, niente stacco); sfumatura verde mezzo disponibile resa orizzontale (trasparente->verde).
+
+---
+
+## v87 — 2026-06-27 `76cba40`
+- FIX: ripristinato il ramo else del rendering barre intervento (var color + barsHtml +=) rimasto troncato nella v=86, che faceva crashare il planner.
+
+---
+
+## v86 — 2026-06-27 `683cc4d`
+- Planner: transizione origine->intervento con sfumatura (giallo/arancio -> rosso) sul giorno di creazione, attesa tratteggiata vera con trattini corti che parte dopo la sfumatura. Stesso trattamento per segnalazioni e anomalie.
+
+---
+
+## v85 — 2026-06-27 `adce147`
+- Storico: a parita di data ordina per createdAt (creato dopo = piu in alto), cosi gli interventi creati dopo un check appaiono sopra e non sotto.
+
+---
+
+## v84 — 2026-06-27 `1065ab3`
+- Planner: click su cella (mezzo+giorno) apre elenco di tutti gli eventi di quella cella (check, interventi, segnalazioni, gomme) con pulsanti operativi. Unificato un solo handler al posto dei fumetti per-barra.
+
+---
+
+## v83 — 2026-06-27 `05de334`
+- Storico check: X di eliminazione (solo gestione avanzata) prima di ogni intervento nella lista collegata al check, per cancellare interventi da anomalia risolta.
+
+---
+
+## v82 — 2026-06-27 `8cb474a`
+- Check viewer: due pulsanti separati Visualizza PDF e Stampa (stampa diretta via print frame, non dipende dal visualizzatore PDF del browser).
+
+---
+
+## v81 — 2026-06-27 `988651f`
+- Form intervento uniformi: aggiunti KM+Fornitore al Risolto, KM al nuovo-da-planner. Layout coppie campi (date, chiusura) uniformato a due label sopra/due campi sotto in tutti i form.
+
+---
+
+## v80 — 2026-06-27 `59b62c1`
+- Scheda check nello storico: lista interventi collegati (qualsiasi stato) con badge e link, sempre rintracciabili dal check a prescindere dall ordine in timeline.
+
+---
+
+## v79 — 2026-06-26 `f8bb67b`
+- Coerenza annullati: un intervento annullato non conta piu come anomalia/segnalazione gestita ne blocca la ricreazione (15 punti allineati al planner). Annullati restano visibili e eliminabili nello storico.
+
+---
+
+## v78 — 2026-06-26 `a5082e4`
+- Fix pulsante Risolto nel planner (apriva la dialog ma la seppelliva riaprendo la modale anomalie sopra). Storico: saveIntervention/saveChiusura ora usano refreshAll cosi gli interventi creati/chiusi compaiono subito.
+
+---
+
+## v77 — 2026-06-26 `d4b2214`
+- Interventi chiusi: rosso fino al giorno prima della chiusura, verde mezza-cella sfumata (mezzo disponibile) sul giorno di chiusura. Risoluzione in giornata = solo verde. Anomalia/segnalazione gestite in giornata non mostrano piu arancio/giallo di attesa.
+
+---
+
+## v76 — 2026-06-26 `c7a0184`
+- Barra attesa: altezza 6px e lunghezza dimezzata centrata (evita effetto linea continua).
+
+---
+
+## v75 — 2026-06-26 `307a614`
+- Attesa come sottile barra rossa centrale (10px, eventi sotto visibili). Intervento aperto: rosso pieno da apertura fino a oggi (prosegue fino a chiusura), niente piu estensione infinita nei mesi futuri.
+
+---
+
+## v74 — 2026-06-26 `096f0fe`
+- Doppia data intervento: dataProgrammazione + dataApertura. Tratteggiata rossa dal gap programmazione->intervento; taglio giallo/arancio anomalia+segnalazione alla data programmazione. Aggiunto campo in 4 form (anomalia, segnalazione, planner, modifica) con fallback retrocompatibile.
+
+---
+
+## DB Editor (`vcp-db-editor.html`) — 2026-06-29 / 2026-06-30
+- 2026-06-29 `b15a7d5` — Aggiunge vcp-db-editor.html — DB Editor completo (manipolazione totale localStorage + IndexedDB: edit per-record/JSON, documenti binari, foto, azzeramenti protetti). Attiva il link in Impostazioni.
+- 2026-06-29 `9416b09` — DB Editor: editor a celle per ogni dato (no JSON a mano). Campi tipizzati, interruttori booleani, anteprima immagini, gruppi per oggetti/array annidati con +campo/+elemento e rimozione singola. Ricerca senza perdita di focus.
+- 2026-06-30 `b480326` — DB Editor in tabella: colonne=campi, righe=record, icona cestino per riga, celle modificabili in linea (autosave), +Riga/+Campo. Valori annidati e immagini gestiti senza JSON. Tabelle anche per IDB documenti/foto.
+- 2026-06-30 `93c2b8f` — DB Editor: riga intestazione (label) fissa durante lo scroll verticale; prima colonna fissa in orizzontale. Tabella scrollabile in un riquadro.
+
+---
+
+## v60–v73 — 2026-06-26 (commit senza numero di versione)
+- `8db2ac5` — pulsante Modifica check visibile nello storico veicolo (mod avanzata)
+- `0627dce` — creazione intervento da anomalia planner — apre form per configurare
+- `d618260` — ripristina checkbox spazzolePost e lavavetriPost nella scheda veicolo
+- `bf86605` — icona spazzole posteriori + filtro voci check per dispositivi ritenzione
+- `da953b2` — icona SVG tergicristallo per badge spazzole posteriori (dashboard + scheda)
+- `0bc7cc0` — NON PRESENTE su voci check non in dotazione (form, viewer, stampa HTML e modulo)
+- `343f422` — planner fasi intervento - tratteggiata attesa (createdAt-dataApertura) + rosso pieno lavorazione, giallo anomalia coesiste fino a giorno prima intervento, rimosso todayStr da colorazione interventi
+- `60ceb98` — refreshAll() dopo eliminazione record - aggiorna dashboard, alerts, planner e riapre storico
+- `25a71b1` — refreshAll riapre una sola vista corretta (storico o planner) dopo eliminazione, evita modal sovrapposte
+- `9e8c387` — listener accumulati su modal anomalie causavano creazione multipla interventi (clone nodo + flag consumed)
+- `8678ac1` — campo KM/data form intervento da anomalia non-inline per mobile + closeModal prima di aprire form, evita listener accumulati
+- `e7834d2` — campo KM spostato sotto a tutta larghezza nel form intervento da anomalia (compilabile su mobile)
+- `6a09d7f` — secondo overlay modal-2 per dettagli planner (planner resta visibile), ripristinati pulsanti +Intervento e Risolto nel modal anomalie
+- `390bfb5` — colore intervento nel planner — dataApertura impostata alla data anomalia
+- `38e1c65` — verifica integrità funzioni planner e interventi
+- `8c46546` — planner scompare dopo salvataggio — usa closeModalSmart() per chiudere giusta modal
+- `71815ee` — casella KM visibile nel form intervento da anomalia planner
+- `9e8c30b` — campi intervento a riga nuova — rimuove inline per mobile usability
+- `3ca7e58` — rimuove inline da TUTTI i campi intervento — mobile usability
+- `ad10055` — alert anomalie — usa includes invece di startsWith per confronto descrizione
+- `4d9c498` — verifica tutti gli alert — revisioni, anomalie, segnalazioni, gomme
+- `36baf22` — alert anomalie — confronta checkId per riconoscere interventi gestiti
+- `e51bceb` — planner mantiene il mese visualizzato dopo apertura intervento
+
+---
+
 ## v59 — 2026-06-26 `6b9afd26d5`
 ### Modifica check da storico/viewer/lista (modalità avanzata)
 - `openCheckForm` accetta ora un parametro `editCheckId` opzionale per caricare i dati di un check esistente

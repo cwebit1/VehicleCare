@@ -778,6 +778,11 @@ const CloudSync = {
       }
       await this.fb.setPersistence(this.auth, this.fb.browserLocalPersistence).catch(()=>{});
       this.fb.onAuthStateChanged(this.auth, user=>this._onAuth(user));
+      // Modifiche fatte dal DB Editor in un'altra scheda
+      window.addEventListener('storage', e=>{
+        if(e.key===this.OUTBOX_KEY){ this._scheduleFlush(); this._scheduleRender(); }
+        else if(e.key===this.FILEDEL_KEY || e.key==='vcp_cloud_idbtick'){ this._flushFileDeletes(); this.onFileChanged(); }
+      });
       window.addEventListener('online', ()=>{ if(this.user && this.status!=='ready') this._connect(); else this._scheduleFlush(); });
     }catch(e){
       console.error('[cloud] caricamento Firebase:', e);
@@ -1201,19 +1206,21 @@ const CloudSync = {
       docs.forEach(d=>local.set(d.id, {kind:'doc', d}));
       photos.forEach(p=>{ if(!fotoDocVeh.has(p.vehicleId)) local.set(photoFileId(p), {kind:'photo', p}); });
 
+      // 1° passaggio: eliminazioni (così una foto sostituita lascia posto alla nuova)
       for(const [id, m] of this._cloudFiles){
         if(this.status!=='ready') return;
-        if(m.del){
-          if(local.has(id)){
-            const it=local.get(id);
-            if(it.kind==='doc'){
-              await IDB._deleteRaw(id);
-              if(it.d.tipo==='Foto veicolo') await deleteVehiclePhotoRaw(it.d.vehicleId);
-            }else await deleteVehiclePhotoRaw(it.p.vehicleId);
-            local.delete(id); changed=true;
-          }
-          continue;
-        }
+        if(!m.del || !local.has(id)) continue;
+        const it=local.get(id);
+        if(it.kind==='doc'){
+          await IDB._deleteRaw(id);
+          if(it.d.tipo==='Foto veicolo'){ await deleteVehiclePhotoRaw(it.d.vehicleId); photoVeh.delete(it.d.vehicleId); }
+        }else{ await deleteVehiclePhotoRaw(it.p.vehicleId); photoVeh.delete(it.p.vehicleId); }
+        local.delete(id); changed=true;
+      }
+      // 2° passaggio: scaricamenti
+      for(const [id, m] of this._cloudFiles){
+        if(this.status!=='ready') return;
+        if(m.del) continue;
         if(local.has(id) || pendingDel[id]) continue;
         if(m.kind==='photo' && photoVeh.has(m.vehicleId)) continue;
         if(await this._download(m)){
@@ -1282,7 +1289,7 @@ const CloudSync = {
         });
       }else{
         const dataUrl=await new Promise(res=>{ const r=new FileReader(); r.onload=e=>res(e.target.result); r.readAsDataURL(blob); });
-        await saveVehiclePhoto(m.vehicleId, dataUrl);
+        await saveVehiclePhotoCloud(m.vehicleId, dataUrl, m.id);
       }
       return true;
     }catch(e){
@@ -1317,9 +1324,6 @@ const CloudSync = {
   },
 
   _refreshUi(){
-    const info=this._statusInfo();
-    const dot=document.getElementById('cloud-hdot');
-    if(dot) dot.style.background=info.color;
     const box=document.getElementById('cloud-settings');
     if(box) box.innerHTML=this.settingsInner();
   },
@@ -1439,6 +1443,12 @@ const CloudSync = {
     this._refreshUi();
   },
 
+  async safetySnapshot(tipo){
+    const now=new Date();
+    const p2=n=>String(n).padStart(2,'0');
+    await this._writeSnapshot(this._dayId(now)+'_'+p2(now.getHours())+p2(now.getMinutes())+p2(now.getSeconds())+'_'+tipo, tipo);
+  },
+
   async openSnapshots(){
     if(this.status!=='ready'){ toast('Cloud non connesso','error'); return; }
     openModal('🗂️ Copie di sicurezza','<div id="snap-list" style="font-size:14px;color:#64748b;">Caricamento…</div>');
@@ -1452,7 +1462,7 @@ const CloudSync = {
         list.map(m=>{
           const c=m.counts||{};
           const when=new Date(m.at).toLocaleString('it-IT',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-          const label=m.tipo==='pre-ripristino'?'⏪ Prima di un ripristino':'🗂️ Automatica';
+          const label={'pre-ripristino':'⏪ Prima di un ripristino','pre-azzera':'⏪ Prima di "Azzera tutti i dati"','pre-import':'⏪ Prima di un ripristino da ZIP'}[m.tipo]||'🗂️ Automatica';
           return `<div style="border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:8px;">
             <div style="font-size:14px;font-weight:700;color:var(--c-text,#1e293b);">${escHtml(when)}</div>
             <div style="font-size:12px;color:#94a3b8;margin:2px 0 6px;">${label}</div>
@@ -1482,7 +1492,11 @@ const CloudSync = {
       if(!(k in data)) continue;
       const v=data[k];
       Object.keys(ob).forEach(e=>{ if(e.indexOf(k+CLOUD_SEP)===0) delete ob[e]; });
-      if(!this._isIdArray(v)){ DB.set(k, v); continue; }
+      if(!this._isIdArray(v)){
+        localStorage.setItem(DB.keys[k], JSON.stringify(v));
+        ob[k+CLOUD_SEP+'__all']=1;
+        continue;
+      }
       localStorage.setItem(DB.keys[k], JSON.stringify(v));
       const keep=new Set(v.map(x=>String(x.id)));
       for(const x of v){
@@ -1501,6 +1515,7 @@ const CloudSync = {
     }
     await flush();
     this._outboxSet(ob);
+    this._scheduleFlush();
   },
 
   confirmRestore(id){
@@ -1530,9 +1545,7 @@ const CloudSync = {
       }
       const data=JSON.parse(j);
       // Copia dello stato attuale prima di sovrascriverlo
-      const now=new Date();
-      const p2=n=>String(n).padStart(2,'0');
-      await this._writeSnapshot(this._dayId(now)+'_'+p2(now.getHours())+p2(now.getMinutes())+p2(now.getSeconds())+'_pre', 'pre-ripristino');
+      await this.safetySnapshot('pre-ripristino');
       // Dati
       await this._restoreRecords(data);
       // File: riattiva quelli della copia, elimina quelli aggiunti dopo
@@ -1591,6 +1604,7 @@ async function compressImageBlob(blob){
 
 // Identificativo cloud di una foto veicolo "storica" (senza documento Foto veicolo)
 function photoFileId(p){
+  if(p.cloudId) return p.cloudId;
   const s=p.dataUrl||'';
   let h=5381;
   for(let i=0;i<s.length;i+=97) h=((h<<5)+h+s.charCodeAt(i))|0;
@@ -2301,6 +2315,17 @@ async function saveVehiclePhoto(vehicleId, dataUrl){
   }catch(e){}
 }
 
+async function saveVehiclePhotoCloud(vehicleId, dataUrl, cloudId){
+  try{
+    const db = await IDB.open();
+    return new Promise((resolve)=>{
+      const tx = db.transaction('vehicle_photos','readwrite');
+      tx.objectStore('vehicle_photos').put({vehicleId, dataUrl, cloudId});
+      tx.oncomplete = ()=>resolve();
+    });
+  }catch(e){}
+}
+
 async function deleteVehiclePhoto(vehicleId){
   const old = await getVehiclePhoto(vehicleId);
   await deleteVehiclePhotoRaw(vehicleId);
@@ -2833,7 +2858,7 @@ function openCheckForm(vehicleId, editCheckId){
     if(voce === 'Sollevatore' && !v.sollevatore) return true;
     if(voce === 'Dispositivi ritenzione carrozzine' && !v.sollevatore && !v.pedana) return true;
     if(voce === 'Spazzole posteriori' && !v.spazzolePost) return true;
-    if(voce === 'Lavavetri posteriori' && !v.spazzolePost) return true;
+    if(voce === 'Lavavetri posteriori' && !v.lavavetriPost) return true;
     return false;
   };
   
@@ -5142,7 +5167,7 @@ function renderCronologico(){
   });
 
   tireInts.forEach(function(ti){
-    if(ti.stato==='eseguito' && ti.dataEffettiva && ti.dataEffettiva >= cutoff){
+    if((ti.stato==='completato' || ti.stato==='eseguito') && ti.dataEffettiva && ti.dataEffettiva >= cutoff){
       const v = vehicles.find(function(x){ return x.id===ti.vehicleId; });
       events.push({
         date: ti.dataEffettiva, ts: ti.dataEffettiva,
@@ -6702,7 +6727,7 @@ function openSettings(){
       </label>
     </div>
     <button class="btn btn-danger" onclick="confirmResetAll()">🗑️ Azzera tutti i dati</button>
-    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.1.06 — VehicleCare Pro</p>
+    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.1.07 — VehicleCare Pro</p>
     <div style="height:10px;"></div>
   `);
   renderBackupStatus();
@@ -6972,9 +6997,12 @@ function _doEliminaCheck(checkId){
 }
 
 function confirmResetAll(){
+  const cloud = CloudSync.user && CloudSync.status==='ready';
   openModal('⚠️ Azzera tutto',`
-    <p style="font-size:15px;color:#334155;margin-bottom:8px;">Stai per eliminare <strong>TUTTI</strong> i dati dell'applicazione.</p>
-    <p style="font-size:13px;color:#dc2626;margin-bottom:20px;">Questa operazione è irreversibile. Esporta prima un backup!</p>
+    <p style="font-size:15px;color:#334155;margin-bottom:8px;">Stai per eliminare <strong>TUTTI</strong> i dati dell'applicazione${cloud?' <strong>su tutti i dispositivi e nel cloud</strong>':''}.</p>
+    ${cloud
+      ?'<p style="font-size:13px;color:#64748b;margin-bottom:20px;">Prima viene salvata in automatico una copia di sicurezza, recuperabile per 30 giorni da Impostazioni → Cloud → Copie di sicurezza.</p>'
+      :'<p style="font-size:13px;color:#dc2626;margin-bottom:20px;">Questa operazione è irreversibile. Esporta prima un backup!</p>'}
     <div class="btn-row">
       <button class="btn btn-secondary" onclick="closeModal()">Annulla</button>
       <button class="btn btn-danger" onclick="_doResetAll()">Elimina tutto</button>
@@ -6982,7 +7010,27 @@ function confirmResetAll(){
   `);
 }
 
-function _doResetAll(){
+async function _doResetAll(){
+  // Collegato al cloud: copia di sicurezza, poi cancellazione propagata a tutti i dispositivi
+  if(CloudSync.user){
+    if(CloudSync.status!=='ready'){ closeModal(); toast('Cloud non connesso: riprova quando sei online','error'); return; }
+    closeModal();
+    toast('Azzeramento in corso…');
+    try{
+      await CloudSync.safetySnapshot('pre-azzera');
+      Object.keys(DB.keys).forEach(k=>DB.set(k, DB.defaults(k)));
+      for(const d of await IDB.getAll()) await IDB.delete(d.id);
+      for(const p of await getAllVehiclePhotos()) await deleteVehiclePhoto(p.vehicleId);
+      for(const k in _photoCache) delete _photoCache[k];
+      toast('Dati azzerati su tutti i dispositivi');
+    }catch(e){
+      console.error(e);
+      toast('Errore azzeramento: '+((e&&e.message)||e),'error');
+    }
+    renderAlerts();
+    renderMain();
+    return;
+  }
   Object.values(DB.keys).forEach(k=>localStorage.removeItem(k));
   CloudSync.forgetLocal();
   IDB.clear();
@@ -7145,6 +7193,19 @@ async function _doImport(){
     const data=window._importData;
     const docs=window._importDocs||[];
     if(!data){ toast('Nessun dato da importare','error'); return; }
+    const cloud = CloudSync.user && CloudSync.status==='ready';
+    if(CloudSync.user && !cloud){ toast('Cloud non connesso: riprova quando sei online','error'); return; }
+    if(cloud){
+      // Copia di sicurezza, poi sostituzione completa anche nel cloud (ordine dei record compreso)
+      closeModal();
+      toast('Ripristino in corso…');
+      await CloudSync.safetySnapshot('pre-import');
+      const rec={};
+      ['vehicles','checks','interventions','segnalazioni','suppliers','tires','tiresStorico','tireInterventions'].forEach(k=>{ if(data[k]) rec[k]=data[k]; });
+      if(data.settings) rec.settings={...DB.settings(),...data.settings};
+      if(data.calibration) rec.calibration=data.calibration;
+      await CloudSync._restoreRecords(rec);
+    }else{
     if(data.vehicles) DB.saveVehicles(data.vehicles);
     if(data.checks) DB.saveChecks(data.checks);
     if(data.interventions) DB.saveInterventions(data.interventions);
@@ -7155,24 +7216,24 @@ async function _doImport(){
     if(data.tireInterventions) DB.saveTireInterventions(data.tireInterventions);
     if(data.settings){ const s={...DB.settings(),...data.settings}; DB.saveSettings(s); }
     if(data.calibration) DB.set('calibration', data.calibration);
-    // Ripristina documenti in IDB
+    }
+    // Ripristina documenti in IDB (solo se il backup ne contiene: un backup senza
+    // documenti non cancella quelli presenti). Le eliminazioni arrivano anche al cloud.
     if(docs.length>0){
-      await IDB.clear();
+      const keep=new Set(docs.map(d=>d.id));
+      for(const d of await IDB.getAll()){ if(!keep.has(d.id)) await IDB.delete(d.id); }
       for(const doc of docs) await IDB.put(doc);
     }
     // Ripristina foto veicoli
     const photos=window._importPhotos||[];
     if(photos.length>0){
-      await new Promise(res=>{
-        const req=indexedDB.open('VehicleCarePro',2);
-        req.onsuccess=e=>{
-          const db=e.target.result;
-          const tx=db.transaction('vehicle_photos','readwrite');
-          const store=tx.objectStore('vehicle_photos');
-          store.clear().onsuccess=()=>{ photos.forEach(p=>store.put(p)); tx.oncomplete=res; };
-        };
-        req.onerror=res;
-      });
+      const nuove=new Map(photos.map(p=>[p.vehicleId, p.dataUrl]));
+      for(const p of await getAllVehiclePhotos()){
+        if(nuove.get(p.vehicleId)!==p.dataUrl) await deleteVehiclePhoto(p.vehicleId);
+      }
+      for(const p of photos) await saveVehiclePhoto(p.vehicleId, p.dataUrl);
+      for(const k in _photoCache) delete _photoCache[k];
+      CloudSync.onFileChanged();
     }
     window._importPhotos=null;
     window._importData=null;

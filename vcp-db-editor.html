@@ -87,6 +87,7 @@
     </div>
   </div>
   <div class="chips" id="chips"></div>
+  <div style="font-size:11px;opacity:.75;padding:4px 2px 0;">☁️ Le modifiche vengono inviate al cloud alla prossima apertura dell'app VehicleCare (subito, se è aperta in un'altra scheda).</div>
 </header>
 <main id="main"></main>
 <div id="toast"></div>
@@ -115,7 +116,39 @@ let current=STORES[0].id, filter='', _idbCache={};
 let _editing=null,_fmap={},_cmap={},_fid=0,_cid=0,_bigRef=null;
 
 function lsGet(key,kind){ const raw=localStorage.getItem(key); if(raw===null) return kind==='ls-object'?{}:[]; try{ return JSON.parse(raw); }catch(e){ return kind==='ls-object'?{}:[]; } }
-function lsSet(key,val){ localStorage.setItem(key,JSON.stringify(val)); }
+function lsSet(key,val){ const prev=localStorage.getItem(key); localStorage.setItem(key,JSON.stringify(val)); cloudMarkLS(key,prev,val); }
+
+// ── CLOUD: le modifiche dell'editor vengono messe nella coda di invio dell'app ──
+// L'app VehicleCare le invia al cloud alla prossima apertura (o subito, se è aperta in un'altra scheda).
+const CLOUD_OUTBOX='vcp_cloud_outbox', CLOUD_FILEDEL='vcp_cloud_filedel', CLOUD_SEP='\u0001';
+const CLOUD_KEYS={vcp_vehicles:'vehicles',vcp_checks:'checks',vcp_interventions:'interventions',vcp_suppliers:'suppliers',vcp_documents:'documents',vcp_tires:'tires',vcp_settings:'settings',vcp_calibration:'calibration',vcp_tires_storico:'tiresStorico',vcp_tire_interventions:'tireInterventions',vcp_segnalazioni:'segnalazioni'};
+function cloudGet(k){ try{ return JSON.parse(localStorage.getItem(k))||{}; }catch(e){ return {}; } }
+function cloudSet(k,o){ try{ localStorage.setItem(k,JSON.stringify(o)); }catch(e){} }
+function isIdArray(v){ return Array.isArray(v) && v.every(x=>x && typeof x==='object' && (typeof x.id==='string' || typeof x.id==='number')); }
+function cloudMarkLS(key,prevRaw,next){
+  const k=CLOUD_KEYS[key]; if(!k) return;
+  let prev=null; try{ prev=JSON.parse(prevRaw); }catch(e){}
+  const ob=cloudGet(CLOUD_OUTBOX); const add=id=>{ ob[k+CLOUD_SEP+String(id)]=1; };
+  if(isIdArray(next)){
+    const pm=new Map(), nm=new Map();
+    if(isIdArray(prev)) prev.forEach(r=>pm.set(String(r.id),JSON.stringify(r))); else if(prev!=null) add('__all');
+    next.forEach(r=>nm.set(String(r.id),JSON.stringify(r)));
+    nm.forEach((s,id)=>{ if(pm.get(id)!==s) add(id); });
+    pm.forEach((s,id)=>{ if(!nm.has(id)) add(id); });
+  } else if(JSON.stringify(prev)!==JSON.stringify(next)) add('__all');
+  cloudSet(CLOUD_OUTBOX,ob);
+}
+function cloudFileDel(id){ if(!id) return; const o=cloudGet(CLOUD_FILEDEL); o[id]=1; cloudSet(CLOUD_FILEDEL,o); }
+function cloudIdbTick(){ try{ localStorage.setItem('vcp_cloud_idbtick',String(Date.now())); }catch(e){} }
+// Stesso identificativo usato dall'app per le foto veicolo nel cloud
+function photoFileId(p){
+  if(p.cloudId) return p.cloudId;
+  const s=p.dataUrl||'';
+  let h=5381;
+  for(let i=0;i<s.length;i+=97) h=((h<<5)+h+s.charCodeAt(i))|0;
+  return 'photo~'+p.vehicleId+'~'+s.length.toString(36)+(h>>>0).toString(36);
+}
+async function idbGet(store,key){ const db=await idbOpen(); return new Promise((res,rej)=>{ const tx=db.transaction(store,'readonly'); const rq=tx.objectStore(store).get(key); rq.onsuccess=()=>res(rq.result||null); rq.onerror=e=>rej(e.target.error); }); }
 function storeById(id){ return STORES.find(s=>s.id===id); }
 function clone(x){ return JSON.parse(JSON.stringify(x)); }
 function uuid(){ try{ return crypto.randomUUID(); }catch(e){ return 'x-'+Date.now()+'-'+Math.random().toString(16).slice(2,8); } }
@@ -132,9 +165,32 @@ function idbOpen(){ return new Promise((res,rej)=>{ const r=indexedDB.open(IDB_N
     if(!db.objectStoreNames.contains('vehicle_photos')) db.createObjectStore('vehicle_photos',{keyPath:'vehicleId'}); };
   r.onsuccess=e=>res(e.target.result); r.onerror=e=>rej(e.target.error); }); }
 async function idbAll(store){ const db=await idbOpen(); return new Promise((res,rej)=>{ const tx=db.transaction(store,'readonly'); const rq=tx.objectStore(store).getAll(); rq.onsuccess=()=>res(rq.result||[]); rq.onerror=e=>rej(e.target.error); }); }
-async function idbPut(store,val){ const db=await idbOpen(); return new Promise((res,rej)=>{ const tx=db.transaction(store,'readwrite'); tx.objectStore(store).put(val); tx.oncomplete=res; tx.onerror=e=>rej(e.target.error); }); }
-async function idbDel(store,key){ const db=await idbOpen(); return new Promise((res,rej)=>{ const tx=db.transaction(store,'readwrite'); tx.objectStore(store).delete(key); tx.oncomplete=res; tx.onerror=e=>rej(e.target.error); }); }
-async function idbClear(store){ const db=await idbOpen(); return new Promise((res,rej)=>{ const tx=db.transaction(store,'readwrite'); tx.objectStore(store).clear(); tx.oncomplete=res; tx.onerror=e=>rej(e.target.error); }); }
+async function idbPut(store,val){
+  // Un documento modificato riceve un nuovo id (il vecchio viene eliminato dal cloud),
+  // così la modifica arriva su tutti i dispositivi. Una foto sostituita elimina la precedente.
+  if(store==='documents' && val && val.id!=null){
+    const old=await idbGet('documents',val.id);
+    if(old){ await idbDelRaw('documents',val.id); cloudFileDel(String(val.id)); val.id=uuid(); }
+  }else if(store==='vehicle_photos' && val){
+    const old=await idbGet('vehicle_photos',val.vehicleId);
+    if(old && old.dataUrl!==val.dataUrl) cloudFileDel(photoFileId(old));
+    if(old && old.dataUrl===val.dataUrl && old.cloudId) val.cloudId=old.cloudId;
+  }
+  await idbPutRaw(store,val); cloudIdbTick();
+}
+async function idbDel(store,key){
+  if(store==='documents') cloudFileDel(String(key));
+  else if(store==='vehicle_photos'){ const old=await idbGet('vehicle_photos',key); if(old) cloudFileDel(photoFileId(old)); }
+  await idbDelRaw(store,key); cloudIdbTick();
+}
+async function idbClear(store){
+  const all=await idbAll(store);
+  all.forEach(x=>{ if(store==='documents') cloudFileDel(String(x.id)); else if(store==='vehicle_photos') cloudFileDel(photoFileId(x)); });
+  await idbClearRaw(store); cloudIdbTick();
+}
+async function idbPutRaw(store,val){ const db=await idbOpen(); return new Promise((res,rej)=>{ const tx=db.transaction(store,'readwrite'); tx.objectStore(store).put(val); tx.oncomplete=res; tx.onerror=e=>rej(e.target.error); }); }
+async function idbDelRaw(store,key){ const db=await idbOpen(); return new Promise((res,rej)=>{ const tx=db.transaction(store,'readwrite'); tx.objectStore(store).delete(key); tx.oncomplete=res; tx.onerror=e=>rej(e.target.error); }); }
+async function idbClearRaw(store){ const db=await idbOpen(); return new Promise((res,rej)=>{ const tx=db.transaction(store,'readwrite'); tx.objectStore(store).clear(); tx.oncomplete=res; tx.onerror=e=>rej(e.target.error); }); }
 
 // UI base
 function toast(msg,type){ const t=document.getElementById('toast'); t.textContent=msg; t.className='show'+(type?' '+type:''); clearTimeout(t._t); t._t=setTimeout(()=>t.className=t.className.replace('show','').trim(),2200); }
@@ -276,7 +332,7 @@ function fillDocs(){ const docs=(_idbCache['documents']||[]).filter(matchFilter)
     html='<div class="tablewrap"><table class="grid"><thead><tr><th></th><th>img</th><th>vehicleId</th><th>tipo</th><th>nome</th><th>mime</th><th>dim</th><th>azioni</th></tr></thead><tbody>'+rows+'</tbody></table></div>'; }
   const el=document.getElementById('lst'); if(el) el.innerHTML=html; }
 function findDoc(id){ return (_idbCache['documents']||[]).find(d=>String(d.id)===String(id)); }
-async function setDocField(el){ const d=findDoc(el.dataset.id); if(!d) return; d[el.dataset.field]=el.value; await idbPut('documents',d); flash(el); }
+async function setDocField(el){ const d=findDoc(el.dataset.id); if(!d) return; d[el.dataset.field]=el.value; await idbPut('documents',d); fillDocs(); toast('Salvato','ok'); }
 function delDoc(btn){ const id=btn.dataset.id; confirmDanger('Eliminare documento?','Il file verrà rimosso da IndexedDB.',async()=>{ await idbDel('documents',id); toast('Eliminato','ok'); await reloadAll(); }); }
 function downloadDoc(btn){ const d=findDoc(btn.dataset.id); if(!d||!d.data){ toast('Nessun dato','err'); return; } const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([d.data],{type:d.mime||'application/octet-stream'})); a.download=d.nome||(d.id+'.bin'); a.click(); }
 function replaceDoc(btn){ const d=findDoc(btn.dataset.id); if(!d) return; const inp=document.createElement('input'); inp.type='file'; inp.onchange=async e=>{ const f=e.target.files[0]; if(!f) return; d.data=await f.arrayBuffer(); d.mime=f.type||d.mime; d.nome=f.name; await idbPut('documents',d); toast('Sostituito','ok'); await reloadAll(); }; inp.click(); }
@@ -302,7 +358,7 @@ function addPhoto(){ const inp=document.createElement('input'); inp.type='file';
 
 // ── Azzera / Export ──
 function wipeStore(id){ const s=storeById(id); confirmDanger('Svuotare “'+s.label+'”?','Tutti i record verranno eliminati.',async()=>{ if(s.kind==='ls-array') lsSet(s.key,[]); else if(s.kind==='ls-object') lsSet(s.key,{}); else if(s.kind.indexOf('idb')===0) await idbClear(s.store); toast(s.label+' svuotato','ok'); await reloadAll(); },'SVUOTA'); }
-function wipeAll(){ confirmDanger('Azzerare TUTTO?','Verranno cancellati <b>tutti</b> i dati VehicleCare (localStorage + IndexedDB). Irreversibile.',async()=>{ STORES.forEach(s=>{ if(s.key) localStorage.removeItem(s.key); }); try{ await idbClear('documents'); }catch(e){} try{ await idbClear('vehicle_photos'); }catch(e){} toast('Azzerato','ok'); await reloadAll(); },'AZZERA'); }
+function wipeAll(){ confirmDanger('Azzerare TUTTO?','Verranno cancellati <b>tutti</b> i dati VehicleCare (localStorage + IndexedDB). Irreversibile.',async()=>{ STORES.forEach(s=>{ if(s.key){ const prev=localStorage.getItem(s.key); cloudMarkLS(s.key,prev,s.kind==='ls-object'?{}:[]); localStorage.removeItem(s.key); } }); try{ await idbClear('documents'); }catch(e){} try{ await idbClear('vehicle_photos'); }catch(e){} toast('Azzerato','ok'); await reloadAll(); },'AZZERA'); }
 function exportAll(){ const dump={_meta:{app:'VehicleCare',exportedAt:new Date().toISOString(),source:'db-editor'},localStorage:{}}; STORES.forEach(s=>{ if(s.key){ const raw=localStorage.getItem(s.key); if(raw!==null){ try{ dump.localStorage[s.key]=JSON.parse(raw); }catch(e){ dump.localStorage[s.key]=raw; } } } }); dump.indexedDB={documents:(_idbCache['documents']||[]).map(d=>({id:d.id,vehicleId:d.vehicleId,tipo:d.tipo,nome:d.nome,mime:d.mime,bytes:d.data?(d.data.byteLength||0):0,createdAt:d.createdAt})),vehicle_photos:(_idbCache['vehicle_photos']||[]).map(p=>({vehicleId:p.vehicleId,bytes:(p.dataUrl||'').length}))}; const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(dump,null,2)],{type:'application/json'})); a.download='vcp_db_dump_'+new Date().toISOString().slice(0,10)+'.json'; a.click(); toast('Export JSON','ok'); }
 
 (async function(){ try{ _idbCache['documents']=await idbAll('documents'); }catch(e){ _idbCache['documents']=[]; } try{ _idbCache['vehicle_photos']=await idbAll('vehicle_photos'); }catch(e){ _idbCache['vehicle_photos']=[]; } renderChips(); renderMain(); })();
