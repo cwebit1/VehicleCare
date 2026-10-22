@@ -2,6 +2,19 @@
 
 ---
 
+## v109 — 2026-10-22
+### Maschere: km proposti, crea/modifica separati, gomme
+- **Km proposti in grigio** (campo vuoto, valore suggerito): apertura intervento = km dell'ultimo check, chiusura = km di apertura; se non si scrive nulla vale il proposto. Vale per tutte le maschere di creazione intervento, chiusura, segnalazione, revisione, risolvi anomalia, prima registrazione gomme e cambio gomme. Nel nuovo check i km in grigio sono solo un promemoria: vanno scritti
+- Scheda mezzo: i km si aggiornano solo se più alti; l'ultimo check solo se il check è il più recente
+- Controlli su tutte le maschere che creano o chiudono interventi: data chiusura non precedente all'apertura, programmazione non successiva all'intervento, km chiusura non inferiori ai km apertura; revisione: nuova scadenza successiva alla data
+- **Check: maschere Crea/Modifica separate**. La modifica mostra il check com'è stato registrato (voci, ordine, NON PRESENTE di allora — comprese "Freni" e "Pressione pneumatici") e salva solo i campi cambiati
+- **Gomme**: in modifica cambio gomme il veicolo non è più modificabile e si salvano solo i campi cambiati (prima cambiare veicolo svuotava i dati delle gomme); km di vita dei set cumulativi tra una stagione e l'altra; gomme 4 stagioni considerate in regola tutto l'anno
+- Pulsanti "+ Intervento" e "Risolto" delle anomalie funzionanti con note che contengono a capo, virgolette o apostrofi
+- **Veicolo e Fornitore: maschere Crea/Modifica separate**; targa duplicata bloccata; km del veicolo salvati come numero; il tipo fornitore non in elenco (es. "Centro revisioni") non viene più cambiato in modifica
+- In-app 1.1.10
+
+---
+
 ## v108 — 2026-10-22
 ### Interventi: maschere separate per Crea e Modifica
 - **Crea** e **Modifica** intervento sono ora due maschere distinte (prima un'unica maschera per entrambe)

@@ -1649,6 +1649,39 @@ function fmtMese(scad){
 }
 function formatTarga(s){ return (s||'').toUpperCase().replace(/\s/g,''); }
 function escHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+// Testo sicuro dentro un attributo HTML (data-*, value): virgolette e a capo compresi
+function escAttr(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'&#10;').replace(/\r/g,'&#13;'); }
+
+// ── KM: valori proposti in grigio ─────────────────────
+// Il campo resta vuoto con il valore proposto in grigio (placeholder):
+// se non si scrive nulla viene salvato il proposto, se si scrive vale il numero scritto.
+function kmUltimoCheck(vehicleId){
+  const cs=DB.checks().filter(c=>c.vehicleId===vehicleId && c.km!=null && c.km!=='');
+  if(!cs.length){ const v=DB.vehicles().find(x=>x.id===vehicleId); return v&&v.km?(parseInt(v.km)||null):null; }
+  cs.sort((a,b)=>String(a.data||'').localeCompare(String(b.data||'')) || String(a.createdAt||'').localeCompare(String(b.createdAt||'')));
+  return parseInt(cs[cs.length-1].km)||null;
+}
+function kmInput(id){
+  const el=document.getElementById(id); if(!el) return null;
+  if(String(el.value).trim()!=='') return parseInt(el.value)||0;
+  const p=parseInt(el.placeholder); return isNaN(p)?null:p;
+}
+// Collega i km di chiusura a quelli di apertura (proposti in grigio)
+function linkKmChiusura(apId, chId){
+  const ap=document.getElementById(apId), ch=document.getElementById(chId);
+  if(!ap||!ch) return;
+  const upd=()=>{ const k=kmInput(apId); ch.placeholder = k!=null ? String(k) : ''; };
+  ap.addEventListener('input', upd); upd();
+}
+// La scheda mezzo prende i km solo se sono più alti di quelli attuali
+function updateVehicleKm(vehicleId, km, extra){
+  const k=parseInt(km);
+  const vs=DB.vehicles(); const i=vs.findIndex(v=>v.id===vehicleId); if(i<0) return;
+  let changed=false;
+  if(k && k>(parseInt(vs[i].km)||0)){ vs[i].km=k; changed=true; }
+  if(extra){ Object.keys(extra).forEach(key=>{ if(vs[i][key]!==extra[key]){ vs[i][key]=extra[key]; changed=true; } }); }
+  if(changed) DB.saveVehicles(vs);
+}
 
 function toast(msg, type=''){
   const c=document.getElementById('toast-container');
@@ -1863,8 +1896,8 @@ function openAnomalieModal(vehicleId){
   var rows = allAnom.map(function(x){
     const c   = x.c;
     const a   = x.a;
-    const vStr = escHtml(a.voce).replace(/'/g,"\'");
-    const nStr = escHtml(a.note||'').replace(/'/g,"\'");
+    const vStr = escAttr(a.voce);
+    const nStr = escAttr(a.note||'');
     const noteHtml = a.note ? '<br><span style="color:#9a3412;font-style:italic;">'+escHtml(a.note)+'</span>' : '';
     return '<div id="anom-row-'+c.id+'-'+escHtml(a.voce).replace(/\W/g,'_')+'" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:6px;">'
       +'<div style="font-size:13px;color:#7c2d12;flex:1;"><strong>'+escHtml(a.voce)+'</strong>'+noteHtml
@@ -1946,7 +1979,7 @@ function checkTireAlerts(settings){
   const montate = DB.tires().filter(t=>t.stato==='montata');
   const mezzi = DB.vehicles().filter(v=>!v.venduto).filter(v=>{
     const m = montate.filter(t=>t.vehicleId===v.id);
-    return m.length>0 && m.some(t=>t.stagione!==cur.stagione);
+    return m.length>0 && m.some(t=>t.stagione!==cur.stagione && t.stagione!=='4stagioni');
   });
   if(!mezzi.length) return null;
   const p2=n=>String(n).padStart(2,'0');
@@ -1987,7 +2020,7 @@ function openRevisioneForm(vehicleId){
       <div class="form-group"><label class="form-label">Data intervento</label>
         <input class="form-input" id="rev-data" type="date" value="${oggi}" oninput="var n=document.getElementById('rev-scad'); if(n) n.value=_revPlus2(this.value);"></div>
       <div class="form-group"><label class="form-label">KM</label>
-        <input class="form-input" id="rev-km" type="number" min="0" value="${v.km||''}" placeholder="KM veicolo"></div>
+        <input class="form-input" id="rev-km" type="number" inputmode="numeric" min="0" value="" placeholder="${kmUltimoCheck(vehicleId)??''}"></div>
     </div>
     <div class="form-group"><label class="form-label">Fornitore</label>
       <select class="form-select" id="rev-fornitore">${suppOpts}</select></div>
@@ -2006,9 +2039,10 @@ function saveRevisione(vehicleId){
   const v = DB.vehicles().find(x=>x.id===vehicleId);
   if(!v){ toast('Veicolo non trovato','error'); return; }
   const data = document.getElementById('rev-data').value || today();
-  const km = parseInt(document.getElementById('rev-km').value) || parseInt(v.km) || null;
+  const km = kmInput('rev-km');
   const fornitoreId = document.getElementById('rev-fornitore').value || null;
   const nuovaScad = document.getElementById('rev-scad').value || _revPlus2(data);
+  if(nuovaScad <= data){ toast('La nuova scadenza deve essere successiva alla data della revisione','error'); return; }
   const note = document.getElementById('rev-note').value.trim();
   // Intervento chiuso "Revisione periodica" — traccia data, km, fornitore nello storico
   const interventions = DB.interventions();
@@ -2028,6 +2062,7 @@ function saveRevisione(vehicleId){
   const vehicles = DB.vehicles();
   const idx = vehicles.findIndex(x=>x.id===vehicleId);
   if(idx>-1){ vehicles[idx].scadenzaRevisione = nuovaScad; DB.saveVehicles(vehicles); }
+  updateVehicleKm(vehicleId, km);
   closeModal();
   toast('Revisione registrata · nuova scadenza '+fmtDate(nuovaScad),'success');
   refreshAll();
@@ -2468,11 +2503,15 @@ function renderVehicleCard(v, photo){
 // ═══════════════════════════════════════════════════════
 //  VEHICLE FORM
 // ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
+//  VEICOLI — maschere separate: CREA e MODIFICA
+// ═══════════════════════════════════════════════════════
 function openVehicleForm(id){
-  const vehicles=DB.vehicles();
-  const v=id?vehicles.find(x=>x.id===id):{};
-  const isEdit=!!id;
-  openModal(isEdit?'Modifica Veicolo':'Nuovo Veicolo', `
+  if(id) return openVehicleEditForm(id);
+  return openVehicleCreateForm();
+}
+function _vehicleFieldsHtml(v){
+  return `
     <div class="form-group inline"><label class="form-label">Targa *</label>
       <input class="form-input" id="vf-targa" value="${escHtml(v.targa||'')}" placeholder="AB123CD" maxlength="7" style="text-transform:uppercase;font-family:monospace;font-size:18px;letter-spacing:2px;" autocomplete="off"></div>
     <div class="form-group inline"><label class="form-label">Nome veicolo *</label>
@@ -2484,7 +2523,7 @@ function openVehicleForm(id){
         <input class="form-input" id="vf-anno" type="number" value="${v.anno||''}" placeholder="2020" min="1980" max="2030"></div>
     </div>
     <div class="form-group inline"><label class="form-label">KM attuali</label>
-      <input class="form-input" id="vf-km" type="number" value="${v.km||''}" placeholder="0" min="0"></div>
+      <input class="form-input" id="vf-km" type="number" inputmode="numeric" value="${v.km??''}" placeholder="0" min="0"></div>
     <div class="form-group inline"><label class="form-label">Scadenza revisione</label>
       <input class="form-input" id="vf-revisione" type="date" value="${v.scadenzaRevisione||''}"></div>
     <div class="form-checkbox"><input type="checkbox" id="vf-sollevatore" ${v.sollevatore?'checked':''}><label for="vf-sollevatore" style="font-size:14px;font-weight:500;">Presente sollevatore</label></div>
@@ -2493,26 +2532,16 @@ function openVehicleForm(id){
     <div class="form-checkbox"><input type="checkbox" id="vf-lavavetriPost" ${v.lavavetriPost?'checked':''}><label for="vf-lavavetriPost" style="font-size:14px;font-weight:500;">Lavavetri posteriori</label></div>
     <div class="form-group"><label class="form-label">Note</label>
       <textarea class="form-input" id="vf-note" rows="2" placeholder="Note aggiuntive…">${escHtml(v.note||'')}</textarea></div>
-    <div class="btn-row">
-      <button class="btn btn-secondary" onclick="closeModal()">Annulla</button>
-      <button class="btn btn-primary" onclick="saveVehicle('${id||''}')">
-        ${isEdit?'Salva modifiche':'Aggiungi veicolo'}
-      </button>
-    </div>
-  `);
+`;
 }
-
-function saveVehicle(id){
-  const targa=document.getElementById('vf-targa').value.trim().toUpperCase();
-  const nome=document.getElementById('vf-nome').value.trim();
-  if(!targa||!nome){ toast('Targa e nome sono obbligatori','error'); return; }
-
-  const vehicles=DB.vehicles();
-  const data={
-    targa, nome,
+function _vehicleFormData(){
+  const kmTxt=document.getElementById('vf-km').value;
+  return {
+    targa:document.getElementById('vf-targa').value.trim().toUpperCase().replace(/\s+/g,''),
+    nome:document.getElementById('vf-nome').value.trim(),
     modello:document.getElementById('vf-modello').value.trim(),
     anno:document.getElementById('vf-anno').value||null,
-    km:document.getElementById('vf-km').value||null,
+    km:kmTxt==='' ? null : (parseInt(kmTxt)||0),
     scadenzaRevisione:document.getElementById('vf-revisione').value||null,
     sollevatore:document.getElementById('vf-sollevatore').checked,
     pedana:document.getElementById('vf-pedana').checked,
@@ -2520,22 +2549,70 @@ function saveVehicle(id){
     lavavetriPost:document.getElementById('vf-lavavetriPost').checked,
     note:document.getElementById('vf-note').value.trim(),
   };
-
-  if(id){
-    const idx=vehicles.findIndex(v=>v.id===id);
-    if(idx>-1) vehicles[idx]={...vehicles[idx],...data};
-    toast('Veicolo aggiornato','success');
-  } else {
-    vehicles.push({id:DB.uid(),...data,venduto:false,createdAt:nowISO()});
-    toast('Veicolo aggiunto','success');
-  }
-  DB.saveVehicles(vehicles);
+}
+function _vehicleCheck(data, selfId){
+  if(!data.targa||!data.nome) return 'Targa e nome sono obbligatori';
+  const dup=DB.vehicles().find(v=>v.id!==selfId && String(v.targa||'').toUpperCase().replace(/\s+/g,'')===data.targa);
+  if(dup) return 'Targa già presente: '+dup.targa+' — '+(dup.nome||'');
+  return null;
+}
+function _afterVehicleSave(){
   closeModal();
   renderMain();
   renderAlerts();
-  // Applica dark mode salvata
   if(DB.settings().darkMode) applyDarkMode(true);
 }
+
+function openVehicleCreateForm(){
+  openModal('Nuovo Veicolo', _vehicleFieldsHtml({}) + `
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="closeModal()">Annulla</button>
+      <button class="btn btn-primary" onclick="saveVehicleCreate()">Aggiungi veicolo</button>
+    </div>`);
+}
+function saveVehicleCreate(){
+  const data=_vehicleFormData();
+  const err=_vehicleCheck(data, null);
+  if(err){ toast(err,'error'); return; }
+  const vehicles=DB.vehicles();
+  vehicles.push({id:DB.uid(),...data,venduto:false,createdAt:nowISO()});
+  DB.saveVehicles(vehicles);
+  toast('Veicolo aggiunto','success');
+  _afterVehicleSave();
+}
+
+function openVehicleEditForm(id){
+  const v=DB.vehicles().find(x=>x.id===id);
+  if(!v){ toast('Veicolo non trovato','error'); return; }
+  openModal('Modifica Veicolo', _vehicleFieldsHtml(v) + `
+    <div style="font-size:11px;color:#94a3b8;margin:6px 0 2px;">Le dotazioni valgono per i check nuovi: i check già fatti restano come sono stati registrati.</div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="closeModal()">Annulla</button>
+      <button class="btn btn-primary" onclick="saveVehicleEdit('${id}')">Salva modifiche</button>
+    </div>`);
+}
+function saveVehicleEdit(id){
+  const vehicles=DB.vehicles();
+  const idx=vehicles.findIndex(v=>v.id===id);
+  if(idx<0){ toast('Veicolo non trovato','error'); return; }
+  const data=_vehicleFormData();
+  const err=_vehicleCheck(data, id);
+  if(err){ toast(err,'error'); return; }
+  const norm=x=>(x===undefined||x===null||x==='')?null:String(x);
+  const patch={};
+  Object.keys(data).forEach(k=>{
+    const cur=vehicles[idx][k];
+    const same = typeof data[k]==='boolean' ? (!!cur===data[k]) : (norm(data[k])===norm(cur));
+    if(!same) patch[k]=data[k];
+  });
+  if(!Object.keys(patch).length){ toast('Nessuna modifica'); closeModal(); return; }
+  vehicles[idx]={...vehicles[idx],...patch};
+  DB.saveVehicles(vehicles);
+  toast('Veicolo aggiornato','success');
+  _afterVehicleSave();
+}
+
+function saveVehicle(id){ return id ? saveVehicleEdit(id) : saveVehicleCreate(); }
 
 function deleteVehicle(id){
   const v=DB.vehicles().find(x=>x.id===id);
@@ -2595,7 +2672,7 @@ function openSegnalazioneForm(vehicleId){
     +'<div class="form-group inline"><label class="form-label">Operatore</label>'
     +'<input class="form-input" id="segn-operatore" type="text" value="'+escHtml(settings.operator||'')+'" placeholder="Nome operatore"></div>'
     +'<div class="form-group inline"><label class="form-label">KM attuali</label>'
-    +'<input class="form-input" id="segn-km" type="number" value="'+(v?v.km:'')+'" min="0"></div>'
+    +'<input class="form-input" id="segn-km" type="number" inputmode="numeric" value="" placeholder="'+(kmUltimoCheck(vehicleId)??'')+'" min="0"></div>'
     +'<div class="btn-row">'
     +'<button class="btn btn-secondary" onclick="closeModal()">Annulla</button>'
     +'<button class="btn btn-primary" id="btn-save-segn">Invia segnalazione</button>'
@@ -2610,7 +2687,7 @@ function saveSegnalazione(vehicleId){
   const problema  = (document.getElementById('segn-problema')?.value||'').trim();
   const note      = (document.getElementById('segn-note')?.value||'').trim();
   const operatore = (document.getElementById('segn-operatore')?.value||'').trim();
-  const km        = parseInt(document.getElementById('segn-km')?.value)||null;
+  const km        = kmInput('segn-km');
   if(!problema){ toast('Inserisci una descrizione del problema','error'); return; }
   const segnalazioni = DB.segnalazioni();
   segnalazioni.push({
@@ -2685,7 +2762,7 @@ function openInterventionFromAnomaliaCheck(checkId, vehicleId, voce, note, km){
         ${suppliersOptions}
       </select></div>
     <div class="form-group"><label class="form-label">KM apertura</label>
-      <input class="form-input" id="int-km" type="number" inputmode="numeric" value="${km||v?.km||''}" min="0" placeholder="KM veicolo"></div>
+      <input class="form-input" id="int-km" type="number" inputmode="numeric" value="" min="0" placeholder="${kmUltimoCheck(vehicleId)??''}"></div>
     <div id="chiusura-fields" style="display:none">
       <div class="form-row">
         <div class="form-group"><label class="form-label">Data chiusura</label>
@@ -2704,9 +2781,9 @@ function openInterventionFromAnomaliaCheck(checkId, vehicleId, voce, note, km){
   setTimeout(()=>{
     const sel = document.getElementById('int-stato');
     if(sel) sel.onchange = function(){
-      document.getElementById('chiusura-fields').style.display =
-        (this.value==='chiuso'||this.value==='annullato')?'':'none';
+      document.getElementById('chiusura-fields').style.display = this.value==='chiuso' ? '' : 'none';
     };
+    linkKmChiusura('int-km','int-km-ch');
     document.getElementById('btn-save-int-anom').onclick = function(){
       const desc = (document.getElementById('int-desc').value||'').trim();
       if(!desc){ toast('Inserisci una descrizione','error'); return; }
@@ -2717,21 +2794,25 @@ function openInterventionFromAnomaliaCheck(checkId, vehicleId, voce, note, km){
         closeModal2();
         return;
       }
-      ints.push({
+      const nuovo = {
         id: DB.uid(), vehicleId: vehicleId,
         checkId: checkId,
         descrizione: desc,
         dataApertura: document.getElementById('int-data').value,
         dataProgrammazione: document.getElementById('int-data-prog').value || null,
-        kmApertura: parseInt(document.getElementById('int-km').value)||null,
+        kmApertura: kmInput('int-km'),
         stato, origine: 'check',
         fornitoreId: document.getElementById('int-fornitore').value||null,
         dataChiusura: stato==='chiuso'?document.getElementById('int-data-ch').value:null,
-        kmChiusura: stato==='chiuso'?parseInt(document.getElementById('int-km-ch').value)||null:null,
+        kmChiusura: stato==='chiuso'?kmInput('int-km-ch'):null,
         noteChiusura: stato==='chiuso'?document.getElementById('int-note-ch').value:'',
         createdAt: nowISO()
-      });
+      };
+      const err=_checkInterventionData(nuovo);
+      if(err){ toast(err,'error'); return; }
+      ints.push(nuovo);
       DB.saveInterventions(ints);
+      if(stato==='chiuso') updateVehicleKm(vehicleId, nuovo.kmChiusura);
       closeModal2();
       toast('Intervento creato','success');
       refreshAll();
@@ -2755,7 +2836,7 @@ function openInterventionFromSegnalazione(s){
         <input class="form-input" id="int-data" type="date" value="${today()}"></div>
     </div>
     <div class="form-group"><label class="form-label">KM apertura</label>
-      <input class="form-input" id="int-km" type="number" value="${s.km||v?.km||''}" min="0"></div>
+      <input class="form-input" id="int-km" type="number" inputmode="numeric" value="" min="0" placeholder="${kmUltimoCheck(s.vehicleId)??''}"></div>
     <div class="form-group"><label class="form-label">Stato</label>
       <select class="form-select" id="int-stato">
         <option value="in_lavorazione" selected>🔧 In lavorazione</option>
@@ -2786,29 +2867,33 @@ function openInterventionFromSegnalazione(s){
   setTimeout(()=>{
     const sel = document.getElementById('int-stato');
     if(sel) sel.onchange = function(){
-      document.getElementById('chiusura-fields').style.display =
-        (this.value==='chiuso'||this.value==='annullato')?'':'none';
+      document.getElementById('chiusura-fields').style.display = this.value==='chiuso' ? '' : 'none';
     };
+    linkKmChiusura('int-km','int-km-ch');
     document.getElementById('btn-save-int-segn').onclick = function(){
       const desc = (document.getElementById('int-desc').value||'').trim();
       if(!desc){ toast('Inserisci una descrizione','error'); return; }
       const stato = document.getElementById('int-stato').value;
       const interventions = DB.interventions();
-      interventions.push({
+      const nuovo = {
         id: DB.uid(), vehicleId: s.vehicleId,
         segnalazioneId: s.id,
         descrizione: desc,
         dataApertura: document.getElementById('int-data').value,
         dataProgrammazione: document.getElementById('int-data-prog').value || null,
-        kmApertura: parseInt(document.getElementById('int-km').value)||null,
+        kmApertura: kmInput('int-km'),
         stato, origine: 'segnalazione',
         fornitoreId: document.getElementById('int-fornitore').value||null,
         dataChiusura: stato==='chiuso'?document.getElementById('int-data-ch').value:null,
-        kmChiusura: stato==='chiuso'?parseInt(document.getElementById('int-km-ch').value)||null:null,
+        kmChiusura: stato==='chiuso'?kmInput('int-km-ch'):null,
         noteChiusura: stato==='chiuso'?document.getElementById('int-note-ch').value:'',
         createdAt: nowISO()
-      });
+      };
+      const err=_checkInterventionData(nuovo);
+      if(err){ toast(err,'error'); return; }
+      interventions.push(nuovo);
       DB.saveInterventions(interventions);
+      if(stato==='chiuso') updateVehicleKm(s.vehicleId, nuovo.kmChiusura);
       closeModalSmart();
       toast('Intervento creato','success');
       refreshAll();
@@ -2869,56 +2954,39 @@ function risolviSegnalazione(s){
   };
 }
 
+// ═══════════════════════════════════════════════════════
+//  CHECK — maschere separate: CREA e MODIFICA
+// ═══════════════════════════════════════════════════════
+// Punto d'ingresso unico: con un id apre la MODIFICA, senza id la CREAZIONE.
 function openCheckForm(vehicleId, editCheckId){
-  const v=DB.vehicles().find(x=>x.id===vehicleId);
-  if(!v){ toast('Veicolo non trovato','error'); return; }
-  const editC = editCheckId ? DB.checks().find(x=>x.id===editCheckId) : null;
-  
-  // Determina quali voci non sono presenti come dotazione del veicolo
-  const isNonPresente = (voce) => {
-    if(voce === 'Sollevatore' && !v.sollevatore) return true;
-    if(voce === 'Dispositivi ritenzione carrozzine' && !v.sollevatore && !v.pedana) return true;
-    if(voce === 'Spazzole posteriori' && !v.spazzolePost) return true;
-    if(voce === 'Lavavetri posteriori' && !v.lavavetriPost) return true;
-    return false;
-  };
-  
-  checkItems={};
-  CHECK_VOCI.forEach(voce=>{
-    const existing = editC && editC.items ? editC.items.find(i=>i.voce===voce) : null;
-    if(isNonPresente(voce)){
-      checkItems[voce]={ val: 'non_presente', note: '' };
-    } else {
-      checkItems[voce]={ val: existing ? existing.val : '', note: existing ? (existing.note||'') : '' };
-    }
-  });
-  const settings=DB.settings();
-  const kmVal = editC ? (editC.km||'') : (v.km||'');
-  const opVal = editC ? (editC.operatore||'') : (settings.operator||'');
-  const dateVal = editC ? editC.data : today();
-  const saveLabel = editC ? 'Salva modifiche' : 'Salva check';
-  const saveCmd = editC ? `saveCheck('${vehicleId}','${editCheckId}')` : `saveCheck('${vehicleId}')`;
+  if(editCheckId) return openCheckEditForm(editCheckId);
+  return openCheckCreateForm(vehicleId);
+}
 
-  openModal(`${editC?'Modifica':'Nuovo'} Check — ${v.targa}`, `
+// Corpo comune delle due maschere. voci = elenco voci mostrate, in ordine;
+// np = voci "NON PRESENTE" (non modificabili); checkItems contiene i valori correnti.
+function _checkFormHtml(o){
+  window._ckVoci = o.voci.slice();
+  window._ckNP = Object.assign({}, o.np);
+  return `
     <div class="form-group inline">
       <label class="form-label">KM attuali *</label>
-      <input class="form-input" id="ck-km" type="number" value="${kmVal}" placeholder="KM veicolo" min="0">
+      <input class="form-input" id="ck-km" type="number" inputmode="numeric" value="${o.km??''}" placeholder="${o.kmProposti??''}" min="0">
     </div>
     <div class="form-group inline">
       <label class="form-label">Operatore</label>
-      <input class="form-input" id="ck-op" value="${escHtml(opVal)}" placeholder="Nome operatore">
+      <input class="form-input" id="ck-op" value="${escHtml(o.op||'')}" placeholder="Nome operatore">
     </div>
     <div class="form-group inline">
       <label class="form-label">Data check</label>
-      <input class="form-input" id="ck-date" type="date" value="${dateVal}">
+      <input class="form-input" id="ck-date" type="date" value="${o.data||''}">
     </div>
     <div class="divider"></div>
     <div class="section-title">Voci di controllo</div>
     <div id="check-voci-list">
-      ${CHECK_VOCI.map((voce,i)=>{
+      ${o.voci.map((voce,i)=>{
         const cur = checkItems[voce]||{val:'',note:''};
-        const np = isNonPresente(voce);
-        if(np){
+        if(o.np[voce]){
           return '<div class="check-item" id="chk-row-'+i+'" style="opacity:0.55;">'
             +'<div class="check-label">'+escHtml(voce)+'</div>'
             +'<div class="check-toggle"><span style="font-size:11px;font-weight:700;color:#94a3b8;background:#f1f5f9;border-radius:6px;padding:5px 8px;white-space:nowrap;">NON PRESENTE</span></div>'
@@ -2927,25 +2995,74 @@ function openCheckForm(vehicleId, editCheckId){
         return '<div class="check-item" id="chk-row-'+i+'">'
           +'<div class="check-label">'+escHtml(voce)+'</div>'
           +'<div class="check-toggle">'
-          +'<button class="ctgl ok'+(cur.val==='ok'?' active':'')+'" onclick="setCheck('+i+',\'ok\',\''+escHtml(voce)+'\' )" id="chk-ok-'+i+'">OK</button>'
-          +'<button class="ctgl anom'+(cur.val==='anomalia'?' active':'')+'" onclick="setCheck('+i+',\'anomalia\',\''+escHtml(voce)+'\')" id="chk-an-'+i+'">⚠️</button>'
+          +'<button class="ctgl ok'+(cur.val==='ok'?' active':'')+'" onclick="setCheck('+i+',\'ok\',window._ckVoci['+i+'])" id="chk-ok-'+i+'">OK</button>'
+          +'<button class="ctgl anom'+(cur.val==='anomalia'?' active':'')+'" onclick="setCheck('+i+',\'anomalia\',window._ckVoci['+i+'])" id="chk-an-'+i+'">⚠️</button>'
           +'</div></div>'
-          +'<textarea class="check-note" id="chk-note-'+i+'" placeholder="Note per '+escHtml(voce)+'…" oninput="checkItems[\''+escHtml(voce)+'\'].note=this.value">'+escHtml(cur.note)+'</textarea>';
+          +'<textarea class="check-note" id="chk-note-'+i+'" placeholder="Note per '+escAttr(voce)+'…" oninput="checkItems[window._ckVoci['+i+']].note=this.value">'+escHtml(cur.note)+'</textarea>';
       }).join('')}
     </div>
     <div class="divider"></div>
     <div class="form-group">
       <label class="form-label">Note generali</label>
-      <textarea class="form-input" id="ck-notes" rows="2" placeholder="Osservazioni generali…">${escHtml(editC&&editC.note?editC.note:'')}</textarea>
+      <textarea class="form-input" id="ck-notes" rows="2" placeholder="Osservazioni generali…">${escHtml(o.note||'')}</textarea>
     </div>
     <div class="btn-row">
       <button class="btn btn-secondary" onclick="closeModal()">Annulla</button>
-      <button class="btn btn-primary" onclick="${saveCmd}">${saveLabel}</button>
+      <button class="btn btn-primary" onclick="${o.saveCmd}">${o.saveLabel}</button>
     </div>
-    <div style="height:10px;"></div>
-  `);
-  // Ripristina stato visivo bottoni se modifica
-  if(editC){ setTimeout(()=>{ CHECK_VOCI.forEach((voce,i)=>{ if(checkItems[voce]&&checkItems[voce].val&&checkItems[voce].val!=='non_presente') setCheck(i,checkItems[voce].val,voce); }); },30); }
+    <div style="height:10px;"></div>`;
+}
+function _checkFormRestoreButtons(){
+  setTimeout(()=>{ (window._ckVoci||[]).forEach((voce,i)=>{ const ci=checkItems[voce]; if(ci&&ci.val&&ci.val!=='non_presente'&&!window._ckNP[voce]) setCheck(i,ci.val,voce); }); },30);
+}
+// Legge le voci dalla maschera aperta
+function _checkFormItems(){
+  return (window._ckVoci||[]).map((voce,i)=>{
+    if(window._ckNP[voce]) return {voce, val:'non_presente', note:''};
+    const noteEl=document.getElementById('chk-note-'+i);
+    const ci=checkItems[voce]||{val:'',note:''};
+    return {voce, val:ci.val, note:(noteEl?noteEl.value.trim():'')||ci.note||''};
+  });
+}
+
+// ── CREA: voci attuali e dotazione attuale del mezzo ──
+function openCheckCreateForm(vehicleId){
+  const v=DB.vehicles().find(x=>x.id===vehicleId);
+  if(!v){ toast('Veicolo non trovato','error'); return; }
+  const isNonPresente = (voce) => {
+    if(voce === 'Sollevatore' && !v.sollevatore) return true;
+    if(voce === 'Dispositivi ritenzione carrozzine' && !v.sollevatore && !v.pedana) return true;
+    if(voce === 'Spazzole posteriori' && !v.spazzolePost) return true;
+    if(voce === 'Lavavetri posteriori' && !v.lavavetriPost) return true;
+    return false;
+  };
+  checkItems={}; const np={};
+  CHECK_VOCI.forEach(voce=>{
+    if(isNonPresente(voce)){ np[voce]=true; checkItems[voce]={val:'non_presente',note:''}; }
+    else checkItems[voce]={val:'',note:''};
+  });
+  openModal(`Nuovo Check — ${v.targa}`, _checkFormHtml({
+    voci:CHECK_VOCI, np, km:'', kmProposti:kmUltimoCheck(vehicleId), op:DB.settings().operator||'', data:today(), note:'',
+    saveCmd:`saveCheckCreate('${vehicleId}')`, saveLabel:'Salva check'
+  }));
+}
+
+// ── MODIFICA: il check resta com'era (voci, ordine e NON PRESENTE di allora) ──
+function openCheckEditForm(checkId){
+  const c=DB.checks().find(x=>x.id===checkId);
+  if(!c){ toast('Check non trovato','error'); return; }
+  const v=DB.vehicles().find(x=>x.id===c.vehicleId);
+  const items=(c.items||[]);
+  checkItems={}; const np={};
+  items.forEach(it=>{
+    checkItems[it.voce]={val:it.val||'', note:it.note||''};
+    if(it.val==='non_presente') np[it.voce]=true;
+  });
+  openModal(`Modifica Check — ${v?.targa||''}`, _checkFormHtml({
+    voci:items.map(it=>it.voce), np, km:c.km??'', kmProposti:'', op:c.operatore||'', data:c.data||'', note:c.note||'',
+    saveCmd:`saveCheckEdit('${checkId}')`, saveLabel:'Salva modifiche'
+  }));
+  _checkFormRestoreButtons();
 }
 
 function setCheck(idx, val, voce){
@@ -2959,55 +3076,68 @@ function setCheck(idx, val, voce){
   if(noteEl){ noteEl.classList.toggle('show', val==='anomalia'); }
 }
 
+// Compatibilità: vecchie chiamate a saveCheck
 function saveCheck(vehicleId, editCheckId){
+  if(editCheckId) return saveCheckEdit(editCheckId);
+  return saveCheckCreate(vehicleId);
+}
+
+function saveCheckCreate(vehicleId){
   const km=document.getElementById('ck-km').value;
   if(!km){ toast('Inserisci i KM','error'); return; }
   const op=document.getElementById('ck-op').value.trim()||DB.settings().operator||'Operatore';
   const date=document.getElementById('ck-date').value||today();
   const notes=document.getElementById('ck-notes').value.trim();
-
-  // Costruisci items — leggi anche le note attuali dai textarea (mobile fix)
-  const items=CHECK_VOCI.map((voce,i)=>{
-    const noteEl=document.getElementById('chk-note-'+i);
-    const noteVal=noteEl?noteEl.value.trim():'';
-    const ci=checkItems[voce]||{val:'',note:''};
-    return {voce, val:ci.val, note:noteVal||ci.note};
-  });
+  const items=_checkFormItems();
   const anomalie=items.filter(i=>i.val==='anomalia');
-
   const checks=DB.checks();
-  let checkId;
-  if(editCheckId){
-    // Modifica check esistente
-    const idx=checks.findIndex(c=>c.id===editCheckId);
-    if(idx>-1){
-      checks[idx]={...checks[idx], data:date, operatore:op, km:parseInt(km), items, note:notes};
-      checkId=editCheckId;
-    } else { toast('Check non trovato','error'); return; }
-  } else {
-    // Nuovo check
-    checkId=DB.uid();
-    checks.push({ id:checkId, vehicleId, data:date, operatore:op, km:parseInt(km), items, note:notes, createdAt:nowISO() });
-  }
+  const checkId=DB.uid();
+  checks.push({ id:checkId, vehicleId, data:date, operatore:op, km:parseInt(km), items, note:notes, createdAt:nowISO() });
   DB.saveChecks(checks);
-
-  // Aggiorna KM veicolo
-  const vehicles=DB.vehicles();
-  const vidx=vehicles.findIndex(v=>v.id===vehicleId);
-  if(vidx>-1){ vehicles[vidx].km=km; vehicles[vidx].ultimoCheck=date; DB.saveVehicles(vehicles); }
+  // Scheda mezzo: km solo se più alti, ultimo check solo se è il più recente
+  const v=DB.vehicles().find(x=>x.id===vehicleId);
+  updateVehicleKm(vehicleId, km, (!v || !v.ultimoCheck || date>=v.ultimoCheck) ? {ultimoCheck:date} : null);
 
   closeModalSmart();
   renderMain();
   renderAlerts();
 
-  if(editCheckId){
-    toast('✅ Check aggiornato','success');
-  } else if(anomalie.length>0){
+  if(anomalie.length>0){
     window._pendingAnomalies={ vehicleId, checkId, anomalie, km:parseInt(km) };
     setTimeout(()=>askCreateInterventions(), 350);
   } else {
     toast('✅ Check salvato — tutto OK','success');
   }
+}
+
+function saveCheckEdit(checkId){
+  const checks=DB.checks();
+  const idx=checks.findIndex(c=>c.id===checkId);
+  if(idx<0){ toast('Check non trovato','error'); return; }
+  const c=checks[idx];
+  const kmTxt=document.getElementById('ck-km').value;
+  if(!kmTxt){ toast('Inserisci i KM','error'); return; }
+  const form={
+    km:parseInt(kmTxt),
+    operatore:document.getElementById('ck-op').value.trim(),
+    data:document.getElementById('ck-date').value||c.data,
+    items:_checkFormItems(),
+    note:document.getElementById('ck-notes').value.trim()
+  };
+  // Solo i campi cambiati
+  const patch={};
+  Object.keys(form).forEach(k=>{ if(JSON.stringify(form[k]??null)!==JSON.stringify(c[k]??(k==='note'||k==='operatore'?'':null))) patch[k]=form[k]; });
+  if(!Object.keys(patch).length){ toast('Nessuna modifica'); closeModalSmart(); return; }
+  checks[idx]={...c,...patch};
+  DB.saveChecks(checks);
+  // Scheda mezzo: ultimo check = data del check più recente; km solo se più alti
+  const propri=checks.filter(x=>x.vehicleId===c.vehicleId).sort((a,b)=>String(a.data).localeCompare(String(b.data)));
+  const ultimo=propri[propri.length-1];
+  if(ultimo) updateVehicleKm(c.vehicleId, ultimo.km, {ultimoCheck:ultimo.data});
+  closeModalSmart();
+  renderMain();
+  renderAlerts();
+  toast('✅ Check aggiornato','success');
 }
 
 function askCreateInterventions(){
@@ -3110,7 +3240,7 @@ function openChiusuraForm(intId, vehicleId, fromPlanner){
     <div class="form-group"><label class="form-label">Data chiusura</label>
       <input class="form-input" id="ch-data" type="date" value="${today()}"></div>
     <div class="form-group"><label class="form-label">KM alla chiusura</label>
-      <input class="form-input" id="ch-km" type="number" placeholder="KM attuali" min="0" value="${v?.km||''}"></div>
+      <input class="form-input" id="ch-km" type="number" inputmode="numeric" min="0" value="" placeholder="${i.kmApertura??kmUltimoCheck(vehicleId)??''}"></div>
     <div class="form-group"><label class="form-label">Note chiusura *</label>
       <textarea class="form-input" id="ch-note" rows="3" placeholder="Cosa è stato fatto, pezzi sostituiti…"></textarea></div>
     <div class="btn-row">
@@ -3126,16 +3256,13 @@ function saveChiusura(intId, vehicleId){
   const interventions=DB.interventions();
   const idx=interventions.findIndex(i=>i.id===intId);
   if(idx>-1){
-    interventions[idx].stato='chiuso';
-    interventions[idx].dataChiusura=document.getElementById('ch-data').value||today();
-    interventions[idx].kmChiusura=parseInt(document.getElementById('ch-km').value)||null;
-    interventions[idx].noteChiusura=note;
-    const km=document.getElementById('ch-km').value;
-    if(km){
-      const vehicles=DB.vehicles();
-      const vidx=vehicles.findIndex(v=>v.id===vehicleId);
-      if(vidx>-1){ vehicles[vidx].km=km; DB.saveVehicles(vehicles); }
-    }
+    const chiuso={...interventions[idx], stato:'chiuso',
+      dataChiusura:document.getElementById('ch-data').value||today(),
+      kmChiusura:kmInput('ch-km'), noteChiusura:note};
+    const err=_checkInterventionData(chiuso);
+    if(err){ toast(err,'error'); return; }
+    interventions[idx]=chiuso;
+    updateVehicleKm(vehicleId, chiuso.kmChiusura);
   }
   DB.saveInterventions(interventions);
   closeModal();
@@ -3218,7 +3345,7 @@ function openInterventionCreateForm(vehicleId){
   const descrizione = ctx?.descrizione || (window._preInterventoDesc||'');
   window._preInterventoDesc = null;
   const dataApertura = ctx?.dataApertura || today();
-  const kmApertura = ctx?.km || v?.km || '';
+  const kmProposti = kmUltimoCheck(vehicleId);
   const statoOpts = INT_STATI.map(([val,lab])=>`<option value="${val}" ${val==='in_lavorazione'?'selected':''}>${lab}</option>`).join('');
 
   openModal('Nuovo Intervento — '+(v?.targa||''), `
@@ -3231,7 +3358,7 @@ function openInterventionCreateForm(vehicleId){
         <input class="form-input" id="int-data" type="date" value="${dataApertura}"></div>
     </div>
     <div class="form-group"><label class="form-label">KM apertura</label>
-      <input class="form-input" id="int-km" type="number" value="${kmApertura}" min="0"></div>
+      <input class="form-input" id="int-km" type="number" inputmode="numeric" value="" placeholder="${kmProposti??''}" min="0"></div>
     <div class="form-group"><label class="form-label">Stato</label>
       <select class="form-select" id="int-stato">${statoOpts}</select></div>
     <div class="form-group"><label class="form-label">Fornitore</label>
@@ -3244,7 +3371,7 @@ function openInterventionCreateForm(vehicleId){
         <div class="form-group"><label class="form-label">Data chiusura *</label>
           <input class="form-input" id="int-data-ch" type="date" value="${today()}"></div>
         <div class="form-group"><label class="form-label">KM chiusura</label>
-          <input class="form-input" id="int-km-ch" type="number" value="" min="0"></div>
+          <input class="form-input" id="int-km-ch" type="number" inputmode="numeric" value="" min="0"></div>
       </div>
       <div class="form-group"><label class="form-label">Note chiusura</label>
         <textarea class="form-input" id="int-note-ch" rows="2" placeholder="Cosa è stato fatto…"></textarea></div>
@@ -3259,6 +3386,7 @@ function openInterventionCreateForm(vehicleId){
     if(sel) sel.onchange=function(){
       document.getElementById('chiusura-fields').style.display = this.value==='chiuso' ? '' : 'none';
     };
+    linkKmChiusura('int-km','int-km-ch');
   },10);
 }
 
@@ -3270,11 +3398,11 @@ function saveInterventionCreate(vehicleId){
     descrizione:document.getElementById('int-desc').value.trim(),
     dataApertura:document.getElementById('int-data').value,
     dataProgrammazione:document.getElementById('int-data-prog').value||null,
-    kmApertura:_kmVal('int-km'),
+    kmApertura:kmInput('int-km'),
     stato, fornitoreId:document.getElementById('int-fornitore').value||null,
     origine:'manuale',
     dataChiusura:stato==='chiuso'?document.getElementById('int-data-ch').value:null,
-    kmChiusura:stato==='chiuso'?_kmVal('int-km-ch'):null,
+    kmChiusura:stato==='chiuso'?kmInput('int-km-ch'):null,
     noteChiusura:stato==='chiuso'?document.getElementById('int-note-ch').value:'',
   };
   const err=_checkInterventionData(data);
@@ -3283,6 +3411,7 @@ function saveInterventionCreate(vehicleId){
   const interventions=DB.interventions();
   interventions.push({id:DB.uid(),...data,createdAt:nowISO()});
   DB.saveInterventions(interventions);
+  if(stato==='chiuso') updateVehicleKm(vehicleId, data.kmChiusura);
   window._intCreateCtx=null;
   toast('Intervento creato','success');
   closeModalSmart();
@@ -3333,7 +3462,7 @@ function openInterventionEditForm(intId){
         <div class="form-group"><label class="form-label">Data chiusura *</label>
           <input class="form-input" id="int-data-ch" type="date" value="${chiuso?val(it.dataChiusura):today()}"></div>
         <div class="form-group"><label class="form-label">KM chiusura</label>
-          <input class="form-input" id="int-km-ch" type="number" value="${chiuso?val(it.kmChiusura):''}" min="0"></div>
+          <input class="form-input" id="int-km-ch" type="number" inputmode="numeric" value="${chiuso?val(it.kmChiusura):''}" min="0"></div>
       </div>
       <div class="form-group"><label class="form-label">Note chiusura</label>
         <textarea class="form-input" id="int-note-ch" rows="2" placeholder="Cosa è stato fatto…">${chiuso?escHtml(it.noteChiusura||''):''}</textarea></div>
@@ -3349,6 +3478,7 @@ function openInterventionEditForm(intId){
       document.getElementById('chiusura-fields').style.display = this.value==='chiuso' ? '' : 'none';
       document.getElementById('int-chiusura-warn').style.display = (chiuso && this.value!=='chiuso') ? '' : 'none';
     };
+    linkKmChiusura('int-km','int-km-ch');
   },10);
 }
 
@@ -3369,7 +3499,8 @@ function saveInterventionEdit(intId){
   };
   if(stato==='chiuso'){
     form.dataChiusura=document.getElementById('int-data-ch').value||null;
-    form.kmChiusura=_kmVal('int-km-ch');
+    // km in grigio applicati solo se l'intervento viene chiuso adesso; se era già chiuso vale ciò che è scritto
+    form.kmChiusura = it.stato==='chiuso' ? _kmVal('int-km-ch') : kmInput('int-km-ch');
     form.noteChiusura=document.getElementById('int-note-ch').value;
   }else if(it.stato==='chiuso'){
     // Riaperto/annullato un intervento chiuso: i dati di chiusura non valgono più
@@ -3384,6 +3515,7 @@ function saveInterventionEdit(intId){
   if(!Object.keys(patch).length){ toast('Nessuna modifica'); closeModalSmart(); return; }
   interventions[idx]={...it,...patch};
   DB.saveInterventions(interventions);
+  if(patch.stato==='chiuso' || patch.kmChiusura!=null) updateVehicleKm(it.vehicleId, interventions[idx].kmChiusura);
   toast('Intervento aggiornato','success');
   closeModalSmart();
   refreshAll();
@@ -3913,14 +4045,14 @@ function openHistory(vehicleId){
             anomBoxHtml='<div style="margin-top:10px;padding:8px 10px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;">'
               +'<div style="font-size:11px;font-weight:700;color:#c2410c;margin-bottom:6px;">ANOMALIE SENZA INTERVENTO:</div>'
               +anomSenzaInt.map(function(a){
-                const vStr=escHtml(a.voce).replace(/'/g,"\\'");
-                const nStr=escHtml(a.note||'').replace(/'/g,"\\'");
+                const vStr=escAttr(a.voce);
+                const nStr=escAttr(a.note||'');
                 const noteHtml=a.note?'<br><span style="color:#9a3412;font-style:italic;">'+escHtml(a.note)+'</span>':'';
                 return '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:6px;">'
                   +'<div style="font-size:12px;color:#7c2d12;flex:1;">'+escHtml(a.voce)+noteHtml+'</div>'
                   +'<div style="display:flex;gap:4px;flex-shrink:0;">'
-                  +'<button onclick="createSingleIntervention(\''+vehicleId+'\',\''+c.id+'\',\''+vStr+'\',\''+nStr+'\','+c.km+')" style="background:#1e40af;color:#fff;border:none;border-radius:7px;padding:6px 8px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">+ Intervento</button>'
-                  +'<button onclick="risolviAnomalia(\''+vehicleId+'\',\''+c.id+'\',\''+vStr+'\','+c.km+')" style="background:#16a34a;color:#fff;border:none;border-radius:7px;padding:6px 8px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">✓ Risolto</button>'
+                  +'<button data-vid="'+vehicleId+'" data-cid="'+c.id+'" data-voce="'+vStr+'" data-note="'+nStr+'" data-km="'+(c.km??'')+'" onclick="createSingleIntervention(this.dataset.vid,this.dataset.cid,this.dataset.voce,this.dataset.note,parseInt(this.dataset.km)||null)" style="background:#1e40af;color:#fff;border:none;border-radius:7px;padding:6px 8px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">+ Intervento</button>'
+                  +'<button data-vid="'+vehicleId+'" data-cid="'+c.id+'" data-voce="'+vStr+'" data-km="'+(c.km??'')+'" onclick="risolviAnomalia(this.dataset.vid,this.dataset.cid,this.dataset.voce,parseInt(this.dataset.km)||null)" style="background:#16a34a;color:#fff;border:none;border-radius:7px;padding:6px 8px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">✓ Risolto</button>'
                   +'</div></div>';
               }).join('')
               +'</div>';
@@ -4056,21 +4188,22 @@ function risolviAnomalia(vehicleId, checkId, voce, km){
       <div style="font-size:14px;color:#1e293b;font-weight:600;">${escHtml(voce)}</div>
     </div>
     <div class="form-group"><label class="form-label">KM</label>
-      <input class="form-input" id="ris-km" type="number" min="0" value="${km||''}" placeholder="KM veicolo"></div>
+      <input class="form-input" id="ris-km" type="number" inputmode="numeric" min="0" value="" placeholder="${kmUltimoCheck(vehicleId)??''}"></div>
     <div class="form-group"><label class="form-label">Fornitore</label>
       <select class="form-select" id="ris-fornitore">${suppOpts}</select></div>
     <div class="form-group"><label class="form-label">Come è stata risolta? (opzionale)</label>
       <textarea class="form-input" id="ris-note" rows="3" placeholder="Es: controllato e non necessita intervento, sistemato autonomamente…"></textarea></div>
     <div class="btn-row">
       <button class="btn btn-secondary" onclick="closeModal()">Annulla</button>
-      <button class="btn btn-success" onclick="saveRisolviAnomalia('${vehicleId}','${checkId}','${escHtml(voce).replace(/'/g,"\\'")}',${km})" style="background:#16a34a;color:#fff;">Segna risolto</button>
+      <button class="btn btn-success" onclick="saveRisolviAnomalia(window._risCtx.vehicleId,window._risCtx.checkId,window._risCtx.voce,window._risCtx.km)" style="background:#16a34a;color:#fff;">Segna risolto</button>
     </div>
   `);
+  window._risCtx = {vehicleId, checkId, voce, km};
 }
 
 function saveRisolviAnomalia(vehicleId, checkId, voce, km){
   const note = document.getElementById('ris-note').value.trim();
-  const kmVal = parseInt(document.getElementById('ris-km')?.value) || parseInt(km) || null;
+  const kmVal = kmInput('ris-km');
   const fornitoreId = document.getElementById('ris-fornitore')?.value || null;
   // Crea un intervento già chiuso per tracciare la risoluzione
   const interventions = DB.interventions();
@@ -4328,18 +4461,20 @@ function openImageViewer(url, title){
 // ═══════════════════════════════════════════════════════
 function tireIcon(stagione){ return stagione==='estate'?'☀️':'❄️'; }
 
+// Km di vita del set: km dei periodi precedenti (kmPrecedenti) + periodo attuale/ultimo
 function tireKmPercorsi(t, kmVeicolo){
+  const prec = parseInt(t.kmPrecedenti)||0;
   const kmM = parseInt(t.kmMontaggio)||0;
   if(t.stato==='buttata'||t.stato==='deposito'){
     // km bloccati allo smontaggio
     const kmS = parseInt(t.kmSmontaggio)||0;
-    if(!t.kmMontaggio||!t.kmSmontaggio) return null;
-    return Math.max(0, kmS - kmM);
+    if(!t.kmMontaggio||!t.kmSmontaggio) return prec||null;
+    return prec + Math.max(0, kmS - kmM);
   }
   // montata — km in corso
   const kmV = parseInt(kmVeicolo)||0;
-  if(!t.kmMontaggio||!kmVeicolo) return null;
-  return Math.max(0, kmV - kmM);
+  if(!t.kmMontaggio||!kmVeicolo) return prec||null;
+  return prec + Math.max(0, kmV - kmM);
 }
 
 function renderTires(container){
@@ -4586,7 +4721,7 @@ function openTireForm(vehicleId){
           <option value="4">4</option><option value="2">2</option><option value="6">6</option>
         </select></div>
       <div class="form-group"><label class="form-label">KM al montaggio</label>
-        <input class="form-input" id="tr-km" type="number" value="${DB.vehicles().find(x=>x.id===vehicleId)?.km||''}" min="0"></div>
+        <input class="form-input" id="tr-km" type="number" inputmode="numeric" value="" placeholder="${kmUltimoCheck(vehicleId)??''}" min="0"></div>
     </div>
     <div class="form-group"><label class="form-label">Data montaggio</label>
       <input class="form-input" id="tr-data" type="date" value="${today()}"></div>
@@ -4611,7 +4746,7 @@ function saveTire(vehicleId){
     dimensione: document.getElementById('tr-dim').value.trim(),
     quantita:   parseInt(document.getElementById('tr-qty').value)||4,
     stato: 'montata',
-    kmMontaggio:  parseInt(document.getElementById('tr-km').value)||null,
+    kmMontaggio:  kmInput('tr-km'),
     dataMontaggio: document.getElementById('tr-data').value||today(),
     kmSmontaggio: null, dataSmontaggio: null,
     note: document.getElementById('tr-note').value.trim(),
@@ -4816,7 +4951,7 @@ function openEditCambioGomme(intId){
         <div class="form-group"><label class="form-label">Data effettiva intervento *</label>
           <input class="form-input" id="ec-data" type="date" value="${tireInt.dataProgrammata||today()}"></div>
         <div class="form-group"><label class="form-label">KM veicolo *</label>
-          <input class="form-input" id="ec-km" type="number" value="${v?.km||''}" min="0" placeholder="KM attuali"></div>
+          <input class="form-input" id="ec-km" type="number" inputmode="numeric" value="" min="0" placeholder="${kmUltimoCheck(tireInt.vehicleId)??''}"></div>
       </div>
 
       ${montate.length>0 ? `
@@ -4877,7 +5012,7 @@ function aggiornaMontaggioNuove(vehicleId){
 
 function saveEditCambioGomme(intId, vehicleId){
   const dataEff = document.getElementById('ec-data').value||today();
-  const km = parseInt(document.getElementById('ec-km').value)||null;
+  const km = kmInput('ec-km');
   if(!km){ toast('Inserisci i KM del veicolo','error'); return; }
 
   const tires = DB.tires();
@@ -4930,6 +5065,11 @@ function saveEditCambioGomme(intId, vehicleId){
     if(idx===-1) return;
     if(cb.checked){
       depSelezionate += qty;
+      // conserva i km fatti nei periodi precedenti prima di rimontarle
+      const t0 = tires[idx];
+      if(t0.kmMontaggio!=null && t0.kmSmontaggio!=null){
+        t0.kmPrecedenti = (parseInt(t0.kmPrecedenti)||0) + Math.max(0, (parseInt(t0.kmSmontaggio)||0) - (parseInt(t0.kmMontaggio)||0));
+      }
       tires[idx].stato = 'montata';
       tires[idx].dataMontaggio = dataEff;
       tires[idx].kmMontaggio = km;
@@ -4970,10 +5110,8 @@ function saveEditCambioGomme(intId, vehicleId){
   }
   DB.saveTireInterventions(tireInts);
 
-  // Aggiorna KM veicolo
-  const vehicles = DB.vehicles();
-  const vidx = vehicles.findIndex(v=>v.id===vehicleId);
-  if(vidx>-1){ vehicles[vidx].km = km; DB.saveVehicles(vehicles); }
+  // Aggiorna KM veicolo (solo se più alti)
+  updateVehicleKm(vehicleId, km);
 
   closeModal();
   toast('Cambio gomme completato ✅','success');
@@ -5091,43 +5229,68 @@ function renderSupplierItem(s){
 }
 
 
+// ═══ FORNITORI — maschere separate: CREA e MODIFICA ═══
 function openSupplierForm(id){
-  const suppliers=DB.suppliers();
-  const s=id?suppliers.find(x=>x.id===id):{};
-  openModal(id?'Modifica Fornitore':'Nuovo Fornitore',`
+  if(id) return openSupplierEditForm(id);
+  return openSupplierCreateForm();
+}
+function _supplierFieldsHtml(s, isNew){
+  return `
     <div class="form-group"><label class="form-label">Nome *</label>
-      <input class="form-input" id="sf-nome" value="${escHtml(s.nome||'')}" placeholder="Nome azienda o persona" autocomplete="off"></div>
+      <input class="form-input" id="sf-nome" value="${escAttr(s.nome||'')}" placeholder="Nome azienda o persona" autocomplete="off"></div>
     <div class="form-group"><label class="form-label">Tipo</label>
       <select class="form-select" id="sf-tipo">
-        ${SUPPLIER_TYPES.map(t=>`<option value="${t}" ${s.tipo===t?'selected':''}>${t}</option>`).join('')}
+        ${(s.tipo && !SUPPLIER_TYPES.includes(s.tipo) ? SUPPLIER_TYPES.concat([s.tipo]) : SUPPLIER_TYPES).map(t=>`<option value="${escAttr(t)}" ${s.tipo===t?'selected':''}>${escHtml(t)}</option>`).join('')}
       </select></div>
     <div class="form-group"><label class="form-label">Telefono</label>
-      <input class="form-input" id="sf-tel" type="tel" value="${escHtml(s.telefono||'')}" placeholder="333 1234567"></div>
-    <div class="form-checkbox"><input type="checkbox" id="sf-attivo" ${!id||s.attivo?'checked':''}><label for="sf-attivo" style="font-size:14px;font-weight:500;">Fornitore attivo</label></div>
+      <input class="form-input" id="sf-tel" type="tel" value="${escAttr(s.telefono||'')}" placeholder="333 1234567"></div>
+    <div class="form-checkbox"><input type="checkbox" id="sf-attivo" ${isNew||s.attivo?'checked':''}><label for="sf-attivo" style="font-size:14px;font-weight:500;">Fornitore attivo</label></div>`;
+}
+function _supplierFormData(){
+  return {nome:document.getElementById('sf-nome').value.trim(),tipo:document.getElementById('sf-tipo').value,telefono:document.getElementById('sf-tel').value.trim(),attivo:document.getElementById('sf-attivo').checked};
+}
+function openSupplierCreateForm(){
+  openModal('Nuovo Fornitore', _supplierFieldsHtml({}, true) + `
     <div class="btn-row">
       <button class="btn btn-secondary" onclick="closeModal()">Annulla</button>
-      <button class="btn btn-primary" onclick="saveSupplier('${id||''}')">Salva</button>
-    </div>
-  `);
+      <button class="btn btn-primary" onclick="saveSupplierCreate()">Aggiungi fornitore</button>
+    </div>`);
 }
-
-function saveSupplier(id){
-  const nome=document.getElementById('sf-nome').value.trim();
-  if(!nome){ toast('Inserisci il nome','error'); return; }
+function saveSupplierCreate(){
+  const data=_supplierFormData();
+  if(!data.nome){ toast('Inserisci il nome','error'); return; }
   const suppliers=DB.suppliers();
-  const data={nome,tipo:document.getElementById('sf-tipo').value,telefono:document.getElementById('sf-tel').value.trim(),attivo:document.getElementById('sf-attivo').checked};
-  if(id){
-    const idx=suppliers.findIndex(s=>s.id===id);
-    if(idx>-1) suppliers[idx]={...suppliers[idx],...data};
-    toast('Fornitore aggiornato','success');
-  } else {
-    suppliers.push({id:DB.uid(),...data,createdAt:nowISO()});
-    toast('Fornitore aggiunto','success');
-  }
+  suppliers.push({id:DB.uid(),...data,createdAt:nowISO()});
   DB.saveSuppliers(suppliers);
+  toast('Fornitore aggiunto','success');
   closeModal();
   renderMain();
 }
+function openSupplierEditForm(id){
+  const s=DB.suppliers().find(x=>x.id===id);
+  if(!s){ toast('Fornitore non trovato','error'); return; }
+  openModal('Modifica Fornitore', _supplierFieldsHtml(s, false) + `
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="closeModal()">Annulla</button>
+      <button class="btn btn-primary" onclick="saveSupplierEdit('${id}')">Salva modifiche</button>
+    </div>`);
+}
+function saveSupplierEdit(id){
+  const data=_supplierFormData();
+  if(!data.nome){ toast('Inserisci il nome','error'); return; }
+  const suppliers=DB.suppliers();
+  const idx=suppliers.findIndex(s=>s.id===id);
+  if(idx<0){ toast('Fornitore non trovato','error'); return; }
+  const patch={};
+  Object.keys(data).forEach(k=>{ const cur=suppliers[idx][k]; const same = typeof data[k]==='boolean' ? (!!cur===data[k]) : ((cur??'')===data[k]); if(!same) patch[k]=data[k]; });
+  if(!Object.keys(patch).length){ toast('Nessuna modifica'); closeModal(); return; }
+  suppliers[idx]={...suppliers[idx],...patch};
+  DB.saveSuppliers(suppliers);
+  toast('Fornitore aggiornato','success');
+  closeModal();
+  renderMain();
+}
+function saveSupplier(id){ return id ? saveSupplierEdit(id) : saveSupplierCreate(); }
 
 function toggleSupplierActive(id, active){
   const suppliers=DB.suppliers();
@@ -6728,12 +6891,15 @@ function plannerNewIntervention(year, month, day) {
     + '<input class="form-input" id="pni-data" type="date" value="' + dateStr + '"></div>'
     + '</div>'
     + '<div class="form-group"><label class="form-label">KM apertura</label>'
-    + '<input class="form-input" id="pni-km" type="number" min="0" placeholder="KM veicolo"></div>'
+    + '<input class="form-input" id="pni-km" type="number" inputmode="numeric" min="0" placeholder="' + (kmUltimoCheck(vehicles[0].id)??'') + '"></div>'
     + '<div class="btn-row">'
     + '<button class="btn btn-secondary" onclick="openPlanner(_plannerYear, _plannerMonth)">Annulla</button>'
     + '<button class="btn btn-primary" onclick="savePlannerIntervention()">Crea</button>'
     + '</div>'
   );
+  // Km proposti in grigio: seguono il veicolo scelto
+  var selV = document.getElementById('pni-veh');
+  if (selV) selV.onchange = function(){ document.getElementById('pni-km').placeholder = String(kmUltimoCheck(this.value) ?? ''); };
 }
 
 function savePlannerIntervention() {
@@ -6743,16 +6909,18 @@ function savePlannerIntervention() {
   var dataProg   = document.getElementById('pni-data-prog')?.value || null;
   var fornitoreId= document.getElementById('pni-fornitore')?.value || null;
   if (!desc) { toast('Inserisci una descrizione','error'); return; }
-  var v = DB.vehicles().find(function(x) { return x.id === vehicleId; });
-  var km = parseInt(document.getElementById('pni-km')?.value) || parseInt(v?.km) || null;
-  var interventions = DB.interventions();
-  interventions.push({
+  var km = kmInput('pni-km');
+  var nuovo = {
     id: DB.uid(), vehicleId, descrizione: desc,
     dataApertura: data, dataProgrammazione: dataProg, kmApertura: km,
     stato: 'in_lavorazione', fornitoreId: fornitoreId, origine: 'manuale',
     dataChiusura: null, kmChiusura: null, noteChiusura: '',
     createdAt: nowISO()
-  });
+  };
+  var err = _checkInterventionData(nuovo);
+  if (err) { toast(err,'error'); return; }
+  var interventions = DB.interventions();
+  interventions.push(nuovo);
   DB.saveInterventions(interventions);
   toast('Intervento creato','success');
   renderAlerts();
@@ -6860,7 +7028,7 @@ function openSettings(){
       </label>
     </div>
     <button class="btn btn-danger" onclick="confirmResetAll()">🗑️ Azzera tutti i dati</button>
-    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.1.09 — VehicleCare Pro</p>
+    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.1.10 — VehicleCare Pro</p>
     <div style="height:10px;"></div>
   `);
   renderBackupStatus();
@@ -6999,7 +7167,7 @@ function modificaCambioGomme(intId){
       <div style="font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:8px;">Intervento</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
         <div class="form-group" style="margin-bottom:0;"><label class="form-label">Veicolo</label>
-          <select class="form-select" id="et-vehicleId">${vOptions}</select></div>
+          <div class="form-input" style="background:#f8fafc;color:#475569;">${escHtml(v?.targa||'')} — ${escHtml(v?.nome||'')}</div></div>
         <div class="form-group" style="margin-bottom:0;"><label class="form-label">Stato intervento</label>
           <select class="form-select" id="et-stato">${statoOpts}</select></div>
         <div class="form-group" style="margin-bottom:0;"><label class="form-label">Data programmata</label>
@@ -7027,36 +7195,53 @@ function saveModificaCambioGomme(intId){
   const tireInts = DB.tireInterventions();
   const idx = tireInts.findIndex(x=>x.id===intId);
   if(idx===-1){ toast('Intervento non trovato','error'); return; }
+  const it = tireInts[idx];
+  const norm = x => (x===undefined||x===null||x==='') ? null : String(x);
+  const numOrNull = id => { const el=document.getElementById(id); if(!el||el.value==='') return null; return parseInt(el.value)||0; };
+  const strOrNull = id => { const el=document.getElementById(id); return el ? (el.value.trim()||null) : undefined; };
+  let cambiati = 0;
 
-  tireInts[idx].vehicleId      = document.getElementById('et-vehicleId').value;
-  tireInts[idx].stato          = document.getElementById('et-stato').value;
-  tireInts[idx].dataProgrammata= document.getElementById('et-dataprog').value||null;
-  tireInts[idx].dataEffettiva  = document.getElementById('et-dataeff').value||null;
-  tireInts[idx].kmEffettivo    = parseInt(document.getElementById('et-kmeff').value)||null;
-  tireInts[idx].note           = document.getElementById('et-note').value.trim();
-  DB.saveTireInterventions(tireInts);
+  // Intervento: solo i campi cambiati (il veicolo non si cambia)
+  const formInt = {
+    stato: document.getElementById('et-stato').value,
+    dataProgrammata: document.getElementById('et-dataprog').value||null,
+    dataEffettiva: document.getElementById('et-dataeff').value||null,
+    kmEffettivo: numOrNull('et-kmeff'),
+    note: document.getElementById('et-note').value.trim()
+  };
+  Object.keys(formInt).forEach(k=>{ if(norm(formInt[k])!==norm(it[k])){ it[k]=formInt[k]; cambiati++; } });
+  if(cambiati) DB.saveTireInterventions(tireInts);
 
-  // Salva modifiche gomme
+  // Gomme del veicolo mostrate nella maschera: solo i campi cambiati
   const tires = DB.tires();
-  tires.filter(t=>t.vehicleId===tireInts[idx].vehicleId).forEach(tire=>{
-    const ti = tires.findIndex(x=>x.id===tire.id);
-    if(ti===-1) return;
-    tires[ti].stagione      = document.getElementById('et-stagione-'+tire.id)?.value || tire.stagione;
-    tires[ti].stato         = document.getElementById('et-stato-'+tire.id)?.value || tire.stato;
-    tires[ti].marca         = document.getElementById('et-marca-'+tire.id)?.value.trim() || tire.marca;
-    tires[ti].modello       = document.getElementById('et-modello-'+tire.id)?.value.trim() || '';
-    tires[ti].dimensione    = document.getElementById('et-dim-'+tire.id)?.value.trim() || '';
-    tires[ti].quantita      = parseInt(document.getElementById('et-qty-'+tire.id)?.value)||4;
-    tires[ti].dataMontaggio = document.getElementById('et-datamon-'+tire.id)?.value||null;
-    tires[ti].kmMontaggio   = parseInt(document.getElementById('et-kmmon-'+tire.id)?.value)||null;
-    tires[ti].dataSmontaggio= document.getElementById('et-datasmon-'+tire.id)?.value||null;
-    tires[ti].kmSmontaggio  = parseInt(document.getElementById('et-kmsmon-'+tire.id)?.value)||null;
-    tires[ti].note          = document.getElementById('et-note-'+tire.id)?.value.trim()||'';
+  let gommeCambiate = 0;
+  tires.forEach(tire=>{
+    if(tire.vehicleId!==it.vehicleId || !document.getElementById('et-marca-'+tire.id)) return;
+    const f = {
+      stagione: document.getElementById('et-stagione-'+tire.id).value,
+      stato: document.getElementById('et-stato-'+tire.id).value,
+      marca: strOrNull('et-marca-'+tire.id),
+      modello: strOrNull('et-modello-'+tire.id),
+      dimensione: strOrNull('et-dim-'+tire.id),
+      quantita: numOrNull('et-qty-'+tire.id),
+      dataMontaggio: document.getElementById('et-datamon-'+tire.id).value||null,
+      kmMontaggio: numOrNull('et-kmmon-'+tire.id),
+      dataSmontaggio: document.getElementById('et-datasmon-'+tire.id).value||null,
+      kmSmontaggio: numOrNull('et-kmsmon-'+tire.id),
+      note: strOrNull('et-note-'+tire.id)
+    };
+    Object.keys(f).forEach(k=>{
+      if(norm(f[k])!==norm(tire[k])){
+        if(k==='marca' && !f[k]) return;            // la marca non si svuota
+        tire[k] = (k==='modello'||k==='dimensione'||k==='note') ? (f[k]||'') : f[k];
+        gommeCambiate++;
+      }
+    });
   });
-  DB.saveTires(tires);
+  if(gommeCambiate) DB.saveTires(tires);
 
   closeModal();
-  toast('Cambio gomme aggiornato','success');
+  toast((cambiati||gommeCambiate) ? 'Cambio gomme aggiornato' : 'Nessuna modifica', (cambiati||gommeCambiate)?'success':'');
   renderMain();
 }
 
