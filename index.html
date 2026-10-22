@@ -727,6 +727,7 @@ const CloudSync = {
   _flushTimer:null, _flushing:false,
   _recTimer:null, _reconciling:false, _reconcileAgain:false,
   _renderTimer:null, _firstRecSnap:true, _promptShown:false, _promptOpen:false,
+  _snapStarted:false, _snapTries:0, _lastSnapAt:null, SNAP_DAYS:30, SNAP_EVERY_DAYS:7,
   STATE_KEY:'vcp_cloud_state', OUTBOX_KEY:'vcp_cloud_outbox', FILEDEL_KEY:'vcp_cloud_filedel',
   PART:700000,
 
@@ -1105,7 +1106,7 @@ const CloudSync = {
       if(d.del){ cloud.set(d.id, {del:true}); continue; }
       const j=this._assembleJ(this._cloudRecs, docId, d);
       if(j==null) continue;
-      try{ cloud.set(d.id, {v:JSON.parse(j), j, o:d.o||0}); }catch(e){}
+      try{ cloud.set(d.id, {v:JSON.parse(j), j, o:d.o||0, g:d.g}); }catch(e){}
     }
     const arr=this._isIdArray(local)?local:[];
     const out=[]; const seen=new Set();
@@ -1119,6 +1120,13 @@ const CloudSync = {
     const extra=[];
     cloud.forEach((c,id)=>{ if(!c.del && !seen.has(id)) extra.push(c); });
     extra.sort((a,b)=>a.o-b.o).forEach(c=>out.push(c.v));
+    // Dopo un ripristino da copia tutti i record hanno lo stesso "g": si segue l'ordine della copia
+    const gs=new Set();
+    let allCloud=out.length>0;
+    out.forEach(rec=>{ const c=cloud.get(String(rec.id)); if(!c || c.del) allCloud=false; else gs.add(c.g); });
+    if(allCloud && gs.size===1 && [...gs][0]!=null){
+      out.sort((a,b)=>cloud.get(String(a.id)).o-cloud.get(String(b.id)).o);
+    }
     const outRaw=JSON.stringify(out);
     if(outRaw!==raw && !(raw==null && out.length===0)){
       localStorage.setItem(key, outRaw);
@@ -1135,7 +1143,7 @@ const CloudSync = {
     if(!this.configured() || !fileId) return;
     const o=this._fileDelGet(); o[fileId]=1; this._fileDelSet(o);
     const m=this._cloudFiles.get(fileId);
-    if(m) this._cloudFiles.set(fileId, {id:fileId, del:true, parts:m.parts});
+    if(m) this._cloudFiles.set(fileId, Object.assign({}, m, {del:true, delAt:Date.now()}));
     this._flushFileDeletes();
   },
   onFileChanged(){
@@ -1150,11 +1158,10 @@ const CloudSync = {
     const ids=Object.keys(o);
     if(!ids.length) return;
     ids.forEach(id=>{
-      const m=this._cloudFiles.get(id);
-      const parts=(m&&m.parts)||0;
+      // Le parti del file restano nel cloud per 30 giorni (copie di sicurezza),
+      // poi vengono rimosse dalla pulizia automatica
       const b=this.fb.writeBatch(this.fs);
-      b.set(this._ref('files', id), {id, del:true, t:Date.now()});
-      for(let i=0;i<parts;i++) b.delete(this._ref('fileparts', id+'~'+i));
+      b.set(this._ref('files', id), {id, del:true, delAt:Date.now(), t:Date.now()}, {merge:true});
       b.commit().catch(e=>{
         console.warn('[cloud] eliminazione file:', e);
         const x=this._fileDelGet(); x[id]=1; this._fileDelSet(x);
@@ -1173,6 +1180,7 @@ const CloudSync = {
     if(!snap.metadata.fromCache){
       this._filesLoaded=true;
       if(!snap.metadata.hasPendingWrites) this._reconcileFiles();
+      this._maybeSnapshot();
     }
     this._refreshUi();
   },
@@ -1331,6 +1339,8 @@ const CloudSync = {
     }else{
       html+=`<div style="font-size:13px;color:#64748b;margin-bottom:8px;">Account: <strong>${escHtml(u.email||'')}</strong></div>
         <div style="font-size:12px;color:#94a3b8;margin-bottom:8px;">📎 File nel cloud: ${[...this._cloudFiles.values()].filter(m=>!m.del).length}</div>
+        <div style="font-size:12px;color:#94a3b8;margin-bottom:8px;">🗂️ Copia automatica settimanale: ${this._lastSnapAt?'ultima '+new Date(this._lastSnapAt).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'in verifica…'}</div>
+        <button class="btn btn-secondary" onclick="CloudSync.openSnapshots()">🗂️ Copie di sicurezza (ultimi ${this.SNAP_DAYS} giorni)</button>
         <div class="btn-row">
           <button class="btn btn-secondary" onclick="CloudSync.syncNow()">🔄 Sincronizza ora</button>
           <button class="btn btn-secondary" onclick="CloudSync.logout()">Esci</button>
@@ -1343,6 +1353,223 @@ const CloudSync = {
     if(this.status!=='ready'){ if(this.user) this._connect(); return; }
     this._flushNow(); this._flushFileDeletes(); this._reconcileFiles();
     toast('Sincronizzazione avviata');
+  },
+
+  // ════════════ COPIE DI SICUREZZA AUTOMATICHE ════════════
+  // Una volta a settimana, alla prima apertura dell'app da un dispositivo collegato
+  // trascorsi 7 giorni dall'ultima copia, viene salvata nel cloud una copia completa.
+  // Si tengono le copie degli ultimi 30 giorni.
+  _dayId(d){
+    const p=n=>String(n).padStart(2,'0');
+    return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());
+  },
+
+  _maybeSnapshot(){
+    if(this._snapStarted || this._firstRecSnap || !this._filesLoaded || this.status!=='ready') return;
+    this._snapStarted=true;
+    setTimeout(()=>this._weeklySnapshot(), 10000);
+  },
+
+  async _weeklySnapshot(){
+    if(this.status!=='ready') return;
+    // Attende che le modifiche locali siano state inviate
+    if(Object.keys(this._outboxGet()).length || this._reconciling || this._flushing){
+      if(++this._snapTries<20) setTimeout(()=>this._weeklySnapshot(), 30000);
+      return;
+    }
+    try{
+      const snaps=await this.fb.getDocsFromServer(this._col('snapshots'));
+      let last=0;
+      snaps.docs.forEach(d=>{ const m=d.data(); if(m.tipo==='auto' && m.at>last) last=m.at; });
+      if(last) this._lastSnapAt=last;
+      if(!last || Date.now()-last >= this.SNAP_EVERY_DAYS*86400000){
+        await this._writeSnapshot(this._dayId(new Date()), 'auto');
+      }
+      await this._purgeOld();
+    }catch(e){
+      console.warn('[cloud] copia settimanale:', e);
+    }
+  },
+
+  async _writeSnapshot(id, tipo){
+    const data={};
+    Object.keys(DB.keys).forEach(k=>{
+      const raw=localStorage.getItem(DB.keys[k]);
+      if(raw==null) return;
+      try{ data[k]=JSON.parse(raw); }catch(e){}
+    });
+    const files=[...this._cloudFiles.values()].filter(m=>!m.del).map(m=>({
+      id:m.id, kind:m.kind, vehicleId:m.vehicleId||'', tipo:m.tipo||'', nome:m.nome||'',
+      mime:m.mime||'', parts:m.parts||1, size:m.size||0, createdAt:m.createdAt||''
+    }));
+    const counts={};
+    Object.keys(data).forEach(k=>{ if(Array.isArray(data[k])) counts[k]=data[k].length; });
+    const j=JSON.stringify(data);
+    const pn=Math.max(1, Math.ceil(j.length/this.PART));
+    for(let i=0;i<pn;i++){
+      await this.fb.setDoc(this._ref('snapparts', id+'~p'+i), {s:id, i, j:j.slice(i*this.PART,(i+1)*this.PART)});
+    }
+    const at=Date.now();
+    // Il documento principale si scrive per ultimo: se esiste, la copia è completa
+    await this.fb.setDoc(this._ref('snapshots', id), {
+      id, at, tipo, by:(this.user&&this.user.email)||'', pn, size:j.length, counts, files
+    });
+    if(!this._lastSnapAt || at>this._lastSnapAt) this._lastSnapAt=at;
+    this._refreshUi();
+  },
+
+  async _purgeOld(){
+    const cutoff=Date.now()-this.SNAP_DAYS*86400000;
+    const snaps=await this.fb.getDocsFromServer(this._col('snapshots'));
+    for(const d of snaps.docs){
+      const m=d.data();
+      if(m.at && m.at<cutoff){
+        for(let i=0;i<(m.pn||1);i++) await this.fb.deleteDoc(this._ref('snapparts', d.id+'~p'+i));
+        await this.fb.deleteDoc(d.ref);
+      }else if(m.tipo==='auto' && (!this._lastSnapAt || m.at>this._lastSnapAt)){
+        this._lastSnapAt=m.at;
+      }
+    }
+    // File eliminati da oltre 30 giorni: nessuna copia li contiene più
+    for(const m of [...this._cloudFiles.values()]){
+      if(!m.del || m.purged || !m.delAt || m.delAt>=cutoff) continue;
+      for(let i=0;i<(m.parts||1);i++) await this.fb.deleteDoc(this._ref('fileparts', m.id+'~'+i));
+      await this.fb.setDoc(this._ref('files', m.id), {purged:true}, {merge:true});
+    }
+    this._refreshUi();
+  },
+
+  async openSnapshots(){
+    if(this.status!=='ready'){ toast('Cloud non connesso','error'); return; }
+    openModal('🗂️ Copie di sicurezza','<div id="snap-list" style="font-size:14px;color:#64748b;">Caricamento…</div>');
+    try{
+      const snaps=await this.fb.getDocsFromServer(this._col('snapshots'));
+      const list=snaps.docs.map(d=>d.data()).sort((a,b)=>b.at-a.at);
+      const box=document.getElementById('snap-list');
+      if(!box) return;
+      if(!list.length){ box.innerHTML='Nessuna copia ancora presente. La prima viene creata in automatico entro pochi minuti.'; return; }
+      box.innerHTML=`<p style="font-size:12px;color:#94a3b8;margin-bottom:12px;">Copie complete di dati, foto e documenti. Una a settimana, conservate ${this.SNAP_DAYS} giorni.</p>`+
+        list.map(m=>{
+          const c=m.counts||{};
+          const when=new Date(m.at).toLocaleString('it-IT',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+          const label=m.tipo==='pre-ripristino'?'⏪ Prima di un ripristino':'🗂️ Automatica';
+          return `<div style="border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:8px;">
+            <div style="font-size:14px;font-weight:700;color:var(--c-text,#1e293b);">${escHtml(when)}</div>
+            <div style="font-size:12px;color:#94a3b8;margin:2px 0 6px;">${label}</div>
+            <div style="font-size:12px;color:#64748b;margin-bottom:8px;">🚗 ${c.vehicles||0} veicoli · 📋 ${c.checks||0} check · 🔧 ${c.interventions||0} interventi · 📎 ${(m.files||[]).length} file</div>
+            <button class="btn btn-secondary" style="margin-top:0;" onclick="CloudSync.confirmRestore('${escHtml(m.id)}')">Ripristina questa copia</button>
+          </div>`;
+        }).join('');
+    }catch(e){
+      const box=document.getElementById('snap-list');
+      if(box) box.textContent='Errore lettura copie: '+((e&&e.message)||e);
+    }
+  },
+
+  // Riscrive nel cloud tutti i record della copia con un ordine coerente
+  // (marcati con lo stesso "g"), così ogni dispositivo li mostra nello stesso ordine
+  async _restoreRecords(data){
+    const g=Date.now();
+    const ob=this._outboxGet();
+    let batch=this.fb.writeBatch(this.fs), ops=0, bytes=0;
+    const flush=async()=>{ if(ops){ await batch.commit(); batch=this.fb.writeBatch(this.fs); ops=0; bytes=0; } };
+    const put=async d=>{
+      if(ops+1>450 || bytes+d.size>5000000) await flush();
+      if(d.del) batch.delete(this._ref('records', d.docId)); else batch.set(this._ref('records', d.docId), d.data);
+      ops++; bytes+=d.size;
+    };
+    for(const k of Object.keys(DB.keys)){
+      if(!(k in data)) continue;
+      const v=data[k];
+      Object.keys(ob).forEach(e=>{ if(e.indexOf(k+CLOUD_SEP)===0) delete ob[e]; });
+      if(!this._isIdArray(v)){ DB.set(k, v); continue; }
+      localStorage.setItem(DB.keys[k], JSON.stringify(v));
+      const keep=new Set(v.map(x=>String(x.id)));
+      for(const x of v){
+        for(const d of this._buildRecordDocs(k, String(x.id), v)){
+          if(d.data && !d.data.part) d.data.g=g;
+          await put(d);
+        }
+      }
+      for(const [docId, d] of [...this._cloudRecs]){
+        if(d.k!==k || d.part || d.del || keep.has(String(d.id))) continue;
+        for(const x of this._buildRecordDocs(k, String(d.id), v)){
+          if(x.data) x.data.g=g;
+          await put(x);
+        }
+      }
+    }
+    await flush();
+    this._outboxSet(ob);
+  },
+
+  confirmRestore(id){
+    openModal('⚠️ Ripristina copia',`
+      <p style="font-size:15px;color:#334155;margin-bottom:8px;">Tutti i dati, le foto e i documenti torneranno com'erano al momento della copia, su <strong>tutti i dispositivi</strong>.</p>
+      <p style="font-size:13px;color:#64748b;margin-bottom:20px;">Prima del ripristino viene salvata in automatico una copia dello stato attuale, così puoi tornare indietro.</p>
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="CloudSync.openSnapshots()">Annulla</button>
+        <button class="btn btn-danger" onclick="CloudSync.restoreSnapshot('${escHtml(id)}')">Ripristina</button>
+      </div>
+    `);
+  },
+
+  async restoreSnapshot(id){
+    if(this.status!=='ready'){ toast('Cloud non connesso','error'); return; }
+    closeModal();
+    toast('Ripristino in corso…');
+    try{
+      const s=await this.fb.getDocFromServer(this._ref('snapshots', id));
+      if(!s.exists()) throw new Error('copia non trovata');
+      const meta=s.data();
+      let j='';
+      for(let i=0;i<(meta.pn||1);i++){
+        const p=await this.fb.getDocFromServer(this._ref('snapparts', id+'~p'+i));
+        if(!p.exists()) throw new Error('copia incompleta');
+        j+=p.data().j;
+      }
+      const data=JSON.parse(j);
+      // Copia dello stato attuale prima di sovrascriverlo
+      const now=new Date();
+      const p2=n=>String(n).padStart(2,'0');
+      await this._writeSnapshot(this._dayId(now)+'_'+p2(now.getHours())+p2(now.getMinutes())+p2(now.getSeconds())+'_pre', 'pre-ripristino');
+      // Dati
+      await this._restoreRecords(data);
+      // File: riattiva quelli della copia, elimina quelli aggiunti dopo
+      const want=new Map((meta.files||[]).map(f=>[f.id,f]));
+      const fd=this._fileDelGet();
+      let mancanti=0;
+      for(const f of want.values()){
+        delete fd[f.id];
+        const cur=this._cloudFiles.get(f.id);
+        if(cur && !cur.del) continue;
+        if(cur && cur.purged){ mancanti++; continue; }
+        const m=Object.assign({}, f, {t:Date.now()});
+        this._cloudFiles.set(f.id, m);
+        await this.fb.setDoc(this._ref('files', f.id), m);
+      }
+      this._fileDelSet(fd);
+      const docs=await IDB.getAll();
+      for(const d of docs){
+        if(want.has(d.id)) continue;
+        await IDB.delete(d.id);
+        if(d.tipo==='Foto veicolo') await deleteVehiclePhotoRaw(d.vehicleId);
+      }
+      const fotoDocVeh=new Set([...want.values()].filter(f=>f.tipo==='Foto veicolo').map(f=>f.vehicleId));
+      for(const ph of await getAllVehiclePhotos()){
+        if(fotoDocVeh.has(ph.vehicleId) || want.has(photoFileId(ph))) continue;
+        await deleteVehiclePhoto(ph.vehicleId);
+      }
+      for(const k in _photoCache) delete _photoCache[k];
+      this._flushNow();
+      this._flushFileDeletes();
+      this._reconcileFiles();
+      this._scheduleRender();
+      toast('Copia ripristinata'+(mancanti?' ('+mancanti+' file non più disponibili)':''),'success');
+    }catch(e){
+      console.error(e);
+      toast('Errore ripristino: '+((e&&e.message)||e),'error');
+    }
   }
 };
 
@@ -6475,7 +6702,7 @@ function openSettings(){
       </label>
     </div>
     <button class="btn btn-danger" onclick="confirmResetAll()">🗑️ Azzera tutti i dati</button>
-    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.1.05 — VehicleCare Pro</p>
+    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.1.06 — VehicleCare Pro</p>
     <div style="height:10px;"></div>
   `);
   renderBackupStatus();
