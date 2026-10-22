@@ -554,7 +554,11 @@ const DB = {
     segnalazioni:'vcp_segnalazioni'
   },
   get(k){ try{ return JSON.parse(localStorage.getItem(this.keys[k]))||this.defaults(k); }catch(e){ return this.defaults(k); } },
-  set(k,v){ localStorage.setItem(this.keys[k], JSON.stringify(v)); },
+  set(k,v){
+    const prev=localStorage.getItem(this.keys[k]);
+    localStorage.setItem(this.keys[k], JSON.stringify(v));
+    try{ CloudSync.onLocalSet(k, prev, v); }catch(e){ console.warn('[cloud] onLocalSet:', e); }
+  },
   defaults(k){
     if(k==='settings') return {operator:'Operatore',revWarningDays:30,tireEstate:'04-15',tireInverno:'10-15',pdfBg:null};
     if(k==='calibration') return {};
@@ -648,6 +652,11 @@ const IDB = {
   },
 
   async put(doc){
+    await this._putRaw(doc);
+    CloudSync.onFileChanged();
+  },
+
+  async _putRaw(doc){
     const db = await this.open();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(this.STORE, 'readwrite');
@@ -658,6 +667,11 @@ const IDB = {
   },
 
   async delete(id){
+    await this._deleteRaw(id);
+    CloudSync.onFileDeleted(id);
+  },
+
+  async _deleteRaw(id){
     const db = await this.open();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(this.STORE, 'readwrite');
@@ -682,6 +696,679 @@ const IDB = {
     });
   }
 };
+
+// ═══════════════════════════════════════════════════════
+//  CLOUD SYNC (Firebase) — copia principale dei dati nel cloud
+//  Il telefono tiene una copia di lavoro (localStorage + IndexedDB);
+//  Firestore tiene la copia principale. Se i dati locali spariscono
+//  (pulizia cache, nuovo telefono) vengono riscaricati al login.
+// ═══════════════════════════════════════════════════════
+const FIREBASE_CONFIG = {
+  apiKey: 'AIzaSyDorfyw_GlVd_KNFm3dhlu4-I_lRk6JjZ8',
+  authDomain: 'vehiclecare-d0a7b.firebaseapp.com',
+  projectId: 'vehiclecare-d0a7b',
+  storageBucket: 'vehiclecare-d0a7b.firebasestorage.app',
+  messagingSenderId: '450471868555',
+  appId: '1:450471868555:web:0e95102af97dd8524cfc8e'
+};
+const CLOUD_FLEET = 'principale';
+const CLOUD_FB_VER = '12.18.0';
+const CLOUD_SEP = '\u0001';
+
+const CloudSync = {
+  fb:null, app:null, auth:null, fs:null, user:null,
+  status:'off',            // off | unconfigured | loading | loggedout | connecting | ready | denied | offline | error
+  statusMsg:'',
+  lastSync:null,
+  _cloudRecs:new Map(),    // docId → dati record cloud
+  _cloudFiles:new Map(),   // fileId → meta file cloud
+  _filesLoaded:false,
+  _recUnsub:null, _fileUnsub:null,
+  _flushTimer:null, _flushing:false,
+  _recTimer:null, _reconciling:false, _reconcileAgain:false,
+  _renderTimer:null, _firstRecSnap:true, _promptShown:false, _promptOpen:false,
+  STATE_KEY:'vcp_cloud_state', OUTBOX_KEY:'vcp_cloud_outbox', FILEDEL_KEY:'vcp_cloud_filedel',
+  PART:700000,
+
+  configured(){ return !!(FIREBASE_CONFIG && FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.projectId); },
+
+  // ── stato locale del dispositivo ──
+  _lsGet(key, def){ try{ const v=JSON.parse(localStorage.getItem(key)); return v==null?def:v; }catch(e){ return def; } },
+  _lsSet(key, v){ try{ localStorage.setItem(key, JSON.stringify(v)); }catch(e){ console.warn('[cloud] localStorage pieno:', key, e); } },
+  _state(){ return this._lsGet(this.STATE_KEY, {}); },
+  _setState(patch){ this._lsSet(this.STATE_KEY, Object.assign(this._state(), patch)); },
+  forgetLocal(){
+    [this.STATE_KEY, this.OUTBOX_KEY, this.FILEDEL_KEY].forEach(k=>localStorage.removeItem(k));
+  },
+
+  // ── utilità ──
+  _isIdArray(v){
+    return Array.isArray(v) && v.every(x=>x && typeof x==='object' && (typeof x.id==='string' || typeof x.id==='number'));
+  },
+  _docId(k, id){ return k+'~'+encodeURIComponent(String(id)); },
+  _col(name){ return this.fb.collection(this.fs, 'fleets', CLOUD_FLEET, name); },
+  _ref(name, id){ return this.fb.doc(this.fs, 'fleets', CLOUD_FLEET, name, id); },
+  _setStatus(st, msg){
+    this.status=st; this.statusMsg=msg||'';
+    this._refreshUi();
+  },
+
+  // ════════════ AVVIO ════════════
+  async start(){
+    if(!this.configured()){ this._setStatus('unconfigured'); return; }
+    this._setStatus('loading');
+    try{
+      const base='https://www.gstatic.com/firebasejs/'+CLOUD_FB_VER+'/';
+      const [appM, authM, fsM] = await Promise.all([
+        import(base+'firebase-app.js'),
+        import(base+'firebase-auth.js'),
+        import(base+'firebase-firestore.js')
+      ]);
+      this.fb = Object.assign({}, appM, authM, fsM);
+      this.app = this.fb.initializeApp(FIREBASE_CONFIG);
+      this.auth = this.fb.getAuth(this.app);
+      try{
+        this.fs = this.fb.initializeFirestore(this.app, {
+          localCache: this.fb.persistentLocalCache({tabManager: this.fb.persistentMultipleTabManager()})
+        });
+      }catch(e){
+        console.warn('[cloud] cache persistente non disponibile:', e);
+        this.fs = this.fb.getFirestore(this.app);
+      }
+      await this.fb.setPersistence(this.auth, this.fb.browserLocalPersistence).catch(()=>{});
+      this.fb.onAuthStateChanged(this.auth, user=>this._onAuth(user));
+      window.addEventListener('online', ()=>{ if(this.user && this.status!=='ready') this._connect(); else this._scheduleFlush(); });
+    }catch(e){
+      console.error('[cloud] caricamento Firebase:', e);
+      this._setStatus(navigator.onLine?'error':'offline', navigator.onLine?'Impossibile caricare Firebase':'Nessuna connessione');
+      window.addEventListener('online', ()=>{ if(!this.fb) this.start(); }, {once:true});
+    }
+  },
+
+  async _onAuth(user){
+    this._detach();
+    this.user = user;
+    if(!user){
+      this._setStatus('loggedout');
+      this._maybePrompt();
+      return;
+    }
+    await this._connect();
+  },
+
+  async _connect(){
+    const user=this.user;
+    if(!user) return;
+    this._setStatus('connecting');
+    try{
+      // Verifica autorizzazione (le regole Firestore decidono)
+      await this.fb.getDocFromServer(this._ref('meta','info'));
+    }catch(e){
+      if(e && e.code==='permission-denied'){ this._setStatus('denied', user.email||''); return; }
+      if(!this._state().seeded){ this._setStatus('offline','In attesa di connessione per il primo allineamento'); return; }
+      // Già allineato in passato: si lavora offline, Firestore accoda le modifiche
+    }
+    try{
+      await this._initialSync();
+    }catch(e){
+      console.warn('[cloud] primo allineamento:', e);
+      this._setStatus(navigator.onLine?'error':'offline', 'Primo allineamento non riuscito: '+((e&&e.message)||e));
+      return;
+    }
+    if(this.user!==user) return;
+    this._setStatus('ready');
+    this._firstRecSnap = true;
+    this._filesLoaded = false;
+    this._flushNow();
+    this._flushFileDeletes();
+    const opt={includeMetadataChanges:true};
+    this._recUnsub = this.fb.onSnapshot(this._col('records'), opt, snap=>this._onRecSnap(snap), err=>this._onListenErr(err));
+    this._fileUnsub = this.fb.onSnapshot(this._col('files'), opt, snap=>this._onFileSnap(snap), err=>this._onListenErr(err));
+  },
+
+  _detach(){
+    if(this._recUnsub){ this._recUnsub(); this._recUnsub=null; }
+    if(this._fileUnsub){ this._fileUnsub(); this._fileUnsub=null; }
+    this._cloudRecs.clear(); this._cloudFiles.clear(); this._filesLoaded=false;
+  },
+
+  _onListenErr(err){
+    console.warn('[cloud] ascolto:', err);
+    if(err && err.code==='permission-denied') this._setStatus('denied', this.user&&this.user.email||'');
+    else this._setStatus('error', (err&&err.message)||String(err));
+  },
+
+  // ════════════ LOGIN ════════════
+  async login(){
+    if(!this.fb){ toast('Cloud non ancora pronto, riprova tra un attimo','error'); return; }
+    try{
+      const provider = new this.fb.GoogleAuthProvider();
+      provider.setCustomParameters({prompt:'select_account'});
+      await this.fb.signInWithPopup(this.auth, provider);
+      if(this._promptOpen){ this._promptOpen=false; closeModal(); }
+    }catch(e){
+      if(e && (e.code==='auth/popup-blocked' || e.code==='auth/operation-not-supported-in-this-environment')){
+        const provider = new this.fb.GoogleAuthProvider();
+        await this.fb.signInWithRedirect(this.auth, provider);
+        return;
+      }
+      if(e && e.code==='auth/popup-closed-by-user') return;
+      toast('Accesso non riuscito: '+((e&&e.code)||e),'error');
+    }
+  },
+  async logout(){
+    if(!this.fb) return;
+    await this.fb.signOut(this.auth);
+    toast('Disconnesso dal cloud');
+  },
+
+  _maybePrompt(){
+    if(this._promptShown || this.status!=='loggedout') return;
+    if(DB.vehicles().length>0) return;
+    this._promptShown=true;
+    this._promptOpen=true;
+    openModal('☁️ Recupera i dati',`
+      <p style="font-size:15px;color:#334155;margin-bottom:10px;">Su questo dispositivo non ci sono veicoli.</p>
+      <p style="font-size:14px;color:#64748b;margin-bottom:18px;">Accedi con il tuo account Google per scaricare dal cloud veicoli, check, interventi, foto e documenti.</p>
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="CloudSync._promptOpen=false;closeModal()">Più tardi</button>
+        <button class="btn btn-primary" onclick="CloudSync.login()">Accedi con Google</button>
+      </div>
+    `);
+  },
+
+  // ════════════ PRIMO ALLINEAMENTO DEL DISPOSITIVO ════════════
+  async _initialSync(){
+    const tag = this.user.uid+'|'+CLOUD_FLEET;
+    if(this._state().seeded===tag) return;
+    const snap = await this.fb.getDocsFromServer(this._col('records'));
+    if(snap.empty){
+      // Cloud vuoto: questo dispositivo diventa la sorgente, si carica tutto
+      const ob=this._outboxGet();
+      Object.keys(DB.keys).forEach(k=>{
+        const raw=localStorage.getItem(DB.keys[k]);
+        if(raw==null) return;
+        let v; try{ v=JSON.parse(raw); }catch(e){ return; }
+        if(this._isIdArray(v)) v.forEach(r=>{ ob[k+CLOUD_SEP+String(r.id)]=1; });
+        else ob[k+CLOUD_SEP+'__all']=1;
+      });
+      this._outboxSet(ob);
+    }else{
+      // Cloud già popolato: il cloud vince. Copia di sicurezza dei dati locali.
+      const hasLocal = Object.values(DB.keys).some(key=>{ const r=localStorage.getItem(key); return r && r!=='[]' && r!=='{}'; });
+      if(hasLocal){
+        const bk={}; Object.values(DB.keys).forEach(key=>{ bk[key]=localStorage.getItem(key); });
+        this._lsSet('vcp_cloud_presync_backup', {at:nowISO(), data:bk});
+      }
+      this._outboxSet({});
+      const map=new Map(snap.docs.map(d=>[d.id, d.data()]));
+      Object.keys(DB.keys).forEach(k=>{
+        const v=this._assembleKey(map, k);
+        if(v===undefined) localStorage.removeItem(DB.keys[k]);
+        else localStorage.setItem(DB.keys[k], JSON.stringify(v));
+      });
+      this._scheduleRender();
+    }
+    this._setState({seeded:tag, seededAt:nowISO()});
+  },
+
+  // Ricostruisce il valore di una chiave da una mappa di documenti cloud
+  _assembleKey(map, k){
+    const all = map.get(this._docId(k,'__all'));
+    if(all && !all.del){
+      const j=this._assembleJ(map, this._docId(k,'__all'), all);
+      if(j!=null){ try{ return JSON.parse(j); }catch(e){} }
+    }
+    const recs=[];
+    for(const [id, d] of map){
+      if(d.k!==k || d.part || d.del || d.id==='__all') continue;
+      const j=this._assembleJ(map, id, d);
+      if(j==null) continue;
+      try{ recs.push({o:d.o||0, v:JSON.parse(j)}); }catch(e){}
+    }
+    if(!recs.length){
+      const any=[...map.values()].some(d=>d.k===k);
+      return any ? [] : undefined;
+    }
+    recs.sort((a,b)=>a.o-b.o);
+    return recs.map(r=>r.v);
+  },
+  _assembleJ(map, baseId, d){
+    if(!d.pn || d.pn<=1) return d.j;
+    let s=d.j;
+    for(let i=1;i<d.pn;i++){
+      const p=map.get(baseId+'~p'+i);
+      if(!p || typeof p.j!=='string') return null;
+      s+=p.j;
+    }
+    return s;
+  },
+
+  // ════════════ RECORD: SCRITTURE LOCALI → CLOUD ════════════
+  _outboxGet(){ return this._lsGet(this.OUTBOX_KEY, {}); },
+  _outboxSet(o){ this._lsSet(this.OUTBOX_KEY, o); },
+
+  onLocalSet(k, prevRaw, next){
+    if(!this.configured()) return;
+    let prev=null; try{ prev=JSON.parse(prevRaw); }catch(e){}
+    const ob=this._outboxGet();
+    const add=id=>{ ob[k+CLOUD_SEP+String(id)]=1; };
+    if(this._isIdArray(next)){
+      const pm=new Map(), nm=new Map();
+      if(this._isIdArray(prev)) prev.forEach(r=>pm.set(String(r.id), JSON.stringify(r)));
+      else if(prev!=null) add('__all');
+      next.forEach(r=>nm.set(String(r.id), JSON.stringify(r)));
+      nm.forEach((s,id)=>{ if(pm.get(id)!==s) add(id); });
+      pm.forEach((s,id)=>{ if(!nm.has(id)) add(id); });
+    }else{
+      if(JSON.stringify(prev)!==JSON.stringify(next)) add('__all');
+    }
+    this._outboxSet(ob);
+    this._scheduleFlush();
+  },
+
+  _scheduleFlush(){
+    clearTimeout(this._flushTimer);
+    this._flushTimer=setTimeout(()=>this._flushNow(), 300);
+  },
+
+  _flushNow(){
+    if(this.status!=='ready' || this._flushing) return;
+    const ob=this._outboxGet();
+    const keys=Object.keys(ob);
+    if(!keys.length) return;
+    this._flushing=true;
+    try{
+      const cache={};
+      const valOf=k=>{ if(!(k in cache)) cache[k]=DB.get(k); return cache[k]; };
+      let batch=this.fb.writeBatch(this.fs), ops=0, bytes=0;
+      const pending=[];
+      const commit=(sent)=>{
+        if(!ops) return;
+        const b=batch;
+        b.commit().then(()=>{ this.lastSync=new Date(); this._refreshUi(); })
+          .catch(e=>{
+            console.warn('[cloud] scrittura record:', e);
+            const o=this._outboxGet(); sent.forEach(x=>{ o[x]=1; }); this._outboxSet(o);
+            this._setStatus(e&&e.code==='permission-denied'?'denied':'error', (e&&e.message)||String(e));
+          });
+        batch=this.fb.writeBatch(this.fs); ops=0; bytes=0;
+      };
+      let sent=[];
+      for(const entry of keys){
+        const i=entry.indexOf(CLOUD_SEP);
+        const k=entry.slice(0,i), id=entry.slice(i+1);
+        if(!DB.keys[k]) continue;
+        const docs=this._buildRecordDocs(k, id, valOf(k));
+        for(const d of docs){
+          if(ops+1>450 || bytes+d.size>5000000){ commit(sent); sent=[]; }
+          if(d.del) batch.delete(this._ref('records', d.docId));
+          else batch.set(this._ref('records', d.docId), d.data);
+          ops++; bytes+=d.size;
+        }
+        sent.push(entry);
+        delete ob[entry];
+      }
+      commit(sent);
+      this._outboxSet(ob);
+    }finally{
+      this._flushing=false;
+    }
+  },
+
+  // Documenti Firestore da scrivere per un record (con suddivisione in parti se grande)
+  _buildRecordDocs(k, id, cur){
+    const baseId=this._docId(k,id);
+    const now=Date.now();
+    const out=[];
+    const old=this._cloudRecs.get(baseId);
+    const oldPn=old&&old.pn||1;
+    let value, o=0;
+    if(id==='__all'){
+      if(this._isIdArray(cur)){
+        out.push({docId:baseId, data:{k, id, del:true, t:now}, size:100});
+        for(let i=1;i<oldPn;i++) out.push({docId:baseId+'~p'+i, del:true, size:50});
+        return out;
+      }
+      value=cur;
+    }else{
+      const arr=Array.isArray(cur)?cur:[];
+      const idx=arr.findIndex(r=>r&&String(r.id)===id);
+      if(idx<0){
+        out.push({docId:baseId, data:{k, id, del:true, t:now}, size:100});
+        for(let i=1;i<oldPn;i++) out.push({docId:baseId+'~p'+i, del:true, size:50});
+        return out;
+      }
+      value=arr[idx]; o=idx;
+    }
+    const j=JSON.stringify(value);
+    const pn=Math.max(1, Math.ceil(j.length/this.PART));
+    out.push({docId:baseId, data:{k, id, j:j.slice(0,this.PART), pn, o, t:now}, size:Math.min(j.length,this.PART)+200});
+    for(let i=1;i<pn;i++){
+      out.push({docId:baseId+'~p'+i, data:{k, id, part:true, pi:i, j:j.slice(i*this.PART,(i+1)*this.PART), t:now}, size:this.PART+200});
+    }
+    for(let i=pn;i<oldPn;i++) out.push({docId:baseId+'~p'+i, del:true, size:50});
+    return out;
+  },
+
+  // ════════════ RECORD: CLOUD → LOCALE ════════════
+  _onRecSnap(snap){
+    const touched=new Set();
+    snap.docChanges().forEach(ch=>{
+      const d=ch.doc.data();
+      if(ch.type==='removed') this._cloudRecs.delete(ch.doc.id);
+      else this._cloudRecs.set(ch.doc.id, d);
+      if(d && d.k) touched.add(d.k);
+    });
+    // Il primo snapshot dal SERVER (non dalla cache) fa il confronto completo:
+    // record presenti solo in locale vengono caricati, il resto lo decide il cloud.
+    const first=this._firstRecSnap && !snap.metadata.fromCache;
+    if(first){
+      this._firstRecSnap=false;
+      Object.keys(DB.keys).forEach(k=>touched.add(k));
+    }
+    if(!snap.metadata.fromCache){ this.lastSync=new Date(); }
+    let changed=false;
+    const ob=this._outboxGet();
+    let obChanged=false;
+    touched.forEach(k=>{
+      if(!DB.keys[k]) return;
+      const r=this._mergeKey(k, first);
+      if(r.changed) changed=true;
+      r.localOnly.forEach(id=>{ ob[k+CLOUD_SEP+id]=1; obChanged=true; });
+    });
+    if(obChanged){ this._outboxSet(ob); this._scheduleFlush(); }
+    if(changed && !snap.metadata.hasPendingWrites) this._scheduleRender();
+    this._refreshUi();
+  },
+
+  // Fonde nel locale lo stato cloud di una chiave, mantenendo l'ordine locale
+  _mergeKey(k, first){
+    const res={changed:false, localOnly:[]};
+    const key=DB.keys[k];
+    const raw=localStorage.getItem(key);
+    let local=null; try{ local=JSON.parse(raw); }catch(e){}
+    const allId=this._docId(k,'__all');
+    const all=this._cloudRecs.get(allId);
+    if(first && raw!=null && !this._isIdArray(local)){
+      const anyCloud=[...this._cloudRecs.values()].some(d=>d.k===k && !d.del);
+      if(!anyCloud){ res.localOnly.push('__all'); return res; }
+    }
+    if(all && !all.del){
+      const j=this._assembleJ(this._cloudRecs, allId, all);
+      if(j!=null && j!==raw){ localStorage.setItem(key, j); res.changed=true; }
+      return res;
+    }
+    const cloud=new Map();   // id → {del, v, o}
+    for(const [docId, d] of this._cloudRecs){
+      if(d.k!==k || d.part || d.id==='__all') continue;
+      if(d.del){ cloud.set(d.id, {del:true}); continue; }
+      const j=this._assembleJ(this._cloudRecs, docId, d);
+      if(j==null) continue;
+      try{ cloud.set(d.id, {v:JSON.parse(j), j, o:d.o||0}); }catch(e){}
+    }
+    const arr=this._isIdArray(local)?local:[];
+    const out=[]; const seen=new Set();
+    arr.forEach(rec=>{
+      const id=String(rec.id); seen.add(id);
+      const c=cloud.get(id);
+      if(!c){ out.push(rec); if(first) res.localOnly.push(id); return; }
+      if(c.del) return;
+      out.push(c.v);
+    });
+    const extra=[];
+    cloud.forEach((c,id)=>{ if(!c.del && !seen.has(id)) extra.push(c); });
+    extra.sort((a,b)=>a.o-b.o).forEach(c=>out.push(c.v));
+    const outRaw=JSON.stringify(out);
+    if(outRaw!==raw && !(raw==null && out.length===0)){
+      localStorage.setItem(key, outRaw);
+      res.changed=true;
+    }
+    return res;
+  },
+
+  // ════════════ FILE (documenti e foto) ════════════
+  _fileDelGet(){ return this._lsGet(this.FILEDEL_KEY, {}); },
+  _fileDelSet(o){ this._lsSet(this.FILEDEL_KEY, o); },
+
+  onFileDeleted(fileId){
+    if(!this.configured() || !fileId) return;
+    const o=this._fileDelGet(); o[fileId]=1; this._fileDelSet(o);
+    const m=this._cloudFiles.get(fileId);
+    if(m) this._cloudFiles.set(fileId, {id:fileId, del:true, parts:m.parts});
+    this._flushFileDeletes();
+  },
+  onFileChanged(){
+    if(!this.configured()) return;
+    clearTimeout(this._recTimer);
+    this._recTimer=setTimeout(()=>this._reconcileFiles(), 1500);
+  },
+
+  _flushFileDeletes(){
+    if(this.status!=='ready') return;
+    const o=this._fileDelGet();
+    const ids=Object.keys(o);
+    if(!ids.length) return;
+    ids.forEach(id=>{
+      const m=this._cloudFiles.get(id);
+      const parts=(m&&m.parts)||0;
+      const b=this.fb.writeBatch(this.fs);
+      b.set(this._ref('files', id), {id, del:true, t:Date.now()});
+      for(let i=0;i<parts;i++) b.delete(this._ref('fileparts', id+'~'+i));
+      b.commit().catch(e=>{
+        console.warn('[cloud] eliminazione file:', e);
+        const x=this._fileDelGet(); x[id]=1; this._fileDelSet(x);
+      });
+      delete o[id];
+    });
+    this._fileDelSet(o);
+  },
+
+  _onFileSnap(snap){
+    snap.docChanges().forEach(ch=>{
+      if(ch.type==='removed') this._cloudFiles.delete(ch.doc.id);
+      else this._cloudFiles.set(ch.doc.id, ch.doc.data());
+    });
+    // Si allinea solo con la lista confermata dal server, mai con la sola cache
+    if(!snap.metadata.fromCache){
+      this._filesLoaded=true;
+      if(!snap.metadata.hasPendingWrites) this._reconcileFiles();
+    }
+    this._refreshUi();
+  },
+
+  async _reconcileFiles(){
+    if(this.status!=='ready' || !this._filesLoaded) return;
+    if(this._reconciling){ this._reconcileAgain=true; return; }
+    this._reconciling=true;
+    let changed=false;
+    try{
+      this._flushFileDeletes();
+      const pendingDel=this._fileDelGet();
+      const docs=await IDB.getAll();
+      const photos=await getAllVehiclePhotos();
+      const fotoDocVeh=new Set(docs.filter(d=>d.tipo==='Foto veicolo').map(d=>d.vehicleId));
+      const photoVeh=new Set(photos.map(p=>p.vehicleId));
+      const local=new Map();
+      docs.forEach(d=>local.set(d.id, {kind:'doc', d}));
+      photos.forEach(p=>{ if(!fotoDocVeh.has(p.vehicleId)) local.set(photoFileId(p), {kind:'photo', p}); });
+
+      for(const [id, m] of this._cloudFiles){
+        if(this.status!=='ready') return;
+        if(m.del){
+          if(local.has(id)){
+            const it=local.get(id);
+            if(it.kind==='doc'){
+              await IDB._deleteRaw(id);
+              if(it.d.tipo==='Foto veicolo') await deleteVehiclePhotoRaw(it.d.vehicleId);
+            }else await deleteVehiclePhotoRaw(it.p.vehicleId);
+            local.delete(id); changed=true;
+          }
+          continue;
+        }
+        if(local.has(id) || pendingDel[id]) continue;
+        if(m.kind==='photo' && photoVeh.has(m.vehicleId)) continue;
+        if(await this._download(m)){
+          changed=true;
+          if(m.kind==='photo') photoVeh.add(m.vehicleId);
+        }
+      }
+      for(const [id, it] of local){
+        if(this.status!=='ready') return;
+        if(this._cloudFiles.has(id)) continue;
+        await this._upload(id, it);
+      }
+    }catch(e){
+      console.warn('[cloud] allineamento file:', e);
+    }finally{
+      this._reconciling=false;
+      if(changed){
+        for(const k in _photoCache) delete _photoCache[k];
+        await syncVehiclePhotosFromDocs();
+        this._scheduleRender();
+      }
+      if(this._reconcileAgain){ this._reconcileAgain=false; this.onFileChanged(); }
+    }
+  },
+
+  async _upload(id, it){
+    let blob, meta;
+    if(it.kind==='doc'){
+      const d=it.d;
+      blob=new Blob([d.data], {type:d.mime||'application/octet-stream'});
+      if(d.mime && d.mime.startsWith('image/')) blob=await compressImageBlob(blob);
+      meta={kind:'doc', id, vehicleId:d.vehicleId, tipo:d.tipo||'', nome:d.nome||'', mime:blob.type||d.mime||'', createdAt:d.createdAt||nowISO()};
+    }else{
+      blob=await (await fetch(it.p.dataUrl)).blob();
+      blob=await compressImageBlob(blob);
+      meta={kind:'photo', id, vehicleId:it.p.vehicleId, mime:blob.type||'image/jpeg', createdAt:nowISO()};
+    }
+    const bytes=new Uint8Array(await blob.arrayBuffer());
+    const parts=Math.max(1, Math.ceil(bytes.length/this.PART));
+    meta.parts=parts; meta.size=bytes.length; meta.t=Date.now();
+    this._cloudFiles.set(id, meta);
+    const fail=e=>{ console.warn('[cloud] caricamento file '+id+':', e); this._cloudFiles.delete(id); };
+    for(let i=0;i<parts;i++){
+      this.fb.setDoc(this._ref('fileparts', id+'~'+i), {
+        f:id, i, b:this.fb.Bytes.fromUint8Array(bytes.slice(i*this.PART,(i+1)*this.PART))
+      }).catch(fail);
+    }
+    this.fb.setDoc(this._ref('files', id), meta)
+      .then(()=>{ this.lastSync=new Date(); this._refreshUi(); })
+      .catch(fail);
+  },
+
+  async _download(m){
+    try{
+      const chunks=[];
+      for(let i=0;i<(m.parts||1);i++){
+        const s=await this.fb.getDoc(this._ref('fileparts', m.id+'~'+i));
+        if(!s.exists()) return false;
+        chunks.push(s.data().b.toUint8Array());
+      }
+      const blob=new Blob(chunks, {type:m.mime||'application/octet-stream'});
+      if(m.kind==='doc'){
+        await IDB._putRaw({
+          id:m.id, vehicleId:m.vehicleId, tipo:m.tipo, nome:m.nome,
+          mime:m.mime||blob.type, data:await blob.arrayBuffer(), createdAt:m.createdAt
+        });
+      }else{
+        const dataUrl=await new Promise(res=>{ const r=new FileReader(); r.onload=e=>res(e.target.result); r.readAsDataURL(blob); });
+        await saveVehiclePhoto(m.vehicleId, dataUrl);
+      }
+      return true;
+    }catch(e){
+      console.warn('[cloud] scaricamento file '+m.id+':', e);
+      return false;
+    }
+  },
+
+  // ════════════ UI ════════════
+  _scheduleRender(){
+    clearTimeout(this._renderTimer);
+    this._renderTimer=setTimeout(()=>{
+      try{ renderAlerts(); renderMain(); }catch(e){ console.warn(e); }
+    }, 400);
+  },
+
+  _statusInfo(){
+    const pend=Object.keys(this._outboxGet()).length + Object.keys(this._fileDelGet()).length;
+    switch(this.status){
+      case 'unconfigured': return {color:'#94a3b8', label:'Cloud non configurato'};
+      case 'loading':      return {color:'#94a3b8', label:'Avvio cloud…'};
+      case 'loggedout':    return {color:'#dc2626', label:'Non connesso — dati solo su questo dispositivo'};
+      case 'connecting':   return {color:'#f59e0b', label:'Connessione al cloud…'};
+      case 'denied':       return {color:'#dc2626', label:'Account non autorizzato'+(this.statusMsg?' ('+this.statusMsg+')':'')};
+      case 'offline':      return {color:'#f59e0b', label:this.statusMsg||'Offline'};
+      case 'error':        return {color:'#dc2626', label:'Errore cloud'+(this.statusMsg?': '+this.statusMsg:'')};
+      case 'ready':
+        if(!navigator.onLine) return {color:'#f59e0b', label:'Offline — le modifiche verranno inviate al ritorno della rete'};
+        return {color:'#16a34a', label:'Sincronizzato'+(pend?' ('+pend+' in coda)':'')+(this.lastSync?' · '+this.lastSync.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'}):'')};
+      default: return {color:'#94a3b8', label:'Cloud spento'};
+    }
+  },
+
+  _refreshUi(){
+    const info=this._statusInfo();
+    const dot=document.getElementById('cloud-hdot');
+    if(dot) dot.style.background=info.color;
+    const box=document.getElementById('cloud-settings');
+    if(box) box.innerHTML=this.settingsInner();
+  },
+
+  settingsInner(){
+    const info=this._statusInfo();
+    const u=this.user;
+    let html=`<div style="display:flex;align-items:center;gap:8px;padding:6px 0 10px;">
+        <span style="width:10px;height:10px;border-radius:50%;background:${info.color};flex-shrink:0;"></span>
+        <span style="font-size:14px;font-weight:600;color:var(--c-text,#1e293b);">${escHtml(info.label)}</span>
+      </div>`;
+    if(this.status==='unconfigured'){
+      html+=`<div style="font-size:12px;color:#94a3b8;">Configurazione Firebase mancante nel file dell'app.</div>`;
+    }else if(!u){
+      html+=`<button class="btn btn-primary" onclick="CloudSync.login()">☁️ Accedi con Google</button>
+        <div style="font-size:12px;color:#94a3b8;margin-top:6px;">Senza accesso i dati restano solo su questo dispositivo e si perdono se pulisci i dati del browser.</div>`;
+    }else{
+      html+=`<div style="font-size:13px;color:#64748b;margin-bottom:8px;">Account: <strong>${escHtml(u.email||'')}</strong></div>
+        <div style="font-size:12px;color:#94a3b8;margin-bottom:8px;">📎 File nel cloud: ${[...this._cloudFiles.values()].filter(m=>!m.del).length}</div>
+        <div class="btn-row">
+          <button class="btn btn-secondary" onclick="CloudSync.syncNow()">🔄 Sincronizza ora</button>
+          <button class="btn btn-secondary" onclick="CloudSync.logout()">Esci</button>
+        </div>`;
+    }
+    return html;
+  },
+
+  syncNow(){
+    if(this.status!=='ready'){ if(this.user) this._connect(); return; }
+    this._flushNow(); this._flushFileDeletes(); this._reconcileFiles();
+    toast('Sincronizzazione avviata');
+  }
+};
+
+// Compressione immagini per il cloud (lato lungo max 1600px, JPEG)
+async function compressImageBlob(blob){
+  try{
+    const url=URL.createObjectURL(blob);
+    const img=await new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=url; });
+    URL.revokeObjectURL(url);
+    const max=1600;
+    const sc=Math.min(1, max/Math.max(img.naturalWidth, img.naturalHeight));
+    const w=Math.round(img.naturalWidth*sc), h=Math.round(img.naturalHeight*sc);
+    const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+    const ctx=cv.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,w,h); ctx.drawImage(img,0,0,w,h);
+    const out=await new Promise(res=>cv.toBlob(res,'image/jpeg',0.82));
+    return (out && out.size<blob.size) ? out : blob;
+  }catch(e){ return blob; }
+}
+
+// Identificativo cloud di una foto veicolo "storica" (senza documento Foto veicolo)
+function photoFileId(p){
+  const s=p.dataUrl||'';
+  let h=5381;
+  for(let i=0;i<s.length;i+=97) h=((h<<5)+h+s.charCodeAt(i))|0;
+  return 'photo~'+p.vehicleId+'~'+s.length.toString(36)+(h>>>0).toString(36);
+}
 
 // ═══════════════════════════════════════════════════════
 //  STATE
@@ -1365,6 +2052,17 @@ async function getVehiclePhoto(vehicleId){
   }catch(e){ return null; }
 }
 
+async function getAllVehiclePhotos(){
+  try{
+    const db = await IDB.open();
+    return await new Promise((resolve)=>{
+      const tx = db.transaction('vehicle_photos','readonly');
+      const req = tx.objectStore('vehicle_photos').getAll();
+      req.onsuccess = ()=>resolve(req.result||[]);
+      req.onerror   = ()=>resolve([]);
+    });
+  }catch(e){ return []; }
+}
 async function saveVehiclePhoto(vehicleId, dataUrl){
   try{
     const db = await IDB.open();
@@ -1377,6 +2075,11 @@ async function saveVehiclePhoto(vehicleId, dataUrl){
 }
 
 async function deleteVehiclePhoto(vehicleId){
+  const old = await getVehiclePhoto(vehicleId);
+  await deleteVehiclePhotoRaw(vehicleId);
+  if(old && old.dataUrl) CloudSync.onFileDeleted(photoFileId(old));
+}
+async function deleteVehiclePhotoRaw(vehicleId){
   try{
     const db = await IDB.open();
     return new Promise((resolve)=>{
@@ -5683,6 +6386,10 @@ function openSettings(){
   const s=DB.settings();
   openModal('⚙️ Impostazioni',`
     <div class="settings-section">
+      <div class="settings-section-title">Cloud</div>
+      <div id="cloud-settings">${CloudSync.settingsInner()}</div>
+    </div>
+    <div class="settings-section">
       <div class="settings-section-title">Aspetto</div>
       <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;">
         <span style="font-size:14px;font-weight:600;color:var(--c-text,#1e293b);">🌙 Modalità scura</span>
@@ -5768,7 +6475,7 @@ function openSettings(){
       </label>
     </div>
     <button class="btn btn-danger" onclick="confirmResetAll()">🗑️ Azzera tutti i dati</button>
-    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.1.04 — VehicleCare Pro</p>
+    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.1.05 — VehicleCare Pro</p>
     <div style="height:10px;"></div>
   `);
   renderBackupStatus();
@@ -6050,6 +6757,7 @@ function confirmResetAll(){
 
 function _doResetAll(){
   Object.values(DB.keys).forEach(k=>localStorage.removeItem(k));
+  CloudSync.forgetLocal();
   IDB.clear();
   closeModal();
   toast('Dati azzerati');
@@ -6407,6 +7115,7 @@ function init(){
   _initPlannerSwipeGlobal();
   setTimeout(checkBackupAlert, 1500);
   setTimeout(syncVehiclePhotosFromDocs, 500);
+  CloudSync.start();
 
   // Seed dati demo se vuoto
   if(DB.vehicles().length===0 && DB.suppliers().length===0){
