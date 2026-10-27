@@ -2,6 +2,15 @@
 
 ---
 
+## v110 — 2026-10-27
+### Documenti mezzi: visualizzatore funzionante su telefono
+- **Visualizzatore immagini**: su telefono e tablet i pulsanti Ruota, Zoom, Reset, Salva e Chiudi non rispondevano al tocco e il visualizzatore a tutto schermo non si chiudeva più, bloccando l'app. Ora i tocchi sui pulsanti funzionano; pizzico e trascinamento sull'immagine invariati
+- Chiudendo il visualizzatore si rimuovono anche i suoi ascoltatori del mouse (prima si accumulavano a ogni apertura)
+- **PDF**: la finestra si apre subito al tocco, così il browser mobile non la blocca più; se viene comunque bloccata il PDF si apre tramite link invece di andare in errore
+- In-app 1.1.11
+
+---
+
 ## v109 — 2026-10-22
 ### Maschere: km proposti, crea/modifica separati, gomme
 - **Km proposti in grigio** (campo vuoto, valore suggerito): apertura intervento = km dell'ultimo check, chiusura = km di apertura; se non si scrive nulla vale il proposto. Vale per tutte le maschere di creazione intervento, chiusura, segnalazione, revisione, risolvi anomalia, prima registrazione gomme e cambio gomme. Nel nuovo check i km in grigio sono solo un promemoria: vanno scritti
