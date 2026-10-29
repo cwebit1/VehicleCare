@@ -2,6 +2,22 @@
 
 ---
 
+## v116 — 2026-10-29
+### Relazioni: nuova impaginazione, PDF identico all'anteprima
+- Relazione ridisegnata come documento A4: testata con targa, periodo, data e operatore; **riquadri con i numeri chiave** (km percorsi e media mensile, check, interventi, fornitori, giorni alla revisione)
+- **Sintesi** scritta in automatico in forma discorsiva: utilizzo, regolarità dei controlli, anomalie ricorrenti, interventi, ultimo cambio gomme, revisione, cose ancora aperte
+- **Dati del mezzo** in scheda a due colonne
+- **Attività interna** in tabelle: check mensili (esito con etichetta colorata e gestione di ogni anomalia), riquadro "Da notare" (anomalie ricorrenti, mesi senza check), segnalazioni, riparazioni interne
+- **Fornitori**: un riquadro per ciascuno con i suoi numeri (interventi, chiusi, aperti, tempo medio di chiusura, revisioni, cambi gomme, set in deposito) e la tabella dei lavori; riquadro a parte per i lavori senza fornitore indicato
+- **Gomme**: set montati, in deposito e smaltiti nel periodo, con barra della vita in km e luogo del deposito
+- **Situazione attuale** in tre riquadri: da gestire, in corso, regolare (gomme della stagione successiva accettate nel periodo di preavviso)
+- **PDF identico all'anteprima**: la pagina viene fotografata in A4 senza spezzare righe, riquadri e titoli, con piè di pagina "Pagina X di Y" su ogni pagina; il PDF viene preparato in anticipo così "Condividi" parte subito
+- L'anteprima mostra la pagina A4 rimpicciolita alla larghezza dello schermo; toccandola si apre il PDF
+- La libreria per la fotografia della pagina (html2canvas) viene caricata solo al primo PDF
+- In-app 1.1.17
+
+---
+
 ## v115 — 2026-10-29
 ### Gomme: km bloccati, modificabili solo in modalità avanzata
 - Nella maschera del set gomme i km del veicolo al montaggio e allo smontaggio sono bloccati (grigi, sola lettura)

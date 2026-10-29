@@ -200,20 +200,76 @@ body.dark #modal-box-2{background:#2a2a2a;}
 .tl-card.tl-open{cursor:pointer;position:relative;padding-right:26px;}
 .tl-card.tl-open::after{content:'›';position:absolute;top:6px;right:10px;color:#94a3b8;font-size:20px;line-height:1;}
 .tl-card.tl-open:active{background:#f8fafc;}
-.rel-doc{background:#fff;border-radius:12px;padding:18px 16px;box-shadow:0 1px 3px rgba(0,0,0,.08);color:#1e293b;font-size:14px;line-height:1.5;}
-.rel-doc h1{font-size:19px;margin:0 0 6px;}
-.rel-doc h2{font-size:16px;margin:20px 0 8px;padding-bottom:4px;border-bottom:1px solid #cbd5e1;}
-.rel-doc h3{font-size:14px;margin:14px 0 6px;color:#334155;}
-.rel-doc p{margin:0 0 8px;color:#334155;}
-.rel-doc ul{margin:0 0 8px;padding-left:20px;}
-.rel-doc li{margin-bottom:5px;}
-.rel-kv{display:flex;gap:10px;padding:3px 0;border-bottom:1px solid #f1f5f9;}
-.rel-kv span{flex:0 0 42%;color:#64748b;font-size:13px;}
-body.dark .rel-doc{background:#2a2a2a;color:#e0e0e0;}
-body.dark .rel-doc p, body.dark .rel-doc h3{color:#cfcfcf;}
-body.dark .rel-kv{border-bottom-color:#3a3a3a;}
-.km-lock[readonly]{background:#f1f5f9;color:#64748b;}
-body.dark .km-lock[readonly]{background:#1f1f1f;color:#888;}
+.rz{--blu:#1e40af;--blu2:#dbeafe;--verde:#15803d;--verde2:#dcfce7;--rosso:#b91c1c;--rosso2:#fee2e2;--arancio:#b45309;--arancio2:#fef3c7;--grigio:#64748b;--linea:#e2e8f0;color:#1e293b;font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+.rz *{box-sizing:border-box;}
+.rz-doc{background:#fff;padding-bottom:20px;}
+.rz-head{background:linear-gradient(135deg,#1e3a8a,#1e40af 60%,#2563eb);color:#fff;padding:24px 36px 20px;display:flex;align-items:center;gap:20px;}
+.rz-targa{display:flex;border:3px solid #111;border-radius:7px;background:#fff;overflow:hidden;height:50px;flex-shrink:0;}
+.rz-targa .eu{background:#003399;color:#fff;width:27px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:4px;font-size:12px;font-weight:700;}
+.rz-targa .eu span{font-size:8px;color:#ffcc00;letter-spacing:-1px;margin-bottom:auto;margin-top:4px;}
+.rz-targa .num{color:#111;font:700 28px/44px "Arial Narrow",Arial,sans-serif;letter-spacing:2px;padding:0 11px;white-space:nowrap;}
+.rz-titolo h1{margin:0;font-size:21px;font-weight:700;color:#fff;}
+.rz-titolo .sotto{font-size:13px;opacity:.85;margin-top:4px;}
+.rz-head .meta{margin-left:auto;text-align:right;font-size:11px;opacity:.85;line-height:1.6;flex-shrink:0;}
+.rz-kpi{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;padding:18px 36px 2px;}
+.rz-kpi>div{border:1px solid var(--linea);border-radius:10px;padding:10px 12px;}
+.rz-kpi b{display:block;font-size:22px;color:var(--blu);}
+.rz-kpi span{font-size:11px;color:var(--grigio);}
+.rz-kpi small{display:block;font-size:10px;color:var(--grigio);margin-top:2px;}
+.rz-kpi .warn b{color:var(--arancio);} .rz-kpi .ok b{color:var(--verde);} .rz-kpi .ko b{color:var(--rosso);}
+.rz-body{padding:0 36px;}
+.rz h2{font-size:16px;margin:26px 0 10px;padding-left:10px;border-left:4px solid var(--blu);color:#1e293b;}
+.rz h2 .n{color:var(--blu);margin-right:4px;}
+.rz h3{font-size:12.5px;margin:18px 0 8px;color:#334155;text-transform:uppercase;letter-spacing:.4px;}
+.rz p{font-size:13px;line-height:1.6;margin:0 0 10px;color:#334155;}
+.rz p.rz-vuoto{color:#94a3b8;font-style:italic;}
+.rz-sintesi{background:#f8fafc;border:1px solid var(--linea);border-radius:10px;padding:14px 16px;}
+.rz-sintesi p:last-child{margin:0;}
+.rz-scheda{display:grid;grid-template-columns:1fr 1fr;gap:0 24px;border:1px solid var(--linea);border-radius:10px;padding:4px 16px;}
+.rz-scheda>div{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid #f1f5f9;font-size:13px;}
+.rz-scheda span{color:var(--grigio);}
+.rz-scheda b{text-align:right;}
+.rz p.rz-note{margin-top:8px;font-size:12px;color:var(--grigio);}
+.rz table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:8px;}
+.rz th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.3px;color:var(--grigio);font-weight:700;padding:7px 8px;border-bottom:2px solid var(--linea);background:#f8fafc;}
+.rz td{padding:7px 8px;border-bottom:1px solid #f1f5f9;vertical-align:top;color:#1e293b;}
+.rz tr:nth-child(even) td{background:#fbfdff;}
+.rz td.km{white-space:nowrap;color:var(--grigio);}
+.rz .sub{display:block;color:var(--grigio);font-size:11px;margin-top:2px;}
+.rz .sub.ok{color:var(--verde);} .rz .sub.ko{color:var(--rosso);} .rz .sub.run{color:var(--arancio);}
+.rz .b{display:inline-block;border-radius:20px;padding:2px 8px;font-size:10.5px;font-weight:700;white-space:nowrap;}
+.rz .b.ok{background:var(--verde2);color:var(--verde);} .rz .b.ko{background:var(--rosso2);color:var(--rosso);}
+.rz .b.run{background:var(--arancio2);color:var(--arancio);} .rz .b.info{background:var(--blu2);color:var(--blu);} .rz .b.grey{background:#f1f5f9;color:#475569;}
+.rz-nota{border-radius:8px;padding:10px 12px;font-size:12.5px;margin:6px 0 10px;line-height:1.5;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;}
+.rz-forn{border:1px solid var(--linea);border-radius:12px;margin-bottom:14px;overflow:hidden;}
+.rz-forn .top{display:flex;align-items:center;gap:12px;padding:12px 14px;background:#f8fafc;border-bottom:1px solid var(--linea);}
+.rz-forn .ico{width:34px;height:34px;border-radius:9px;background:var(--blu2);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;}
+.rz-forn .nome{font-weight:700;font-size:14px;}
+.rz-forn .tipo{font-size:11px;color:var(--grigio);}
+.rz-forn .nums{margin-left:auto;display:flex;gap:14px;text-align:center;}
+.rz-forn .nums b{display:block;font-size:16px;color:var(--blu);} .rz-forn .nums span{font-size:10px;color:var(--grigio);}
+.rz-forn .corpo{padding:10px 14px 4px;}
+.rz p.rz-dep{font-size:12px;color:#475569;}
+.rz-set{display:flex;align-items:center;gap:12px;border:1px solid var(--linea);border-radius:10px;padding:10px 12px;margin-bottom:8px;}
+.rz-set .ic{font-size:22px;}
+.rz-set .mid{min-width:0;}
+.rz-set .t{font-weight:700;font-size:13px;}
+.rz-set .s{font-size:11px;color:var(--grigio);}
+.rz-set .bar{height:8px;border-radius:9px;background:#f1f5f9;overflow:hidden;margin-top:6px;width:220px;max-width:100%;}
+.rz-set .bar i{display:block;height:100%;border-radius:9px;}
+.rz-set .km{margin-left:auto;text-align:right;font-weight:700;font-size:14px;white-space:nowrap;}
+.rz-set .km small{display:block;font-weight:400;font-size:10px;color:var(--grigio);}
+.rz-stato{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.rz-stato>div{border-radius:10px;padding:12px;font-size:12px;line-height:1.5;}
+.rz-stato .r{background:var(--rosso2);color:#7f1d1d;} .rz-stato .a{background:var(--arancio2);color:#78350f;} .rz-stato .g{background:var(--verde2);color:#14532d;}
+.rz-stato b{display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:.3px;}
+.rz-stato ul{margin:0;padding-left:16px;}
+.rz-stato .vuoto{opacity:.7;font-style:italic;}
+.rz-piede{display:flex;justify-content:space-between;font-size:10px;color:#94a3b8;border-top:1px solid var(--linea);margin:22px 36px 0;padding-top:8px;}
+/* Anteprima: la pagina A4 (794px) rimpicciolita per stare nella larghezza dello schermo */
+.rz-anteprima{width:100%;overflow:hidden;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.18);background:#fff;}
+.rz-anteprima .rz{width:794px;}
+}
 .tl-dot.gray{background:#94a3b8;box-shadow:0 0 0 1.5px #94a3b8;}
 .tl-type{font-size:11px;font-weight:600;margin-bottom:2px;}
 .tl-desc{font-size:13px;color:#334155;}
@@ -6086,7 +6142,7 @@ function reportDetail(type){
 //  RELAZIONI — relazione scritta dell'attività di un mezzo
 //  (prima attività interna, poi un capitolo per fornitore)
 // ═══════════════════════════════════════════════════════
-const _rel = {vid:'', periodo:'presa', da:'', a:'', blocks:null, titolo:''};
+const _rel = {vid:'', periodo:'presa', da:'', a:'', html:null, pdfP:null};
 
 function _relIsoAdd(iso, months){ const d=new Date(iso+'T12:00:00'); d.setMonth(d.getMonth()+months); return d.toISOString().slice(0,10); }
 function _relGiorni(daIso, aIso){ return Math.round((new Date(aIso+'T12:00:00')-new Date(daIso+'T12:00:00'))/86400000); }
@@ -6120,7 +6176,7 @@ function _relPeriodo(v){
 function renderRelazioni(container){
   const vehicles=DB.vehicles().slice().sort((a,b)=>(a.venduto?1:0)-(b.venduto?1:0) || String(a.targa).localeCompare(String(b.targa)));
   if(vehicles.length===0){ container.innerHTML='<div class="empty"><p>Nessun veicolo</p></div>'; return; }
-  if(!vehicles.some(v=>v.id===_rel.vid)){ _rel.vid=vehicles[0].id; _rel.blocks=null; }
+  if(!vehicles.some(v=>v.id===_rel.vid)){ _rel.vid=vehicles[0].id; _rel.html=null; }
   const v=vehicles.find(x=>x.id===_rel.vid);
   const per=_relPeriodo(v);
   const periodi=[['presa','Dalla presa in carico a oggi'],['mese','Ultimo mese'],['12mesi','Ultimi 12 mesi'],['anno','Anno in corso'],['annoPrec','Anno precedente'],['custom','Periodo personalizzato']];
@@ -6128,11 +6184,11 @@ function renderRelazioni(container){
     <div class="card" style="margin-bottom:12px;">
       <div class="section-title" style="margin-top:0;">Nuova relazione</div>
       <div class="form-group"><label class="form-label">Mezzo</label>
-        <select class="form-select" onchange="_rel.vid=this.value;_rel.blocks=null;renderMain()">
+        <select class="form-select" onchange="_rel.vid=this.value;_rel.html=null;renderMain()">
           ${vehicles.map(x=>`<option value="${x.id}" ${x.id===_rel.vid?'selected':''}>${escHtml(x.targa)} — ${escHtml(x.nome||'')}${x.venduto?' (venduto)':''}</option>`).join('')}
         </select></div>
       <div class="form-group"><label class="form-label">Periodo</label>
-        <select class="form-select" onchange="_rel.periodo=this.value;_rel.blocks=null;renderMain()">
+        <select class="form-select" onchange="_rel.periodo=this.value;_rel.html=null;renderMain()">
           ${periodi.map(([k,l])=>`<option value="${k}" ${_rel.periodo===k?'selected':''}>${l}</option>`).join('')}
         </select></div>
       ${_rel.periodo==='custom'?`<div class="form-row">
@@ -6143,14 +6199,26 @@ function renderRelazioni(container){
       </div>`:`<div style="font-size:12px;color:#64748b;margin:-4px 0 12px;">Dal ${fmtDate(per.da)} al ${fmtDate(per.a)}</div>`}
       <button class="btn btn-primary" style="width:100%;" onclick="generaRelazione()">📝 Genera relazione</button>
     </div>
-    ${_rel.blocks?`
+    ${_rel.html?`
     <div style="display:flex;gap:8px;margin-bottom:12px;">
       <button class="btn btn-primary" style="flex:1;" onclick="relazionePdf('open')">📄 Apri PDF</button>
       ${navigator.share?'<button class="btn btn-secondary" style="flex:1;" onclick="relazionePdf(\'share\')">📤 Condividi</button>':''}
     </div>
-    <div class="rel-doc">${_relHtml(_rel.blocks)}</div>`:''}
+    <div class="rz-anteprima" onclick="relazionePdf('open')" title="Apri il PDF"><div class="rz">${_rel.html}</div></div>
+    <div style="font-size:11px;color:#94a3b8;text-align:center;margin-top:6px;">Anteprima della pagina A4 · tocca per aprire il PDF e ingrandire</div>`:''}
     <div style="height:80px;"></div>`;
+  _relScala();
 }
+// Rimpicciolisce la pagina A4 alla larghezza disponibile (stessa impaginazione del PDF)
+function _relScala(){
+  const box=document.querySelector('.rz-anteprima'); if(!box) return;
+  const doc=box.firstElementChild;
+  const k=Math.min(1, box.clientWidth/794);
+  doc.style.transformOrigin='top left';
+  doc.style.transform='scale('+k+')';
+  box.style.height=Math.ceil(doc.offsetHeight*k)+'px';
+}
+window.addEventListener('resize', ()=>{ if(currentTab==='relazioni') _relScala(); });
 
 function generaRelazione(){
   if(_rel.periodo==='custom'){
@@ -6162,122 +6230,104 @@ function generaRelazione(){
   const v=DB.vehicles().find(x=>x.id===_rel.vid);
   if(!v) return;
   const per=_relPeriodo(v);
-  _rel.blocks=_relBuild(v, per.da, per.a);
-  _rel.titolo='Relazione '+v.targa+' '+per.da+' '+per.a;
+  _rel.html=_relBuild(v, per.da, per.a);
+  _rel.pdfP=null;
   renderMain();
+  // Prepara il PDF in anticipo: così "Condividi" parte subito, ancora dentro il tocco
+  setTimeout(()=>{ if(_rel.html && !_rel.pdfP) _rel.pdfP=_relPdfBlob(_rel.html, _relPiede(v, per)).catch(e=>{ _rel.pdfP=null; throw e; }); }, 300);
 }
+function _relPiede(v, per){ return 'Relazione '+(v?v.targa:'')+' · '+fmtDate(per.da)+' – '+fmtDate(per.a); }
 
-// ── Costruzione del contenuto (unico per anteprima e PDF) ──
+// ── Costruzione della relazione (stesso HTML per anteprima e PDF) ──
 function _relBuild(v, da, a){
   const oggi=today();
+  const E=escHtml;
   const inP = d => !!d && d>=da && d<=a;
-  const B=[]; const h1=x=>B.push({t:'h1',x}), h2=x=>B.push({t:'h2',x}), h3=x=>B.push({t:'h3',x}),
-        p=x=>B.push({t:'p',x}), li=x=>B.push({t:'li',x}), kv=(k,x)=>B.push({t:'kv',k,x});
+  const settings=DB.settings();
   const suppliers=DB.suppliers();
-  const supNome = id => { const s=suppliers.find(x=>x.id===id); return s?s.nome:'fornitore non più presente'; };
-  const km = n => (n==null||n==='') ? null : fmtKM(n);
-  const conKm = (d,k) => fmtDate(d)+(km(k)?' · '+km(k):'');
+  const sup = id => suppliers.find(x=>x.id===id);
+  const supNome = id => { const s=sup(id); return s?s.nome:'Fornitore non più presente'; };
+  const num = n => String(Math.round(Number(n))).replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+  const kmTxt = n => (n==null||n==='') ? '—' : num(n);
   const plur = (n,s,pl) => n+' '+(n===1?s:pl);
-  const stagione = s => s==='estate'?'estive':s==='4stagioni'?'4 stagioni':'invernali';
-  const setTxt = t => 'gomme '+stagione(t.stagione)+' '+[t.marca,t.modello,t.dimensione].filter(Boolean).join(' ')+' (x'+(t.quantita||4)+')';
+  const dm = iso => iso ? fmtDate(iso).slice(0,5) : '';
+  const badge = (cls, txt) => '<span class="b '+cls+'">'+E(txt)+'</span>';
+  const sub = txt => txt ? '<span class="sub">'+E(txt)+'</span>' : '';
+  const stagNome = s => s==='estate'?'Estive':s==='4stagioni'?'4 stagioni':'Invernali';
+  const setNome = t => [t.marca,t.modello,t.dimensione].filter(Boolean).join(' ')+' ×'+(t.quantita||4);
 
   const allChecks=DB.checks().filter(c=>c.vehicleId===v.id);
   const allInts=DB.interventions().filter(i=>i.vehicleId===v.id);
   const allSegn=DB.segnalazioni().filter(s=>s.vehicleId===v.id);
   const tires=DB.tires().filter(t=>t.vehicleId===v.id);
   const allTireInts=DB.tireInterventions().filter(t=>t.vehicleId===v.id);
+  const byDate = k => (x,y)=>String(x[k]||'').localeCompare(String(y[k]||''));
+  const checks=allChecks.filter(c=>inP(c.data)).sort(byDate('data'));
+  const ints=allInts.filter(i=>inP(i.dataApertura)).sort(byDate('dataApertura'));
+  const segn=allSegn.filter(s=>inP(s.data)).sort(byDate('data'));
+  const cambioData = t => t.stato==='completato'&&t.dataEffettiva ? t.dataEffettiva : t.dataProgrammata;
+  const tireInts=allTireInts.filter(t=>inP(cambioData(t))).sort((x,y)=>String(cambioData(x)).localeCompare(String(cambioData(y))));
 
-  const checks=allChecks.filter(c=>inP(c.data)).sort((x,y)=>String(x.data).localeCompare(String(y.data)));
-  const ints=allInts.filter(i=>inP(i.dataApertura)).sort((x,y)=>String(x.dataApertura).localeCompare(String(y.dataApertura)));
-  const segn=allSegn.filter(s=>inP(s.data)).sort((x,y)=>String(x.data).localeCompare(String(y.data)));
-  const tireInts=allTireInts.filter(t=>inP(t.stato==='completato'&&t.dataEffettiva?t.dataEffettiva:t.dataProgrammata))
-    .sort((x,y)=>String(x.dataEffettiva||x.dataProgrammata).localeCompare(String(y.dataEffettiva||y.dataProgrammata)));
-
-  const intStato = i => {
-    if(i.stato==='chiuso') return 'chiuso il '+fmtDate(i.dataChiusura)+(km(i.kmChiusura)?' a '+km(i.kmChiusura):'');
-    if(i.stato==='annullato') return 'annullato';
-    if(i.stato==='anomalia') return 'in anomalia';
-    if(i.dataApertura && i.dataApertura>oggi) return 'programmato';
-    return 'in lavorazione da '+plur(Math.max(0,_relGiorni(i.dataApertura||oggi, oggi)),'giorno','giorni');
+  // Stato di un intervento: etichetta colorata
+  const aperto = i => i.stato==='in_lavorazione'||i.stato==='anomalia';
+  const giorniAperto = i => Math.max(0,_relGiorni(i.dataApertura||oggi, oggi));
+  const intBadge = i => {
+    if(i.stato==='chiuso') return badge('ok', i.origine==='revisione'?'Eseguita':'Chiuso '+dm(i.dataChiusura));
+    if(i.stato==='annullato') return badge('grey','Annullato');
+    if(i.stato==='anomalia') return badge('ko','Anomalia');
+    if(i.dataApertura && i.dataApertura>oggi) return badge('info','Programmato '+dm(i.dataApertura));
+    return badge('run', giorniAperto(i)===0?'Aperto oggi':'Da '+plur(giorniAperto(i),'giorno','giorni'));
   };
   const intOrigine = i => {
-    if(i.origine==='check'){ const c=allChecks.find(x=>x.id===i.checkId); return c?'da check del '+fmtDate(c.data):'da check'; }
-    if(i.origine==='segnalazione') return 'da segnalazione';
+    if(i.origine==='check'){ const c=allChecks.find(x=>x.id===i.checkId); return c?'Da check del '+dm(c.data):'Da check'; }
+    if(i.origine==='segnalazione') return 'Da segnalazione';
     return '';
   };
-  const intTxt = i => conKm(i.dataApertura, i.kmApertura)+' — '+(i.descrizione||'Intervento')
-    +(intOrigine(i)?' ('+intOrigine(i)+')':'')+' — '+intStato(i)
-    +(i.noteChiusura?'. Note: '+i.noteChiusura:'');
-  const revTxt = i => conKm(i.dataApertura, i.kmApertura)+' — Revisione periodica'
-    +(i.noteChiusura?' — esito: '+i.noteChiusura:'')
-    +(i.scadenzaRevisione?'; nuova scadenza '+fmtDate(i.scadenzaRevisione):'');
-  const cambioTxt = t => {
-    if(t.stato==='programmato') return fmtDate(t.dataProgrammata)+' — Cambio gomme programmato'+(t.note?'. Note: '+t.note:'');
-    if(t.stato==='annullato') return fmtDate(t.dataProgrammata)+' — Cambio gomme programmato e poi annullato'+(t.note?'. Note: '+t.note:'');
-    const g=t.dataEffettiva;
-    const smont=tires.filter(x=>x.dataSmontaggio===g), mont=tires.filter(x=>x.dataMontaggio===g);
-    const dep=depositoLabel(t);
-    const parti=[];
-    if(smont.length) parti.push('smontate '+smont.map(x=>setTxt(x)+(x.stato==='buttata'?', smaltite':', messe in deposito'+(depositoLabel(x)||dep?' presso '+(depositoLabel(x)||dep):''))).join('; '));
-    if(mont.length) parti.push('montate '+mont.map(setTxt).join('; '));
-    return conKm(g, t.kmEffettivo)+' — Cambio gomme'+(parti.length?': '+parti.join('; '):'')+(t.note?'. Note: '+t.note:'');
+  // Esito di un'anomalia di check / di una segnalazione
+  const esitoInt = i => {
+    if(!i) return {cls:'ko', txt:'Non ancora gestita'};
+    if(i.fornitoreId) return {cls:i.stato==='chiuso'?'ok':'run', txt:'Affidata a '+supNome(i.fornitoreId)+(i.stato==='chiuso'?' · chiusa il '+dm(i.dataChiusura):' · in corso')};
+    return i.stato==='chiuso' ? {cls:'ok', txt:'Risolta internamente il '+dm(i.dataChiusura)} : {cls:'run', txt:'Riparazione interna in corso'};
   };
+  const intDiAnomalia = (c, voce) => { const cand=allInts.filter(i=>i.checkId===c.id&&(i.descrizione||'').startsWith(voce)); return cand.find(z=>z.stato!=='annullato')||null; };
 
-  // ── 1. Dati del mezzo ──
-  h1('Relazione attività — '+v.targa);
-  p('Relazione sull\'attività registrata per il mezzo '+v.targa+(v.nome?' ('+v.nome+')':'')+' nel periodo dal '+fmtDate(da)+' al '+fmtDate(a)+'. Creata il '+fmtDate(oggi)+(DB.settings().operator?' da '+DB.settings().operator:'')+'.');
-  h2('1. Dati del mezzo');
+  // Righe di tabella per i lavori dei fornitori
+  const rigaInt = i => ({d:i.dataApertura, html:'<tr><td>'+fmtDate(i.dataApertura)+'</td><td class="km">'+kmTxt(i.kmApertura)+'</td><td>'
+    +E(i.origine==='revisione'?'Revisione periodica':(i.descrizione||'Intervento'))
+    +sub([intOrigine(i), i.origine==='revisione'&&i.noteChiusura?'Esito: '+i.noteChiusura:(i.noteChiusura||''), i.scadenzaRevisione?'nuova scadenza '+fmtDate(i.scadenzaRevisione):''].filter(Boolean).join(' · '))
+    +'</td><td>'+intBadge(i)+'</td></tr>'});
+  const rigaCambio = t => {
+    let det='', st;
+    if(t.stato==='completato'){
+      const g=t.dataEffettiva, dep=depositoLabel(t);
+      const smont=tires.filter(x=>x.dataSmontaggio===g), mont=tires.filter(x=>x.dataMontaggio===g);
+      det=[smont.length?'Smontate '+smont.map(x=>stagNome(x.stagione).toLowerCase()+' '+setNome(x)+(x.stato==='buttata'?' → smaltite':' → deposito'+((depositoLabel(x)||dep)?' '+(depositoLabel(x)||dep):''))).join(', '):'',
+           mont.length?'Montate '+mont.map(x=>stagNome(x.stagione).toLowerCase()+' '+setNome(x)).join(', '):''].filter(Boolean).join(' · ');
+      st=badge('ok','Eseguito');
+    } else st = t.stato==='annullato' ? badge('grey','Annullato') : badge('info','Programmato '+dm(t.dataProgrammata));
+    if(t.note) det=(det?det+' · ':'')+t.note;
+    return {d:cambioData(t), html:'<tr><td>'+fmtDate(cambioData(t))+'</td><td class="km">'+(t.stato==='completato'?kmTxt(t.kmEffettivo):'—')+'</td><td>Cambio gomme'+sub(det)+'</td><td>'+st+'</td></tr>'};
+  };
+  const tabLavori = righe => '<table><tr><th style="width:84px">Data</th><th style="width:72px">Km</th><th>Lavoro</th><th style="width:118px">Stato</th></tr>'
+    + righe.sort((x,y)=>String(x.d).localeCompare(String(y.d))).map(r=>r.html).join('') + '</table>';
+
+  // ── Numeri chiave ──
   const kms=[];
   checks.forEach(c=>kms.push(c.km)); ints.forEach(i=>{ kms.push(i.kmApertura); if(inP(i.dataChiusura)) kms.push(i.kmChiusura); });
   segn.forEach(s=>kms.push(s.km)); tireInts.forEach(t=>kms.push(t.kmEffettivo));
   const kmOk=kms.map(k=>parseInt(k)).filter(k=>!isNaN(k)&&k>0);
   const kmMin=kmOk.length?Math.min(...kmOk):null, kmMax=kmOk.length?Math.max(...kmOk):null;
-  kv('Targa', v.targa);
-  if(v.nome) kv('Nome', v.nome);
-  if(v.modello) kv('Modello', v.modello);
-  if(v.anno) kv('Anno', String(v.anno));
-  kv('Stato', v.venduto?'venduto / dismesso':'in servizio');
-  if(v.createdAt) kv('Inserito nell\'app il', fmtDate(String(v.createdAt).slice(0,10)));
-  kv('Km attuali', fmtKM(v.km));
-  if(kmMin!=null && kmMax>kmMin) kv('Km nel periodo', 'da '+fmtKM(kmMin)+' a '+fmtKM(kmMax)+' (circa '+fmtKM(kmMax-kmMin)+' registrati)');
-  kv('Scadenza revisione', v.scadenzaRevisione?fmtDate(v.scadenzaRevisione):'non indicata');
-  const dot=[v.sollevatore&&'sollevatore', v.pedana&&'pedana', v.spazzolePost&&'spazzole posteriori', v.lavavetriPost&&'lavavetri posteriori'].filter(Boolean);
-  kv('Dotazioni', dot.length?dot.join(', '):'nessuna indicata');
-  if(v.note) kv('Note', v.note);
-
-  // ── 2. Attività interna ──
-  const interne=ints.filter(i=>!i.fornitoreId && i.origine!=='revisione');
+  const kmPerc=(kmMin!=null&&kmMax>kmMin)?kmMax-kmMin:null;
+  const mesi=Math.max(1, _relGiorni(da,a)/30.44);
   const nAnomCheck=checks.filter(c=>(c.items||[]).some(x=>x.val==='anomalia')).length;
-  const segnGestite=segn.filter(s=>allInts.some(i=>i.segnalazioneId===s.id&&i.stato!=='annullato')).length;
-  h2('2. Attività interna');
-  p('Nel periodo '+(checks.length===1?'è stato eseguito ':'sono stati eseguiti ')+plur(checks.length,'check mensile','check mensili')
-    +(checks.length?' ('+nAnomCheck+' con anomalie)':'')
-    +', '+(segn.length===1?'è stata ricevuta ':'sono state ricevute ')+plur(segn.length,'segnalazione','segnalazioni')
-    +(segn.length?' ('+segnGestite+' '+(segnGestite===1?'gestita':'gestite')+')':'')
-    +(interne.length===1?' ed è stata registrata ':' e sono state registrate ')+plur(interne.length,'riparazione interna','riparazioni interne')+'.');
+  const intNoRev=ints.filter(i=>i.origine!=='revisione');
+  const fornitoriIds=[...new Set([...ints.filter(i=>i.fornitoreId).map(i=>i.fornitoreId), ...tireInts.filter(t=>t.fornitoreId).map(t=>t.fornitoreId)])];
+  const ggRev=v.scadenzaRevisione?_relGiorni(oggi, v.scadenzaRevisione):null;
 
-  h3('2.1 Check mensili');
-  if(!checks.length) p('Nessun check registrato nel periodo.');
-  checks.forEach(c=>{
-    const anom=(c.items||[]).filter(x=>x.val==='anomalia');
-    const testa=conKm(c.data,c.km)+(c.operatore?' · '+c.operatore:'');
-    if(!anom.length){ li(testa+' — nessuna anomalia'+(c.note?'. Note: '+c.note:'')); return; }
-    const esiti=anom.map(x=>{
-      const cand=allInts.filter(i=>i.checkId===c.id && (i.descrizione||'').startsWith(x.voce));
-      const i=cand.find(z=>z.stato!=='annullato')||cand[0];
-      let e;
-      if(!i) e='non ancora gestita';
-      else if(i.fornitoreId) e='affidata a '+supNome(i.fornitoreId)+' ('+intStato(i)+')';
-      else e=i.stato==='chiuso'?'risolta internamente il '+fmtDate(i.dataChiusura):'riparazione interna '+intStato(i);
-      return x.voce+(x.note?' ("'+x.note+'")':'')+': '+e;
-    });
-    li(testa+' — '+plur(anom.length,'anomalia','anomalie')+': '+esiti.join('; ')+(c.note?'. Note: '+c.note:''));
-  });
-  // Anomalie ricorrenti e mesi senza check
+  // Anomalie ricorrenti, mesi senza check
   const conta={};
   checks.forEach(c=>(c.items||[]).forEach(x=>{ if(x.val==='anomalia') conta[x.voce]=(conta[x.voce]||0)+1; }));
   const ricorrenti=Object.keys(conta).filter(k=>conta[k]>1);
-  if(ricorrenti.length) p('Anomalie ricorrenti: '+ricorrenti.map(k=>k+' ('+conta[k]+' volte)').join(', ')+'.');
   const mesiSenza=[];
   let m=new Date(da.slice(0,7)+'-01T12:00:00');
   while(true){
@@ -6287,166 +6337,254 @@ function _relBuild(v, da, a){
     if(ini>=da && fine<=a && !checks.some(c=>c.data>=ini&&c.data<=fine)) mesiSenza.push(_REL_MESI[m.getMonth()]+' '+m.getFullYear());
     m=new Date(m.getFullYear(), m.getMonth()+1, 1, 12);
   }
-  if(checks.length && mesiSenza.length) p('Mesi senza check: '+mesiSenza.join(', ')+'.');
-
-  h3('2.2 Segnalazioni degli operatori');
-  if(!segn.length) p('Nessuna segnalazione nel periodo.');
-  segn.forEach(s=>{
-    const gi=allInts.filter(i=>i.segnalazioneId===s.id && i.stato!=='annullato');
-    const esito=!gi.length?'ancora aperta'
-      :gi.map(i=>i.fornitoreId?'affidata a '+supNome(i.fornitoreId)+' ('+intStato(i)+')':(i.stato==='chiuso'?'risolta internamente il '+fmtDate(i.dataChiusura):'riparazione interna '+intStato(i))).join('; ');
-    li(conKm(s.data,s.km)+(s.operatore?' · '+s.operatore:'')+' — '+s.problema+(s.note?' ("'+s.note+'")':'')+' — '+esito);
-  });
-
-  h3('2.3 Riparazioni interne');
-  if(!interne.length) p('Nessuna riparazione interna nel periodo.');
-  interne.forEach(i=>li(intTxt(i)));
-
-  // ── 3. Fornitori ──
-  const perFornitore={};
-  const add=(id,k,x)=>{ (perFornitore[id]=perFornitore[id]||{int:[],rev:[],gomme:[],deposito:[]})[k].push(x); };
-  ints.filter(i=>i.fornitoreId).forEach(i=>add(i.fornitoreId, i.origine==='revisione'?'rev':'int', i));
-  tireInts.filter(t=>t.fornitoreId).forEach(t=>add(t.fornitoreId,'gomme',t));
-  tires.filter(t=>t.stato==='deposito'&&t.depositoFornitoreId).forEach(t=>add(t.depositoFornitoreId,'deposito',t));
-  const ordine=Object.keys(perFornitore).sort((x,y)=>{
-    const n=id=>perFornitore[id].int.length+perFornitore[id].rev.length+perFornitore[id].gomme.length;
-    return n(y)-n(x) || supNome(x).localeCompare(supNome(y));
-  });
-  let cap=3;
-  h2(cap+'. Fornitori');
-  if(!ordine.length) p('Nel periodo nessun lavoro risulta affidato a fornitori esterni.');
-  else p('Nel periodo hanno lavorato sul mezzo '+plur(ordine.length,'fornitore','fornitori')+': '+ordine.map(supNome).join(', ')+'.');
-  ordine.forEach((id,n)=>{
-    const f=perFornitore[id];
-    const sup=suppliers.find(x=>x.id===id);
-    h3(cap+'.'+(n+1)+' '+supNome(id)+(sup&&sup.tipo?' ('+sup.tipo+')':''));
-    const chiusi=f.int.filter(i=>i.stato==='chiuso').length;
-    const parti=[];
-    if(f.int.length) parti.push(plur(f.int.length,'intervento','interventi')+' ('+chiusi+' '+(chiusi===1?'chiuso':'chiusi')+')');
-    if(f.rev.length) parti.push(plur(f.rev.length,'revisione','revisioni'));
-    if(f.gomme.length) parti.push(plur(f.gomme.length,'cambio gomme','cambi gomme'));
-    if(parti.length) p('Nel periodo: '+parti.join(', ')+'.');
-    [...f.int.map(i=>({d:i.dataApertura,x:intTxt(i)})), ...f.rev.map(i=>({d:i.dataApertura,x:revTxt(i)})),
-     ...f.gomme.map(t=>({d:t.dataEffettiva||t.dataProgrammata,x:cambioTxt(t)}))]
-      .sort((x,y)=>String(x.d).localeCompare(String(y.d))).forEach(e=>li(e.x));
-    if(f.deposito.length) p('Custodisce attualmente in deposito: '+f.deposito.map(setTxt).join('; ')+'.');
-  });
-
-  // ── Fornitore non indicato (revisioni e cambi gomme) ──
-  const revSenza=ints.filter(i=>!i.fornitoreId && i.origine==='revisione');
-  const gommeSenza=tireInts.filter(t=>!t.fornitoreId);
-  if(revSenza.length||gommeSenza.length){
-    cap++;
-    h2(cap+'. Lavori senza fornitore indicato');
-    p('Revisioni e cambi gomme registrati senza indicare chi li ha eseguiti.');
-    [...revSenza.map(i=>({d:i.dataApertura,x:revTxt(i)})), ...gommeSenza.map(t=>({d:t.dataEffettiva||t.dataProgrammata,x:cambioTxt(t)}))]
-      .sort((x,y)=>String(x.d).localeCompare(String(y.d))).forEach(e=>li(e.x));
-  }
-
-  // ── Situazione attuale ──
-  cap++;
-  h2(cap+'. Situazione al '+fmtDate(oggi));
-  const montate=tires.filter(t=>t.stato==='montata'), deposito=tires.filter(t=>t.stato==='deposito');
-  h3('Gomme');
-  if(!montate.length&&!deposito.length) p('Nessuna gomma registrata.');
-  montate.forEach(t=>{ const k=tireKmPercorsi(t,v.km); li('Montate: '+setTxt(t)+', dal '+fmtDate(t.dataMontaggio)+(k!=null?', '+fmtKM(k)+' percorsi':'')); });
-  deposito.forEach(t=>{ const k=tireKmPercorsi(t,v.km); li('In deposito'+(depositoLabel(t)?' presso '+depositoLabel(t):'')+': '+setTxt(t)+(k!=null?', '+fmtKM(k)+' percorsi':'')); });
-  const aperti=allInts.filter(i=>i.stato==='in_lavorazione'||i.stato==='anomalia');
-  h3('Interventi aperti');
-  if(!aperti.length) p('Nessun intervento aperto.');
-  aperti.forEach(i=>li(intTxt(i)+(i.fornitoreId?' — presso '+supNome(i.fornitoreId):' — interno')));
+  // Cose aperte (a oggi, non solo nel periodo)
+  const intAperti=allInts.filter(aperto);
   const segnAperte=allSegn.filter(s=>!allInts.some(i=>i.segnalazioneId===s.id&&i.stato!=='annullato'));
   const anomAperte=[];
-  allChecks.forEach(c=>(c.items||[]).forEach(x=>{
-    if(x.val==='anomalia' && !allInts.some(i=>i.checkId===c.id&&(i.descrizione||'').startsWith(x.voce)&&i.stato!=='annullato')) anomAperte.push(fmtDate(c.data)+' — '+x.voce+(x.note?' ("'+x.note+'")':''));
-  }));
-  if(segnAperte.length||anomAperte.length){
-    h3('Da gestire');
-    segnAperte.forEach(s=>li('Segnalazione del '+fmtDate(s.data)+': '+s.problema));
-    anomAperte.forEach(x=>li('Anomalia del check '+x));
+  allChecks.forEach(c=>(c.items||[]).forEach(x=>{ if(x.val==='anomalia' && !intDiAnomalia(c,x.voce)) anomAperte.push({c, voce:x.voce}); }));
+
+  // ── Testata e numeri chiave ──
+  const t7=String(v.targa||'').toUpperCase().replace(/\s/g,'');
+  const targa=/^[A-Z]{2}\d{3}[A-Z]{2}$/.test(t7)?t7.slice(0,2)+' '+t7.slice(2,5)+' '+t7.slice(5):t7;
+  let h='<div class="rz-doc">'
+    +'<div class="rz-head"><div class="rz-targa"><div class="eu"><span>★★★</span>I</div><div class="num">'+E(targa)+'</div></div>'
+    +'<div class="rz-titolo"><h1>Relazione attività del mezzo</h1><div class="sotto">'+E([v.nome, v.modello, v.anno].filter(Boolean).join(' · '))+' · dal '+fmtDate(da)+' al '+fmtDate(a)+'</div></div>'
+    +'<div class="meta">Creata il '+fmtDate(oggi)+(settings.operator?'<br>da '+E(settings.operator):'')+'<br>VehicleCare Pro</div></div>';
+  const tipiForn=[...new Set(fornitoriIds.map(id=>(sup(id)?.tipo||'').toLowerCase()).filter(Boolean))].join(', ');
+  h+='<div class="rz-kpi">'
+    +'<div><b>'+(kmPerc!=null?num(kmPerc):'—')+'</b><span>km percorsi</span><small>'+(kmPerc!=null?'≈ '+num(Math.round(kmPerc/mesi))+' km/mese':'km non registrati')+'</small></div>'
+    +'<div'+(nAnomCheck?'':' class="ok"')+'><b>'+checks.length+'</b><span>check mensili</span><small>'+(checks.length?nAnomCheck+' con anomalie':'nessun check')+'</small></div>'
+    +'<div><b>'+intNoRev.length+'</b><span>interventi</span><small>'+intNoRev.filter(i=>i.stato==='chiuso').length+' chiusi · '+intNoRev.filter(aperto).length+' aperti</small></div>'
+    +'<div><b>'+fornitoriIds.length+'</b><span>fornitori</span><small>'+(E(tipiForn)||'nessuno')+'</small></div>'
+    +'<div class="'+(ggRev==null?'':ggRev<0?'ko':ggRev<=30?'warn':'ok')+'"><b>'+(ggRev==null?'—':Math.abs(ggRev))+'</b><span>'+(ggRev!=null&&ggRev<0?'giorni di revisione scaduta':'giorni alla revisione')+'</span><small>'+(v.scadenzaRevisione?'scade il '+fmtDate(v.scadenzaRevisione):'scadenza non indicata')+'</small></div>'
+    +'</div><div class="rz-body">';
+
+  // ── 1. Sintesi ──
+  const p1=[], p2=[], p3=[];
+  p1.push(kmPerc!=null
+    ? 'Nel periodo esaminato il mezzo ha percorso circa <b>'+num(kmPerc)+' km</b>, pari a circa '+num(Math.round(kmPerc/mesi))+' km al mese.'
+    : 'Nel periodo esaminato non sono stati registrati km sufficienti a stimare l\'utilizzo del mezzo.');
+  if(checks.length){
+    p1.push('Sono stati eseguiti <b>'+plur(checks.length,'controllo mensile','controlli mensili')+'</b>'
+      +(mesiSenza.length?', con '+(mesiSenza.length===1?'il mese di '+E(mesiSenza[0])+' senza controllo':plur(mesiSenza.length,'mese','mesi')+' senza controllo ('+E(mesiSenza.join(', '))+')'):', con cadenza regolare')
+      +(nAnomCheck?'; in '+plur(nAnomCheck,'caso','casi')+' hanno rilevato anomalie.':' e nessuna anomalia rilevata.'));
+  } else p1.push('Nel periodo <b>non risultano controlli mensili</b>.');
+  ricorrenti.forEach(k=>p2.push('La voce <b>'+E(k)+'</b> è risultata anomala '+conta[k]+' volte nel periodo.'));
+  const interniChiusi=ints.filter(i=>!i.fornitoreId&&i.origine!=='revisione'&&i.stato==='chiuso').length;
+  const esterni=ints.filter(i=>i.fornitoreId&&i.origine!=='revisione');
+  if(esterni.length||interniChiusi) p2.push('Sono stati eseguiti '+(esterni.length?plur(esterni.length,'intervento','interventi')+' presso fornitori esterni':'')+(esterni.length&&interniChiusi?' e ':'')+(interniChiusi?plur(interniChiusi,'riparazione interna','riparazioni interne'):'')+'.');
+  const ultCambio=tireInts.filter(t=>t.stato==='completato').slice(-1)[0];
+  if(ultCambio){
+    const mont=tires.filter(x=>x.dataMontaggio===ultCambio.dataEffettiva);
+    p2.push('L\'ultimo <b>cambio gomme</b> è stato eseguito il '+fmtDate(ultCambio.dataEffettiva)+(ultCambio.fornitoreId?' da '+E(supNome(ultCambio.fornitoreId)):'')
+      +(mont.length?', montando le '+E(stagNome(mont[0].stagione).toLowerCase()):'')
+      +(depositoLabel(ultCambio)?', con le gomme smontate in deposito presso '+E(depositoLabel(ultCambio)):'')+'.');
   }
-  h3('Revisione');
-  if(!v.scadenzaRevisione) p('Scadenza della revisione non indicata.');
-  else {
-    const gg=_relGiorni(oggi, v.scadenzaRevisione);
-    p('Prossima scadenza: '+fmtDate(v.scadenzaRevisione)+(gg<0?' — SCADUTA da '+plur(-gg,'giorno','giorni'):' (tra '+plur(gg,'giorno','giorni')+')')+'.');
+  const rev=ints.filter(i=>i.origine==='revisione'&&i.stato==='chiuso').slice(-1)[0];
+  if(rev) p2.push('La <b>revisione</b> è stata eseguita il '+fmtDate(rev.dataApertura)+(rev.fornitoreId?' presso '+E(supNome(rev.fornitoreId)):'')+'.');
+  const ap=[];
+  intAperti.forEach(i=>ap.push('l\'intervento <b>'+E(i.descrizione||'')+'</b>'+(i.fornitoreId?' presso '+E(supNome(i.fornitoreId)):'')+(i.dataApertura>oggi?' (programmato per il '+fmtDate(i.dataApertura)+')':' (aperto da '+plur(giorniAperto(i),'giorno','giorni')+')')));
+  if(segnAperte.length) ap.push(plur(segnAperte.length,'segnalazione','segnalazioni')+' ('+segnAperte.map(s=>E(s.problema)).join(', ')+')');
+  if(anomAperte.length) ap.push(plur(anomAperte.length,'anomalia di check','anomalie di check')+' ('+anomAperte.map(x=>E(x.voce)).join(', ')+')');
+  p3.push(ap.length?'Al momento restano da gestire '+ap.join('; ')+'.':'Al momento non risultano attività aperte.');
+  if(ggRev!=null) p3.push(ggRev<0?'La <b>revisione è scaduta</b> da '+plur(-ggRev,'giorno','giorni')+'.':'La revisione scade il '+fmtDate(v.scadenzaRevisione)+', tra '+plur(ggRev,'giorno','giorni')+'.');
+  h+='<h2><span class="n">1</span> Sintesi</h2><div class="rz-sintesi">'+[p1,p2,p3].filter(x=>x.length).map(x=>'<p>'+x.join(' ')+'</p>').join('')+'</div>';
+
+  // ── 2. Dati del mezzo ──
+  const dot=[v.sollevatore&&'Sollevatore', v.pedana&&'Pedana', v.spazzolePost&&'Spazzole posteriori', v.lavavetriPost&&'Lavavetri posteriori'].filter(Boolean);
+  const dati=[['Targa',v.targa],['Stato',v.venduto?'Venduto / dismesso':'In servizio'],['Nome',v.nome],['Modello',v.modello],['Anno',v.anno],
+    ['Km attuali',v.km!=null&&v.km!==''?num(v.km)+' km':''],['In carico dal',fmtDate(_relPresaInCarico(v))],['Scadenza revisione',v.scadenzaRevisione?fmtDate(v.scadenzaRevisione):'Non indicata'],
+    ['Dotazioni',dot.join(', ')||'Nessuna']].filter(x=>x[1]!=null&&x[1]!=='');
+  h+='<h2><span class="n">2</span> Dati del mezzo</h2><div class="rz-scheda">'+dati.map(([k,x])=>'<div><span>'+E(k)+'</span><b>'+E(String(x))+'</b></div>').join('')+'</div>'
+    +(v.note?'<p class="rz-note">Note: '+E(v.note)+'</p>':'');
+
+  // ── 3. Attività interna ──
+  h+='<h2><span class="n">3</span> Attività interna</h2><p>Comprende i controlli mensili eseguiti dagli operatori, le segnalazioni ricevute e i lavori risolti senza ricorrere a fornitori esterni.</p>';
+  h+='<h3>Check mensili</h3>';
+  if(!checks.length) h+='<p class="rz-vuoto">Nessun check registrato nel periodo.</p>';
+  else h+='<table><tr><th style="width:84px">Data</th><th style="width:72px">Km</th><th style="width:90px">Operatore</th><th style="width:96px">Esito</th><th>Anomalie e gestione</th></tr>'
+    +checks.map(c=>{
+      const an=(c.items||[]).filter(x=>x.val==='anomalia');
+      const det=an.length?an.map(x=>{ const e=esitoInt(intDiAnomalia(c,x.voce)); return '<b>'+E(x.voce)+'</b>'+(x.note?' — "'+E(x.note)+'"':'')+'<span class="sub '+e.cls+'">'+E(e.txt)+'</span>'; }).join(''):(c.note?E(c.note):'—');
+      return '<tr><td>'+fmtDate(c.data)+'</td><td class="km">'+kmTxt(c.km)+'</td><td>'+E(c.operatore||'—')+'</td><td>'+(an.length?badge('ko',plur(an.length,'anomalia','anomalie')):badge('ok','Regolare'))+'</td><td>'+det+'</td></tr>';
+    }).join('')+'</table>';
+  const daNotare=[];
+  if(ricorrenti.length) daNotare.push('anomalia ricorrente su '+ricorrenti.map(k=>'<b>'+E(k)+'</b> ('+conta[k]+' volte)').join(', '));
+  if(mesiSenza.length) daNotare.push('nessun check registrato a <b>'+E(mesiSenza.join(', '))+'</b>');
+  if(daNotare.length) h+='<div class="rz-nota">⚠️ <b>Da notare:</b> '+daNotare.map(x=>x.charAt(0).toUpperCase()+x.slice(1)).join('. ')+'.</div>';
+
+  h+='<h3>Segnalazioni degli operatori</h3>';
+  if(!segn.length) h+='<p class="rz-vuoto">Nessuna segnalazione nel periodo.</p>';
+  else h+='<table><tr><th style="width:84px">Data</th><th style="width:90px">Operatore</th><th>Problema</th><th style="width:150px">Esito</th></tr>'
+    +segn.map(s=>{
+      const gi=allInts.find(i=>i.segnalazioneId===s.id&&i.stato!=='annullato');
+      const e=esitoInt(gi);
+      return '<tr><td>'+fmtDate(s.data)+'</td><td>'+E(s.operatore||'—')+'</td><td>'+E(s.problema)+sub(s.note)+'</td><td>'+(gi?badge(e.cls,gi.stato==='chiuso'?'Risolta':'In corso')+sub(e.txt):badge('ko','Aperta'))+'</td></tr>';
+    }).join('')+'</table>';
+
+  const interne=ints.filter(i=>!i.fornitoreId && i.origine!=='revisione');
+  h+='<h3>Riparazioni interne</h3>';
+  if(!interne.length) h+='<p class="rz-vuoto">Nessuna riparazione interna nel periodo.</p>';
+  else h+=tabLavori(interne.map(rigaInt));
+
+  // ── 4. Fornitori ──
+  const perF={};
+  const addF=(id,k,x)=>{ (perF[id]=perF[id]||{int:[],rev:[],gomme:[],dep:[]})[k].push(x); };
+  ints.filter(i=>i.fornitoreId).forEach(i=>addF(i.fornitoreId, i.origine==='revisione'?'rev':'int', i));
+  tireInts.filter(t=>t.fornitoreId).forEach(t=>addF(t.fornitoreId,'gomme',t));
+  tires.filter(t=>t.stato==='deposito'&&t.depositoFornitoreId).forEach(t=>addF(t.depositoFornitoreId,'dep',t));
+  const nLav = id => perF[id].int.length+perF[id].rev.length+perF[id].gomme.length;
+  const ordF=Object.keys(perF).sort((x,y)=>nLav(y)-nLav(x) || supNome(x).localeCompare(supNome(y)));
+  h+='<h2><span class="n">4</span> Fornitori</h2>';
+  h+=ordF.length?'<p>Nel periodo '+(ordF.length===1?'ha lavorato sul mezzo un fornitore esterno':'hanno lavorato sul mezzo '+ordF.length+' fornitori esterni')+'. Per ciascuno sono riportati i lavori eseguiti e quelli ancora in corso.</p>'
+               :'<p class="rz-vuoto">Nel periodo nessun lavoro risulta affidato a fornitori esterni.</p>';
+  const icona = (s, f) => { const t=(s&&s.tipo)||''; if(f.rev.length&&!f.int.length&&!f.gomme.length) return '🛂'; return t==='Meccanico'?'🔧':t==='Gommista'?'🛞':t==='Carrozziere'?'🚗':t==='Elettrauto'?'⚡':'🏠'; };
+  ordF.forEach(id=>{
+    const f=perF[id], s=sup(id);
+    const chiusi=f.int.filter(i=>i.stato==='chiuso');
+    const gg=chiusi.filter(i=>i.dataChiusura&&i.dataApertura).map(i=>Math.max(0,_relGiorni(i.dataApertura,i.dataChiusura)));
+    const nums=[];
+    if(f.int.length){ nums.push([f.int.length,'interventi'],[chiusi.length,'chiusi'],[f.int.filter(aperto).length,'aperti']); if(gg.length) nums.push([Math.round(gg.reduce((x,y)=>x+y,0)/gg.length)+' g','chiusura media']); }
+    if(f.rev.length) nums.push([f.rev.length,'revisioni']);
+    if(f.gomme.length||f.dep.length) nums.push([f.gomme.length,'cambi gomme'],[f.dep.length,'set in deposito']);
+    h+='<div class="rz-forn"><div class="top"><div class="ico">'+icona(s,f)+'</div><div><div class="nome">'+E(supNome(id))+'</div><div class="tipo">'+E((s&&s.tipo)||'')+'</div></div>'
+      +'<div class="nums">'+nums.map(([n,l])=>'<div><b>'+n+'</b><span>'+l+'</span></div>').join('')+'</div></div><div class="corpo">'
+      +(nLav(id)?tabLavori([...f.int.map(rigaInt), ...f.rev.map(rigaInt), ...f.gomme.map(rigaCambio)]):'')
+      +(f.dep.length?'<p class="rz-dep">📦 Custodisce in deposito: '+f.dep.map(t=>E(stagNome(t.stagione).toLowerCase()+' '+setNome(t))).join(', ')+'.</p>':'')
+      +'</div></div>';
+  });
+  // Lavori senza fornitore indicato
+  const revSenza=ints.filter(i=>!i.fornitoreId&&i.origine==='revisione'), gommeSenza=tireInts.filter(t=>!t.fornitoreId);
+  if(revSenza.length||gommeSenza.length)
+    h+='<div class="rz-forn"><div class="top"><div class="ico">❔</div><div><div class="nome">Fornitore non indicato</div><div class="tipo">Revisioni e cambi gomme registrati senza indicare chi li ha eseguiti</div></div></div><div class="corpo">'
+      +tabLavori([...revSenza.map(rigaInt), ...gommeSenza.map(rigaCambio)])+'</div></div>';
+
+  // ── 5. Gomme ──
+  const montate=tires.filter(t=>t.stato==='montata'), dep=tires.filter(t=>t.stato==='deposito');
+  const smaltite=tires.filter(t=>t.stato==='buttata'&&inP(t.dataSmontaggio));
+  const sets=[...montate.map(t=>({t,st:badge('ok','Montate'),info:stagNome(t.stagione)+' · montate il '+fmtDate(t.dataMontaggio)+(t.kmMontaggio!=null?' a '+num(t.kmMontaggio)+' km':'')})),
+    ...dep.map(t=>({t,st:badge('info','In deposito'),info:stagNome(t.stagione)+(depositoLabel(t)?' · 📍 '+depositoLabel(t):'')+(t.dataSmontaggio?' · smontate il '+fmtDate(t.dataSmontaggio):'')})),
+    ...smaltite.map(t=>({t,st:badge('grey','Smaltite'),info:stagNome(t.stagione)+' · smaltite il '+fmtDate(t.dataSmontaggio)}))];
+  const vite=sets.map(x=>tireKmPercorsi(x.t, v.km)||0);
+  const maxVita=Math.max(1,...vite);
+  const col = s => s==='estate'?'#fbbf24':s==='4stagioni'?'#34d399':'#38bdf8';
+  h+='<h2><span class="n">5</span> Gomme</h2>';
+  h+=sets.length?'<p>Situazione dei set registrati sul mezzo. La vita di ogni set è calcolata dai km del veicolo ai cambi gomme.</p>'
+    +sets.map((x,i)=>'<div class="rz-set"><div class="ic">'+tireIcon(x.t.stagione)+'</div><div class="mid"><div class="t">'+E(setNome(x.t))+' '+x.st+'</div><div class="s">'+E(x.info)+'</div>'
+      +'<div class="bar"><i style="width:'+Math.round(vite[i]/maxVita*100)+'%;background:'+col(x.t.stagione)+'"></i></div></div>'
+      +'<div class="km">'+(vite[i]?num(vite[i])+' km':'—')+'<small>vita del set</small></div></div>').join('')
+    :'<p class="rz-vuoto">Nessuna gomma registrata.</p>';
+
+  // ── 6. Situazione attuale ──
+  const rosso=[], arancio=[], verde=[];
+  segnAperte.forEach(s=>rosso.push('Segnalazione '+dm(s.data)+': '+s.problema));
+  anomAperte.forEach(x=>rosso.push('Anomalia '+x.voce+' del check '+dm(x.c.data)));
+  if(ggRev!=null&&ggRev<0) rosso.push('Revisione scaduta il '+fmtDate(v.scadenzaRevisione));
+  intAperti.forEach(i=>arancio.push(i.descrizione+(i.fornitoreId?' presso '+supNome(i.fornitoreId):' (interno)')+(i.dataApertura>oggi?', programmato il '+dm(i.dataApertura):', da '+plur(giorniAperto(i),'giorno','giorni'))));
+  allTireInts.filter(t=>t.stato==='programmato').forEach(t=>arancio.push('Cambio gomme programmato il '+dm(t.dataProgrammata)));
+  if(ggRev!=null&&ggRev>=0&&ggRev<=30) arancio.push('Revisione in scadenza il '+fmtDate(v.scadenzaRevisione));
+  if(ggRev!=null&&ggRev>30) verde.push('Revisione valida fino al '+fmtDate(v.scadenzaRevisione));
+  if(montate.length){
+    const mmdd=oggi.slice(5), inv=settings.tireInverno||'11-15', est=settings.tireEstate||'05-15';
+    const stag=(mmdd>=inv||mmdd<est)?'inverno':'estate';
+    const prossima=stag==='inverno'?'estate':'inverno';
+    const y=parseInt(oggi.slice(0,4));
+    let dataProssima=y+'-'+(prossima==='inverno'?inv:est);
+    if(dataProssima<oggi) dataProssima=(y+1)+'-'+(prossima==='inverno'?inv:est);
+    const preavviso=_relGiorni(oggi, dataProssima) <= (parseInt(settings.tireWarnDays)||30);
+    if(montate.every(t=>t.stagione===stag||t.stagione==='4stagioni'||(preavviso&&t.stagione===prossima))) verde.push('Gomme '+stagNome(montate[0].stagione).toLowerCase()+' montate, adatte alla stagione');
+    else if(!allTireInts.some(t=>t.stato==='programmato')) arancio.push('Gomme '+stagNome(montate[0].stagione).toLowerCase()+' montate: cambio stagionale da programmare');
   }
-  return B;
+  const chMese=allChecks.some(c=>(c.data||'').slice(0,7)===oggi.slice(0,7));
+  if(chMese) verde.push('Check di '+_REL_MESI[parseInt(oggi.slice(5,7))-1]+' eseguito');
+  if(!intAperti.length) verde.push('Nessun intervento aperto');
+  const box=(cls,tit,l)=>'<div class="'+cls+'"><b>'+tit+'</b>'+(l.length?'<ul>'+l.map(x=>'<li>'+E(x)+'</li>').join('')+'</ul>':'<div class="vuoto">Nulla da segnalare</div>')+'</div>';
+  h+='<h2><span class="n">6</span> Situazione al '+fmtDate(oggi)+'</h2><div class="rz-stato">'+box('r','Da gestire',rosso)+box('a','In corso',arancio)+box('g','Regolare',verde)+'</div>';
+
+  h+='</div><div class="rz-piede"><span>Relazione '+E(v.targa)+' · '+fmtDate(da)+' – '+fmtDate(a)+'</span><span>VehicleCare Pro</span></div></div>';
+  return h;
 }
 
-// ── Anteprima a schermo ──
-function _relHtml(B){
-  let html='', inList=false;
-  B.forEach(b=>{
-    if(b.t!=='li' && inList){ html+='</ul>'; inList=false; }
-    if(b.t==='li' && !inList){ html+='<ul>'; inList=true; }
-    if(b.t==='h1') html+='<h1>'+escHtml(b.x)+'</h1>';
-    else if(b.t==='h2') html+='<h2>'+escHtml(b.x)+'</h2>';
-    else if(b.t==='h3') html+='<h3>'+escHtml(b.x)+'</h3>';
-    else if(b.t==='p') html+='<p>'+escHtml(b.x)+'</p>';
-    else if(b.t==='li') html+='<li>'+escHtml(b.x)+'</li>';
-    else if(b.t==='kv') html+='<div class="rel-kv"><span>'+escHtml(b.k)+'</span><strong>'+escHtml(b.x)+'</strong></div>';
-  });
-  if(inList) html+='</ul>';
-  return html;
+// ── PDF identico all'anteprima: la relazione viene "fotografata" a pagine A4 ──
+function _relLoadScript(src){
+  return new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=()=>rej(new Error('Impossibile caricare '+src)); document.head.appendChild(s); });
 }
-
-// ── PDF (testo, A4) ──
-function _relPdfTxt(s){
-  // I caratteri standard del PDF non hanno emoji e simboli speciali
-  return String(s==null?'':s).replace(/[^\x00-\xFF€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ]/g,'');
-}
-function _relPdfBlob(B, titolo){
-  const { jsPDF } = window.jspdf;
-  const pdf=new jsPDF({orientation:'portrait', unit:'mm', format:'a4'});
-  const M=18, W=210-2*M, BOTTOM=297-18;
-  let y=M;
-  const lh=pt=>pt*0.3528*1.35;
-  const need=h=>{ if(y+h>BOTTOM){ pdf.addPage(); y=M; } };
-  const testo=(s, pt, style, x, w)=>{
-    pdf.setFont('helvetica', style); pdf.setFontSize(pt);
-    const righe=pdf.splitTextToSize(_relPdfTxt(s), w);
-    righe.forEach(r=>{ need(lh(pt)); pdf.text(r, x, y+lh(pt)*0.75); y+=lh(pt); });
-  };
-  B.forEach(b=>{
-    if(b.t==='h1'){ testo(b.x, 16, 'bold', M, W); y+=2; }
-    else if(b.t==='h2'){ y+=4; need(lh(13)+4); testo(b.x, 13, 'bold', M, W); pdf.setDrawColor(150); pdf.line(M, y+0.5, M+W, y+0.5); y+=3; }
-    else if(b.t==='h3'){ y+=2; need(lh(11)+2); testo(b.x, 11, 'bold', M, W); y+=1; }
-    else if(b.t==='p'){ testo(b.x, 10, 'normal', M, W); y+=1.5; }
-    else if(b.t==='li'){
-      pdf.setFont('helvetica','normal'); pdf.setFontSize(10);
-      const righe=pdf.splitTextToSize(_relPdfTxt(b.x), W-5);
-      righe.forEach((r,i)=>{ need(lh(10)); if(i===0) pdf.text('•', M+1, y+lh(10)*0.75); pdf.text(r, M+5, y+lh(10)*0.75); y+=lh(10); });
-      y+=1;
+async function _relPdfBlob(html, piede){
+  if(!window.html2canvas) await _relLoadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+  const W=794;                                  // larghezza A4 a 96 dpi
+  const wrap=document.createElement('div');
+  wrap.className='rz';
+  wrap.style.cssText='position:fixed;left:-10000px;top:0;width:'+W+'px;background:#fff;';
+  wrap.innerHTML=html;
+  wrap.querySelector('.rz-piede')?.remove();    // nel PDF il piè di pagina è su ogni pagina
+  document.body.appendChild(wrap);
+  try{
+    await new Promise(r=>setTimeout(r,50));
+    const base=wrap.getBoundingClientRect().top;
+    // Punti in cui non si può tagliare la pagina (righe, riquadri, paragrafi…)
+    const box = el => { const r=el.getBoundingClientRect(); return [r.top-base, r.bottom-base]; };
+    const blocchi=[...wrap.querySelectorAll('tr, h2, h3, p, .rz-nota, .rz-set, .rz-forn .top, .rz-scheda > div, .rz-kpi, .rz-head, .rz-stato')].map(box);
+    // Titoli, intestazioni di tabella e testata del fornitore restano attaccati alla prima riga che segue
+    wrap.querySelectorAll('table').forEach(t=>{ const r=t.rows; if(r.length>1) blocchi.push([box(r[0])[0], box(r[1])[1]]); });
+    wrap.querySelectorAll('.rz-forn').forEach(f=>{ const r=f.querySelectorAll('tr'); const fine=r.length>1?box(r[1])[1]:box(f)[1]; blocchi.push([box(f)[0], fine]); });
+    wrap.querySelectorAll('h2, h3').forEach(hh=>{ const n=hh.nextElementSibling; if(n){ const nb=n.matches('table')&&n.rows.length>1?box(n.rows[1]):box(n); blocchi.push([box(hh)[0], Math.min(nb[1], box(hh)[0]+400)]); } });
+    const SCALE=2;
+    const canvas=await html2canvas(wrap,{scale:SCALE, backgroundColor:'#ffffff', useCORS:true, logging:false, windowWidth:W});
+    const totale=wrap.scrollHeight;
+    const { jsPDF } = window.jspdf;
+    const pdf=new jsPDF({orientation:'portrait', unit:'mm', format:'a4'});
+    const mmPx=210/W;                            // mm per pixel
+    const TOP=8, BOT=14;                         // margini in mm (in basso il piè di pagina)
+    const altPagina=Math.floor((297-TOP-BOT)/mmPx);
+    const tagli=[0];
+    while(tagli[tagli.length-1] < totale-1){
+      const ini=tagli[tagli.length-1];
+      let fine=Math.min(ini+altPagina, totale);
+      if(fine<totale){
+        // arretra il taglio finché non attraversa nessun blocco
+        let y=fine, giri=0;
+        while(giri++<200){
+          const b=blocchi.find(([t,bt])=>t<y-1 && bt>y+1 && (bt-t)<altPagina);
+          if(!b) break;
+          y=b[0];
+        }
+        if(y>ini+altPagina*0.3) fine=y;
+      }
+      tagli.push(fine);
     }
-    else if(b.t==='kv'){
-      pdf.setFont('helvetica','normal'); pdf.setFontSize(10);
-      const righe=pdf.splitTextToSize(_relPdfTxt(b.x), W-50);
-      need(lh(10)*righe.length);
-      pdf.setTextColor(100); pdf.text(_relPdfTxt(b.k), M, y+lh(10)*0.75); pdf.setTextColor(0);
-      pdf.setFont('helvetica','bold');
-      righe.forEach(r=>{ pdf.text(r, M+50, y+lh(10)*0.75); y+=lh(10); });
-      y+=0.8;
+    const pagine=tagli.length-1;
+    for(let i=0;i<pagine;i++){
+      const y0=tagli[i], h=tagli[i+1]-tagli[i];
+      const c=document.createElement('canvas');
+      c.width=W*SCALE; c.height=Math.ceil(h*SCALE);
+      const ctx=c.getContext('2d');
+      ctx.fillStyle='#fff'; ctx.fillRect(0,0,c.width,c.height);
+      ctx.drawImage(canvas, 0, Math.round(y0*SCALE), c.width, c.height, 0, 0, c.width, c.height);
+      if(i>0) pdf.addPage();
+      pdf.addImage(c.toDataURL('image/jpeg',0.9), 'JPEG', 0, i===0?0:TOP, 210, h*mmPx);
+      pdf.setFont('helvetica','normal'); pdf.setFontSize(8); pdf.setTextColor(148,163,184);
+      pdf.setDrawColor(226,232,240); pdf.line(12, 297-10, 198, 297-10);
+      pdf.text(piede.replace(/[^\x00-\xFF–—]/g,''), 12, 297-6);
+      pdf.text('Pagina '+(i+1)+' di '+pagine, 198, 297-6, {align:'right'});
     }
-  });
-  const n=pdf.getNumberOfPages();
-  for(let i=1;i<=n;i++){
-    pdf.setPage(i); pdf.setFont('helvetica','normal'); pdf.setFontSize(8); pdf.setTextColor(120);
-    pdf.text(_relPdfTxt(titolo), M, 297-10);
-    pdf.text('Pagina '+i+' di '+n, 210-M, 297-10, {align:'right'});
-    pdf.setTextColor(0);
+    return pdf.output('blob');
+  } finally {
+    wrap.remove();
   }
-  return pdf.output('blob');
 }
 
 async function relazionePdf(mode){
-  if(!_rel.blocks) return;
+  if(!_rel.html) return;
   const v=DB.vehicles().find(x=>x.id===_rel.vid);
   const per=_relPeriodo(v);
   const nomeFile='Relazione_'+(v?v.targa:'mezzo')+'_'+per.da+'_'+per.a+'.pdf';
+  // La finestra va aperta subito, nel tocco: dopo l'attesa il telefono la bloccherebbe
+  const w = mode==='open' ? window.open('', '_blank') : null;
+  if(w){ try{ w.document.write('<p style="font-family:sans-serif;padding:20px;">Preparazione del PDF…</p>'); }catch(e){} }
+  toast('Preparazione PDF…');
   let blob;
-  try{ blob=_relPdfBlob(_rel.blocks, 'Relazione attività '+(v?v.targa:'')+' — dal '+fmtDate(per.da)+' al '+fmtDate(per.a)); }
-  catch(e){ console.error(e); toast('Errore generazione PDF','error'); return; }
+  try{ blob=await (_rel.pdfP || (_rel.pdfP=_relPdfBlob(_rel.html, _relPiede(v, per)))); }
+  catch(e){ console.error(e); _rel.pdfP=null; if(w) w.close(); toast('Errore generazione PDF'+(e&&e.message?': '+e.message:''),'error'); return; }
   if(mode==='share' && navigator.share){
     const file=new File([blob], nomeFile, {type:'application/pdf'});
     if(!navigator.canShare || navigator.canShare({files:[file]})){
@@ -6455,8 +6593,8 @@ async function relazionePdf(mode){
     }
   }
   const url=URL.createObjectURL(blob);
-  const w=window.open(url,'_blank');
-  if(!w){ const a=document.createElement('a'); a.href=url; a.download=nomeFile; document.body.appendChild(a); a.click(); a.remove(); }
+  if(w) w.location.href=url;
+  else { const el=document.createElement('a'); el.href=url; el.download=nomeFile; document.body.appendChild(el); el.click(); el.remove(); }
   setTimeout(()=>URL.revokeObjectURL(url), 60000);
 }
 
@@ -7625,7 +7763,7 @@ function openSettings(){
       </label>
     </div>
     <button class="btn btn-danger" onclick="confirmResetAll()">🗑️ Azzera tutti i dati</button>
-    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.1.16 — VehicleCare Pro</p>
+    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.1.17 — VehicleCare Pro</p>
     <div style="height:10px;"></div>
   `);
   renderBackupStatus();
