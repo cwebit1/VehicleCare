@@ -291,6 +291,8 @@ body.dark #modal-box-2{background:#2a2a2a;}
 .tire-table{width:100%;margin-top:8px;}
 .tire-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f1f5f9;}
 .tire-row:last-child{border-bottom:none;}
+.tire-row-edit{cursor:pointer;border-radius:8px;}
+.tire-row-edit:active{background:#f1f5f9;}
 .tire-row-icon{font-size:22px;flex-shrink:0;width:28px;text-align:center;}
 .tire-row-body{flex:1;min-width:0;}
 .tire-row-name{font-size:14px;font-weight:600;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -397,6 +399,7 @@ body.dark .tab-bar{background:#1a1a1a;}
 body.dark .tab-item{color:#666666;}
 body.dark .tab-item.active{background:#2a2a2a;color:#e0e0e0;}
 body.dark .tire-row{border-bottom-color:#3a3a3a;}
+body.dark .tire-row-edit:active{background:#333333;}
 body.dark .tire-row-name{color:#e0e0e0;}
 body.dark .tire-row-meta{color:#666666;}
 body.dark .tire-section-label{color:#666666;}
@@ -4481,7 +4484,7 @@ function openImageViewer(url, title){
 // ═══════════════════════════════════════════════════════
 //  GOMME TAB
 // ═══════════════════════════════════════════════════════
-function tireIcon(stagione){ return stagione==='estate'?'☀️':'❄️'; }
+function tireIcon(stagione){ return stagione==='estate'?'☀️':stagione==='4stagioni'?'🌦️':'❄️'; }
 
 // Km di vita del set: km dei periodi precedenti (kmPrecedenti) + periodo attuale/ultimo
 function tireKmPercorsi(t, kmVeicolo){
@@ -4529,13 +4532,13 @@ function renderVehicleTireCard(v, tires, tireInts){
   const montateHtml = montate.length>0 ? `
     <div class="tire-section-label">🟢 Montate</div>
     ${montate.map(t=>`
-      <div class="tire-row">
+      <div class="tire-row tire-row-edit" onclick="openEditTireSet('${t.id}')" title="Modifica set">
         <div class="tire-row-icon">${tireIcon(t.stagione)}</div>
         <div class="tire-row-body">
           <div class="tire-row-name">${escHtml(t.marca)}${t.modello?' '+escHtml(t.modello):''} <span style="font-weight:400;color:#94a3b8;font-size:12px;">${escHtml(t.dimensione||'')} ×${t.quantita||4}</span></div>
           <div class="tire-row-meta">Dal ${fmtDate(t.dataMontaggio)} &nbsp;·&nbsp; ${kmRow(t)}</div>
         </div>
-        <span class="tire-status montate">Montate</span>
+        <span class="tire-status montate">Montate ✏️</span>
       </div>
     `).join('')}
   ` : `<div style="font-size:13px;color:#94a3b8;padding:8px 0;">Nessuna gomma montata</div>`;
@@ -4544,13 +4547,13 @@ function renderVehicleTireCard(v, tires, tireInts){
   const depositoHtml = deposito.length>0 ? `
     <div class="tire-section-label" style="margin-top:10px;">📦 In deposito</div>
     ${deposito.map(t=>`
-      <div class="tire-row">
+      <div class="tire-row tire-row-edit" onclick="openEditTireSet('${t.id}')" title="Modifica set">
         <div class="tire-row-icon">${tireIcon(t.stagione)}</div>
         <div class="tire-row-body">
           <div class="tire-row-name">${escHtml(t.marca)}${t.modello?' '+escHtml(t.modello):''} <span style="font-weight:400;color:#94a3b8;font-size:12px;">${escHtml(t.dimensione||'')} ×${t.quantita||4}</span></div>
           <div class="tire-row-meta">Smontate ${fmtDate(t.dataSmontaggio)} &nbsp;·&nbsp; ${kmRow(t)}</div>
         </div>
-        <span class="tire-status deposito">Deposito</span>
+        <span class="tire-status deposito">Deposito ✏️</span>
       </div>
     `).join('')}
   ` : '';
@@ -4645,7 +4648,7 @@ function renderVehicleTireCard(v, tires, tireInts){
             <span style="font-size:18px;flex-shrink:0;">${tireIcon(t.stagione)}</span>
             <div style="flex:1;min-width:0;">
               <div style="font-size:13px;font-weight:700;color:#1e293b;">${escHtml(t.marca)}${t.modello?' '+escHtml(t.modello):''}</div>
-              <div style="font-size:11px;color:#94a3b8;margin-top:1px;">${escHtml(t.dimensione||'')}${t.quantita?' · ×'+t.quantita:''} — ${t.stagione==='estate'?'Estive':'Invernali'}</div>
+              <div style="font-size:11px;color:#94a3b8;margin-top:1px;">${escHtml(t.dimensione||'')}${t.quantita?' · ×'+t.quantita:''} — ${t.stagione==='estate'?'Estive':t.stagione==='4stagioni'?'4 stagioni':'Invernali'}</div>
             </div>
             <span style="font-size:12px;font-weight:700;color:#f87171;white-space:nowrap;flex-shrink:0;">${kmP!=null?Number(kmP).toLocaleString('it-IT')+' km':'—'}</span>
           </div>
@@ -5161,6 +5164,123 @@ function deleteTire(tireId){
   DB.saveTires(DB.tires().filter(t=>t.id!==tireId));
   toast('Gomme eliminate');
   renderMain();
+}
+
+// ─────────────────────────────────────────────
+//  MODIFICA SET GOMME (tocco sulla riga Montate / In deposito)
+// ─────────────────────────────────────────────
+function openEditTireSet(tireId){
+  const t = DB.tires().find(x=>x.id===tireId);
+  if(!t){ toast('Set gomme non trovato','error'); return; }
+  const v = DB.vehicles().find(x=>x.id===t.vehicleId);
+  const smontato = t.stato!=='montata';
+  const stagOpts = [['estate','☀️ Estive'],['inverno','❄️ Invernali'],['4stagioni','🌦️ 4 stagioni']]
+    .map(([val,lab])=>`<option value="${val}" ${t.stagione===val?'selected':''}>${lab}</option>`).join('');
+  const qty = parseInt(t.quantita)||4;
+  const qtyOpts = [1,2,3,4,5,6,7,8].map(n=>`<option value="${n}" ${qty===n?'selected':''}>${n}</option>`).join('');
+  const val = x => x==null ? '' : escHtml(String(x));
+
+  openModal(`✏️ Modifica gomme — ${v?.targa||''}`, `
+    <div style="background:${smontato?'#dbeafe':'#dcfce7'};border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:13px;color:${smontato?'#1e40af':'#15803d'};">
+      ${smontato?'📦 Set in deposito':'🟢 Set montato'} — per montarle o smontarle usa il cambio gomme.
+    </div>
+    <div class="form-group"><label class="form-label">Stagione</label>
+      <select class="form-select" id="es-stagione">${stagOpts}</select></div>
+    <div class="form-group"><label class="form-label">Marca *</label>
+      <input class="form-input" id="es-marca" value="${val(t.marca)}" autocomplete="off"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Modello</label>
+        <input class="form-input" id="es-modello" value="${val(t.modello)}" autocomplete="off"></div>
+      <div class="form-group"><label class="form-label">Dimensione</label>
+        <input class="form-input" id="es-dim" value="${val(t.dimensione)}" placeholder="215/65R16" autocomplete="off"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Quantità</label>
+      <select class="form-select" id="es-qty">${qtyOpts}</select></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Data montaggio</label>
+        <input class="form-input" id="es-datamon" type="date" value="${val(t.dataMontaggio)}"></div>
+      <div class="form-group"><label class="form-label">KM al montaggio</label>
+        <input class="form-input" id="es-kmmon" type="number" inputmode="numeric" min="0" value="${val(t.kmMontaggio)}"></div>
+    </div>
+    ${smontato?`
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Data smontaggio</label>
+        <input class="form-input" id="es-datasmon" type="date" value="${val(t.dataSmontaggio)}"></div>
+      <div class="form-group"><label class="form-label">KM allo smontaggio</label>
+        <input class="form-input" id="es-kmsmon" type="number" inputmode="numeric" min="0" value="${val(t.kmSmontaggio)}"></div>
+    </div>`:''}
+    <div class="form-group"><label class="form-label">KM percorsi nei montaggi precedenti</label>
+      <input class="form-input" id="es-kmprec" type="number" inputmode="numeric" min="0" value="${val(t.kmPrecedenti)}" placeholder="0">
+      <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Si sommano ai km del periodo ${smontato?'montaggio → smontaggio':'in corso'} per la vita del set.</div></div>
+    <div class="form-group"><label class="form-label">Note</label>
+      <textarea class="form-input" id="es-note" rows="2">${val(t.note)}</textarea></div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="closeModal()">Annulla</button>
+      <button class="btn btn-primary" onclick="saveEditTireSet('${t.id}')">💾 Salva</button>
+    </div>
+    <button class="btn btn-danger" style="width:100%;margin-top:10px;" onclick="eliminaTireSet('${t.id}')">🗑️ Elimina questo set</button>
+    <div style="height:8px;"></div>
+  `);
+}
+
+function saveEditTireSet(tireId){
+  const tires = DB.tires();
+  const t = tires.find(x=>x.id===tireId);
+  if(!t){ toast('Set gomme non trovato','error'); return; }
+  const num = id => { const el=document.getElementById(id); if(!el || String(el.value).trim()==='') return null; const n=parseInt(el.value); return isNaN(n)?null:n; };
+  const f = {
+    stagione:   document.getElementById('es-stagione').value,
+    marca:      document.getElementById('es-marca').value.trim(),
+    modello:    document.getElementById('es-modello').value.trim(),
+    dimensione: document.getElementById('es-dim').value.trim(),
+    quantita:   parseInt(document.getElementById('es-qty').value)||4,
+    dataMontaggio: document.getElementById('es-datamon').value||null,
+    kmMontaggio:   num('es-kmmon'),
+    kmPrecedenti:  num('es-kmprec'),
+    note:       document.getElementById('es-note').value.trim()
+  };
+  if(document.getElementById('es-datasmon')){
+    f.dataSmontaggio = document.getElementById('es-datasmon').value||null;
+    f.kmSmontaggio   = num('es-kmsmon');
+  }
+
+  if(!f.marca){ toast('Inserisci la marca','error'); return; }
+  if([f.kmMontaggio, f.kmSmontaggio, f.kmPrecedenti].some(k=>k!=null && k<0)){ toast('I km non possono essere negativi','error'); return; }
+  if(f.dataSmontaggio && f.dataMontaggio && f.dataSmontaggio < f.dataMontaggio){ toast('La data di smontaggio non può precedere il montaggio','error'); return; }
+  if(f.kmSmontaggio!=null && f.kmMontaggio!=null && f.kmSmontaggio < f.kmMontaggio){ toast('I km allo smontaggio non possono essere inferiori al montaggio','error'); return; }
+
+  // Salva solo i campi cambiati
+  const norm = x => (x===undefined||x===null||x==='') ? null : String(x);
+  let cambiati = 0;
+  Object.keys(f).forEach(k=>{
+    if(norm(f[k])!==norm(t[k])){ t[k]=f[k]; cambiati++; }
+  });
+  if(cambiati) DB.saveTires(tires);
+
+  closeModal();
+  toast(cambiati ? 'Gomme aggiornate' : 'Nessuna modifica', cambiati?'success':'');
+  if(cambiati){ renderMain(); renderAlerts(); }
+}
+
+function eliminaTireSet(tireId){
+  const t = DB.tires().find(x=>x.id===tireId);
+  if(!t){ toast('Set gomme non trovato','error'); return; }
+  const v = DB.vehicles().find(x=>x.id===t.vehicleId);
+  openModal('🗑️ Elimina set gomme', `
+    <p style="font-size:15px;color:#334155;margin-bottom:8px;">Stai per eliminare il set <strong>${escHtml(t.marca||'')}${t.modello?' '+escHtml(t.modello):''}</strong> ×${parseInt(t.quantita)||4}${v?' di <strong>'+escHtml(v.targa)+'</strong>':''}.</p>
+    <p style="font-size:13px;color:#ef4444;margin-bottom:20px;">I km percorsi da questo set non verranno più conteggiati. Questa azione è irreversibile.</p>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="openEditTireSet('${t.id}')">Annulla</button>
+      <button class="btn btn-danger" onclick="confirmEliminaTireSet('${t.id}')">🗑️ Elimina</button>
+    </div>
+  `);
+}
+function confirmEliminaTireSet(tireId){
+  DB.saveTires(DB.tires().filter(t=>t.id!==tireId));
+  closeModal();
+  toast('Set gomme eliminato','success');
+  renderMain();
+  renderAlerts();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -7050,7 +7170,7 @@ function openSettings(){
       </label>
     </div>
     <button class="btn btn-danger" onclick="confirmResetAll()">🗑️ Azzera tutti i dati</button>
-    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.1.11 — VehicleCare Pro</p>
+    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.1.12 — VehicleCare Pro</p>
     <div style="height:10px;"></div>
   `);
   renderBackupStatus();
