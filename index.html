@@ -266,6 +266,16 @@ body.dark #modal-box-2{background:#2a2a2a;}
 .rz-stato ul{margin:0;padding-left:16px;}
 .rz-stato .vuoto{opacity:.7;font-style:italic;}
 .rz-piede{display:flex;justify-content:space-between;font-size:10px;color:#94a3b8;border-top:1px solid var(--linea);margin:22px 36px 0;padding-top:8px;}
+#pv-overlay{position:fixed;inset:0;z-index:9999;background:#475569;display:flex;flex-direction:column;}
+#pv-overlay .pv-bar{display:flex;align-items:center;gap:6px;padding:10px 12px;background:#0f172a;color:#fff;flex-shrink:0;}
+#pv-overlay .pv-tit{flex:1;font-size:14px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+#pv-overlay .pv-x{background:#dc2626;color:#fff;border:none;border-radius:7px;width:34px;height:34px;font-size:16px;font-weight:900;cursor:pointer;flex-shrink:0;}
+#pv-overlay .pv-z{background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:7px;width:34px;height:34px;font-size:17px;font-weight:700;cursor:pointer;flex-shrink:0;}
+#pv-overlay .pv-body{flex:1;overflow:auto;padding:8px;-webkit-overflow-scrolling:touch;}
+#pv-overlay .pv-pag{margin:0 auto;}
+#pv-overlay .pv-doc{width:794px;transform-origin:top left;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.35);}
+#pv-overlay .pv-azioni{display:flex;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:#0f172a;flex-shrink:0;}
+#pv-overlay .pv-azioni button{flex:1;background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:9px;padding:11px 6px;font-size:13px;font-weight:700;cursor:pointer;}
 /* Anteprima: la pagina A4 (794px) rimpicciolita per stare nella larghezza dello schermo */
 .rz-anteprima{width:100%;overflow:hidden;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.18);background:#fff;}
 .rz-anteprima .rz{width:794px;}
@@ -404,11 +414,20 @@ body.dark #modal-box-2{background:#2a2a2a;}
 
 /* ── STAMPA CHECK ── */
 @media print {
+  /* La pagina dell'app è alta quanto lo schermo: in stampa va liberata, altrimenti esce un solo foglio */
+  html, body{ height:auto !important; min-height:0 !important; overflow:visible !important; display:block !important; background:#fff !important; }
   body > *:not(#check-print-frame){ display:none !important; }
-  #check-print-frame{ display:block !important; position:fixed; inset:0; background:#fff; z-index:9999; padding:12mm 14mm; font-family:Arial,sans-serif; font-size:10pt; color:#000; }
+  #check-print-frame{ display:block !important; position:static !important; background:#fff; padding:12mm 14mm; font-family:Arial,sans-serif; font-size:10pt; color:#000; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   #check-print-frame *{ box-sizing:border-box; }
-  #check-print-frame.cpr-img{ padding:0 !important; }
-  #check-print-frame.cpr-img img{ width:100%; height:auto; display:block; }
+  #check-print-frame.cpr-img, #check-print-frame.cpr-rz{ padding:0 !important; }
+  #check-print-frame.cpr-img{ page:modulo; }
+  #check-print-frame.cpr-img img{ width:100%; height:auto; display:block; break-after:page; page-break-after:always; }
+  #check-print-frame.cpr-img img:last-child{ break-after:auto; page-break-after:auto; }
+  #check-print-frame.cpr-rz{ page:documento; }
+  #check-print-frame.cpr-rz .rz{ width:794px; }
+  .cpr-rz tr, .cpr-rz .rz-set, .cpr-rz .rz-forn .top, .cpr-rz .rz-stato > div, .cpr-rz .rz-kpi, .cpr-rz .rz-scheda > div, .cpr-rz p, .cpr-rz .rz-nota, .cpr-rz .rz-head{ break-inside:avoid; page-break-inside:avoid; }
+  .cpr-rz h2, .cpr-rz h3{ break-after:avoid; page-break-after:avoid; }
+  .cpr-rz .rz-piede{ display:none; }
   .cpr-header{ margin-bottom:8mm; }
   .cpr-title{ font-size:14pt; font-weight:700; margin-bottom:3mm; }
   .cpr-meta{ display:flex; gap:10mm; font-size:9pt; color:#333; margin-bottom:4mm; }
@@ -425,6 +444,8 @@ body.dark #modal-box-2{background:#2a2a2a;}
   .cpr-note-gen{ border:1px solid #ddd; padding:3mm; font-size:9pt; margin-bottom:4mm; min-height:12mm; }
   .cpr-footer{ font-size:7pt; color:#888; border-top:1px solid #ddd; padding-top:2mm; display:flex; justify-content:space-between; }
   @page{ size:A4 portrait; margin:10mm; }
+  @page modulo{ size:A4 portrait; margin:0; }
+  @page documento{ size:A4 portrait; margin:10mm 0 12mm; }
 }
 #main::-webkit-scrollbar{display:none;}
 #main{scrollbar-width:none;}
@@ -3729,7 +3750,7 @@ function openCheckViewer(checkId, vehicleId){
     + (c.note ? '<div style="background:#f8fafc;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:13px;color:#475569;"><strong>Note:</strong> ' + escHtml(c.note) + '</div>' : '')
     + anomBtn
     + '<div style="display:flex;gap:8px;">'
-    + '<button id="ck-view-pdf" style="flex:1;background:#1e40af;color:#fff;border:none;border-radius:10px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;">👁️ Visualizza PDF</button>'
+    + '<button id="ck-view-pdf" style="flex:1;background:#1e40af;color:#fff;border:none;border-radius:10px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;">👁️ Visualizza</button>'
     + '<button id="ck-print-pdf" style="flex:1;background:#0f766e;color:#fff;border:none;border-radius:10px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;">🖨️ Stampa</button>'
     + '</div>'
     + '</div>';
@@ -3834,8 +3855,11 @@ function openStampaCheck(year, month){
         +'</div>' : '')
     + '<div style="max-height:48vh;overflow-y:auto;">'+listHtml+'</div>'
     + (checks.length? '<div style="display:flex;gap:8px;margin-top:14px;">'
-        +'<button onclick="stampaCheckBatch(\'view\')" style="flex:1;background:#1e40af;color:#fff;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;">👁️ Apri PDF</button>'
+        +'<button onclick="stampaCheckBatch(\'view\')" style="flex:1;background:#1e40af;color:#fff;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;">👁️ Visualizza</button>'
         +'<button onclick="stampaCheckBatch(\'print\')" style="flex:1;background:#0f766e;color:#fff;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;">🖨️ Stampa</button>'
+        +'</div><div style="display:flex;gap:8px;margin-top:8px;">'
+        +'<button onclick="stampaCheckBatch(\'share\')" style="flex:1;background:#f1f5f9;color:#334155;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;">📤 Condividi</button>'
+        +'<button onclick="stampaCheckBatch(\'save\')" style="flex:1;background:#f1f5f9;color:#334155;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;">💾 Salva</button>'
         +'</div>' : '');
 
   openModal('🖨️ Stampa check', html);
@@ -3871,35 +3895,9 @@ function stampaCheckBatch(mode){
   img.onload = function(){
     const vById={}; DB.vehicles().forEach(v=>vById[v.id]=v);
     const checks = ids.map(id=>DB.checks().find(c=>c.id===id)).filter(Boolean);
-    if(mode==='print'){
-      const frame=document.getElementById('check-print-frame');
-      if(!frame) return;
-      frame.className='cpr-img';
-      frame.innerHTML = checks.map(function(c, idx){
-        const cv=_drawCheckCanvas(c, vById[c.vehicleId], img);
-        const brk = idx<checks.length-1 ? 'page-break-after:always;' : '';
-        return '<img src="'+cv.toDataURL('image/png')+'" style="'+brk+'">';
-      }).join('');
-      frame.style.display='block';
-      setTimeout(function(){
-        window.print();
-        setTimeout(function(){ frame.style.display='none'; frame.innerHTML=''; frame.className=''; }, 1000);
-      }, 300);
-      return;
-    }
-    // Anteprima: PDF multipagina
-    try{
-      const { jsPDF } = window.jspdf;
-      const pdf = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
-      checks.forEach(function(c, idx){
-        if(idx>0) pdf.addPage();
-        const cv=_drawCheckCanvas(c, vById[c.vehicleId], img);
-        pdf.addImage(cv.toDataURL('image/png'), 'PNG', 0, 0, 210, 297);
-      });
-      const url=URL.createObjectURL(pdf.output('blob'));
-      const w=window.open(url,'_blank');
-      if(!w){ const a=document.createElement('a'); a.href=url; a.download='Check_'+(window._stampaCheckYM?window._stampaCheckYM.year:'')+'.pdf'; a.click(); }
-    }catch(e){ toast('Errore generazione PDF','error'); }
+    const dataUrls = checks.map(c=>_drawCheckCanvas(c, vById[c.vehicleId], img).toDataURL('image/png'));
+    const ym = window._stampaCheckYM;
+    _checkAzione(dataUrls, 'Check_'+(ym?ym.year+'-'+String(ym.month+1).padStart(2,'0'):'selezione')+'.pdf', mode);
   };
   img.src = sfondo;
 }
@@ -4030,61 +4028,31 @@ function stampaCheckModulo(checkId, mode){
   if(!sfondo){ toast('Carica prima il modulo in Impostazioni','error'); return; }
   const img = new Image();
   img.onload = function(){
-    const canvas = _drawCheckCanvas(c, v, img);
-
-    // ── 6. Genera il PDF (stesso identico output per anteprima e stampa) ──
-    const dataUrl = canvas.toDataURL('image/png');
-    try {
-      const { jsPDF } = window.jspdf;
-      const pdf = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
-      // A4 = 210x297mm — adatta immagine 800x1101px
-      pdf.addImage(dataUrl, 'PNG', 0, 0, 210, 297);
-
-      if(mode === 'print'){
-        // Stampa affidabile su mobile: inietto l'immagine del modulo nel print-frame e apro
-        // la finestra di stampa di sistema. L'autoPrint del PDF su Chrome mobile non funziona
-        // (apre solo il visualizzatore con la matita "modifica"), quindi NON lo uso.
-        const frame = document.getElementById('check-print-frame');
-        if(frame){
-          frame.className = 'cpr-img';
-          frame.innerHTML = '<img src="'+dataUrl+'">';
-          frame.style.display = 'block';
-          setTimeout(function(){
-            window.print();
-            setTimeout(function(){ frame.style.display='none'; frame.innerHTML=''; frame.className=''; }, 800);
-          }, 200);
-        }
-        return;
-      }
-
-      // Anteprima: apri il PDF in una nuova scheda
-      const pdfBlob = pdf.output('blob');
-      const pdfUrl = URL.createObjectURL(pdfBlob);
-      const win = window.open(pdfUrl, '_blank');
-      if(!win) {
-        // Fallback: download diretto
-        const a = document.createElement('a');
-        a.href = pdfUrl;
-        a.download = 'Check_' + (v?.targa||'') + '_' + (c.data||'') + '.pdf';
-        a.click();
-      }
-    } catch(e) {
-      // Fallback se jsPDF non disponibile: mostra PNG in nuova finestra (con stampa se richiesta)
-      const win = window.open('');
-      if(win){
-        win.document.write(
-          '<html><head><title>Check '+(v?.targa||'')+' — '+(fmtDate(c.data)||'')+'</title>'
-          +'<style>*{margin:0;padding:0;}body{background:#888;display:flex;justify-content:center;}'
-          +'img{display:block;max-width:100%;}'
-          +'@media print{body{background:#fff;}img{width:100%;height:auto;}@page{size:A4;margin:0;}}</style></head>'
-          +'<body><img src="'+dataUrl+'"></body></html>'
-        );
-        win.document.close();
-        if(mode === 'print'){ win.onload = function(){ win.focus(); win.print(); }; }
-      }
-    }
+    const dataUrl = _drawCheckCanvas(c, v, img).toDataURL('image/png');
+    _checkAzione([dataUrl], 'Check_'+(v?.targa||'')+'_'+(c.data||'')+'.pdf', mode);
   };
   img.src = sfondo;
+}
+
+// Moduli check → PDF temporaneo (un modulo per pagina A4)
+function _checkPdfBlob(dataUrls){
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+  dataUrls.forEach((d,i)=>{ if(i>0) pdf.addPage(); pdf.addImage(d, 'PNG', 0, 0, 210, 297); });
+  return pdf.output('blob');
+}
+// mode: 'view' visualizzatore in app · 'print' stampa · 'share' condividi · 'save' salva
+function _checkAzione(dataUrls, nomeFile, mode){
+  const blobP = () => new Promise((res,rej)=>{ try{ res(_checkPdfBlob(dataUrls)); }catch(e){ rej(e); } });
+  const az = {
+    condividi: ()=>pdfCondividi(blobP(), nomeFile),
+    stampa:    ()=>stampaHtml(dataUrls.map(d=>'<img src="'+d+'">').join(''), 'cpr-img'),
+    salva:     ()=>pdfSalva(blobP(), nomeFile)
+  };
+  if(mode==='view'){
+    apriVisualizzatore(nomeFile.replace(/\.pdf$/,'').replace(/_/g,' '),
+      dataUrls.map(d=>'<img src="'+d+'" style="display:block;width:'+A4_PX+'px;margin-bottom:12px;background:#fff;">').join(''), az);
+  } else (az[{print:'stampa', share:'condividi', save:'salva'}[mode]] || az.stampa)();
 }
 
 function stampaCheck(checkId){
@@ -6200,12 +6168,14 @@ function renderRelazioni(container){
       <button class="btn btn-primary" style="width:100%;" onclick="generaRelazione()">📝 Genera relazione</button>
     </div>
     ${_rel.html?`
-    <div style="display:flex;gap:8px;margin-bottom:12px;">
-      <button class="btn btn-primary" style="flex:1;" onclick="relazionePdf('open')">📄 Apri PDF</button>
-      ${navigator.share?'<button class="btn btn-secondary" style="flex:1;" onclick="relazionePdf(\'share\')">📤 Condividi</button>':''}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+      <button class="btn btn-primary" onclick="relAzione('vedi')">👁️ Visualizza</button>
+      <button class="btn btn-primary" style="background:#0f766e;" onclick="relAzione('stampa')">🖨️ Stampa</button>
+      <button class="btn btn-secondary" onclick="relAzione('condividi')">📤 Condividi</button>
+      <button class="btn btn-secondary" onclick="relAzione('salva')">💾 Salva</button>
     </div>
-    <div class="rz-anteprima" onclick="relazionePdf('open')" title="Apri il PDF"><div class="rz">${_rel.html}</div></div>
-    <div style="font-size:11px;color:#94a3b8;text-align:center;margin-top:6px;">Anteprima della pagina A4 · tocca per aprire il PDF e ingrandire</div>`:''}
+    <div class="rz-anteprima" onclick="relAzione('vedi')" title="Visualizza"><div class="rz">${_rel.html}</div></div>
+    <div style="font-size:11px;color:#94a3b8;text-align:center;margin-top:6px;">Anteprima della pagina A4 · tocca per ingrandire</div>`:''}
     <div style="height:80px;"></div>`;
   _relScala();
 }
@@ -6234,7 +6204,7 @@ function generaRelazione(){
   _rel.pdfP=null;
   renderMain();
   // Prepara il PDF in anticipo: così "Condividi" parte subito, ancora dentro il tocco
-  setTimeout(()=>{ if(_rel.html && !_rel.pdfP) _rel.pdfP=_relPdfBlob(_rel.html, _relPiede(v, per)).catch(e=>{ _rel.pdfP=null; throw e; }); }, 300);
+  setTimeout(()=>{ if(_rel.html && !_rel.pdfP) _relBlobP().catch(()=>{}); }, 300);
 }
 function _relPiede(v, per){ return 'Relazione '+(v?v.targa:'')+' · '+fmtDate(per.da)+' – '+fmtDate(per.a); }
 
@@ -6505,67 +6475,282 @@ function _relBuild(v, da, a){
   return h;
 }
 
-// ── PDF identico all'anteprima: la relazione viene "fotografata" a pagine A4 ──
-function _relLoadScript(src){
-  return new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=()=>rej(new Error('Impossibile caricare '+src)); document.head.appendChild(s); });
+// ── Azioni sulla relazione: visualizza, condividi, stampa, salva (PDF solo in memoria) ──
+function _relNomeFile(){
+  const v=DB.vehicles().find(x=>x.id===_rel.vid); const per=_relPeriodo(v);
+  return 'Relazione_'+(v?v.targa:'mezzo')+'_'+per.da+'_'+per.a+'.pdf';
 }
-async function _relPdfBlob(html, piede){
-  if(!window.html2canvas) await _relLoadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
-  const W=794;                                  // larghezza A4 a 96 dpi
+function _relBlobP(){
+  if(!_rel.pdfP){
+    const v=DB.vehicles().find(x=>x.id===_rel.vid);
+    _rel.pdfP=htmlA4Pdf(_rel.html, _relPiede(v, _relPeriodo(v))).catch(e=>{ _rel.pdfP=null; throw e; });
+  }
+  return _rel.pdfP;
+}
+async function relAzione(a){
+  if(!_rel.html) return;
+  if(a==='vedi'){
+    const v=DB.vehicles().find(x=>x.id===_rel.vid);
+    apriVisualizzatore('Relazione '+(v?v.targa:''), '<div class="rz">'+_rel.html+'</div>',
+      {condividi:()=>relAzione('condividi'), stampa:()=>relAzione('stampa'), salva:()=>relAzione('salva')});
+  } else if(a==='stampa'){
+    stampaHtml('<div class="rz">'+_rel.html+'</div>', 'cpr-rz');
+  } else if(a==='condividi' || a==='salva'){
+    await (a==='condividi'?pdfCondividi:pdfSalva)(_relBlobP(), _relNomeFile());
+    _rel.pdfP=null;                       // il PDF temporaneo viene liberato
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  DOCUMENTI A4: visualizzatore in app, PDF temporanei, stampa
+//  Il PDF si ricava dall'HTML: testo vero (selezionabile),
+//  riquadri e linee disegnati, icone ed emoji come immagini.
+// ═══════════════════════════════════════════════════════
+const A4_PX = 794;                       // larghezza A4 a 96 dpi
+const _PDF_MM = 210 / A4_PX;             // mm per pixel
+
+function _pdfRgb(c){
+  const m=String(c||'').match(/rgba?\(([^)]+)\)/); if(!m) return null;
+  const p=m[1].split(/[ ,\/]+/).filter(Boolean).map(parseFloat);
+  if(p.length>3 && p[3]===0) return null;
+  return p.slice(0,3);
+}
+// Caratteri che i font standard del PDF sanno scrivere; gli altri diventano immagini
+function _pdfScrivibile(ch){ return /^[\x20-\x7E\xA0-\xFF€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ]$/.test(ch); }
+
+// Legge l'HTML impaginato e produce le operazioni di disegno (coordinate in px dal bordo del documento)
+function _pdfOperazioni(root){
+  const base=root.getBoundingClientRect();
+  const R = r => ({x:r.left-base.left, y:r.top-base.top, w:r.width, h:r.height});
+  const ops=[];
+  const icone={};
+  const blkIds=new WeakMap(); let blkN=0;
+  const blkId = b => { if(!b) return 0; if(!blkIds.has(b)) blkIds.set(b, ++blkN); return blkIds.get(b); };
+  const range=document.createRange();
+  const iconaImg=(seg, fs, col)=>{
+    const k=seg+'|'+Math.round(fs)+'|'+col;
+    if(!icone[k]){
+      const s=Math.ceil(fs*4), c=document.createElement('canvas'); c.width=c.height=s;
+      const x=c.getContext('2d'); x.textAlign='center'; x.textBaseline='middle';
+      x.font=(fs*3)+'px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
+      x.fillStyle=col; x.fillText(seg, s/2, s/2+fs*0.15);
+      icone[k]=c.toDataURL('image/png');
+    }
+    return icone[k];
+  };
+
+  function testo(node, cs){
+    const t=node.nodeValue; if(!t || !t.trim()) return;
+    const fs=parseFloat(cs.fontSize);
+    const stile=(parseInt(cs.fontWeight)>=600?'bold':'')+(cs.fontStyle==='italic'?'italic':'') || 'normal';
+    const col=_pdfRgb(cs.color)||[0,0,0];
+    const up=cs.textTransform==='uppercase';
+    // allineamento del blocco che contiene il testo (serve a tenere fermo il bordo giusto)
+    let blk=node.parentElement; while(blk && getComputedStyle(blk).display==='inline') blk=blk.parentElement;
+    const ta=blk?getComputedStyle(blk).textAlign:'left';
+    const align= (ta==='right'||ta==='end') ? 'right' : ta==='center' ? 'center' : 'left';
+    const bid=blkId(blk);
+    const re=/(\p{Extended_Pictographic}[️‍\p{Extended_Pictographic}]*|\s+|[^\s\p{Extended_Pictographic}]+)/gu;
+    let run=null, m, prima=/^\s/.test(t);
+    // Spazi ai bordi del pezzo di testo: servono a chi copia il testo dal PDF ("La " + "revisione")
+    const chiudi=()=>{ if(run && run.str.trim()){ if(run.spazio) run.dopo=' '; ops.push(run); } run=null; };
+    while((m=re.exec(t))){
+      const tok=m[0], i0=m.index;
+      if(/^\s+$/.test(tok)){ if(run) run.spazio=true; continue; }
+      // parti scrivibili e non scrivibili (icone, simboli)
+      const parti=[]; let cur='', curOk=null;
+      for(const ch of tok){
+        const ok=!/\p{Extended_Pictographic}/u.test(ch) && _pdfScrivibile(ch);
+        if(curOk===null||ok===curOk||ch==='️'||ch==='‍'){ cur+=ch; if(curOk===null) curOk=ok; }
+        else { parti.push([cur,curOk]); cur=ch; curOk=ok; }
+      }
+      if(cur) parti.push([cur,curOk]);
+      let off=i0;
+      for(const [seg, ok] of parti){
+        range.setStart(node, off); range.setEnd(node, off+seg.length); off+=seg.length;
+        const rs=[...range.getClientRects()].filter(r=>r.width>0);
+        if(!rs.length) continue;
+        const r=R(rs[0]), r2=R(rs[rs.length-1]);
+        if(!ok){
+          chiudi();
+          ops.push({k:'img', x:r.x, y:r.y, w:Math.max(r.w, r.h*0.9), h:r.h, data:iconaImg(seg, fs, cs.color), blk:bid, align});
+          continue;
+        }
+        const str=up?seg.toUpperCase():seg;
+        if(run && Math.abs(run.top-r.y)<1.5 && r.x>=run.x){
+          run.str+=(run.spazio?' ':'')+str; run.dx=r2.x+r2.w-run.x; run.spazio=false;
+        } else {
+          chiudi();
+          run={k:'txt', x:r.x, top:r.y, bottom:r.y+r.h, dx:r2.x+r2.w-r.x, str, fs, stile, col, align, blk:bid, spazio:false, prima:prima?' ':''};
+        }
+        prima=false;
+        if(rs.length>1){ chiudi(); }   // parola andata a capo: chiude la riga
+      }
+    }
+    chiudi();
+  }
+
+  function el(e, clipPadre){
+    const cs=getComputedStyle(e);
+    if(cs.display==='none'||cs.visibility==='hidden') return;
+    const rects=e.getClientRects();
+    const r=R(e.getBoundingClientRect());
+    const inlineMulti = cs.display==='inline' && rects.length>1;
+    const rad=parseFloat(cs.borderTopLeftRadius)||0;
+    // Sfondo (anche sfumato)
+    if(!inlineMulti && r.w>0 && r.h>0){
+      const bg=_pdfRgb(cs.backgroundColor);
+      const grad=cs.backgroundImage&&cs.backgroundImage.includes('gradient') ? (cs.backgroundImage.match(/rgba?\([^)]+\)/g)||[]).map(_pdfRgb).filter(Boolean) : null;
+      if(grad && grad.length>1) ops.push({k:'grad', ...r, cols:grad});
+      else if(bg){
+        // dentro un riquadro arrotondato che ritaglia: segue gli angoli del riquadro
+        const tocca = clipPadre && Math.abs(r.y-clipPadre.y)<1 && Math.abs(r.x-clipPadre.x)<1.5;
+        const tutto = tocca && r.h>=clipPadre.h-1;      // occupa tutta l'altezza (es. barra): angoli tutti tondi
+        ops.push({k:'rect', ...r, r:tocca?clipPadre.r:rad, soloSopra:!!tocca && !tutto, fill:bg});
+      }
+    }
+    // Bordi
+    const bw=['Top','Right','Bottom','Left'].map(s=>parseFloat(cs['border'+s+'Width'])||0);
+    const bc=['Top','Right','Bottom','Left'].map(s=>_pdfRgb(cs['border'+s+'Color']));
+    if(!inlineMulti && bw.some(w=>w>0)){
+      const uguali=bw.every(w=>w===bw[0]) && bc.every(c=>c&&bc[0]&&c.join()===bc[0].join());
+      if(uguali && bc[0]) ops.push({k:'rect', ...r, r:rad, stroke:bc[0], lw:bw[0]});
+      else {
+        if(bw[0]&&bc[0]) ops.push({k:'rect', x:r.x, y:r.y, w:r.w, h:bw[0], r:0, fill:bc[0]});
+        if(bw[2]&&bc[2]) ops.push({k:'rect', x:r.x, y:r.y+r.h-bw[2], w:r.w, h:bw[2], r:0, fill:bc[2]});
+        if(bw[3]&&bc[3]) ops.push({k:'rect', x:r.x, y:r.y, w:bw[3], h:r.h, r:rad?Math.min(rad,bw[3]/2):0, fill:bc[3]});
+        if(bw[1]&&bc[1]) ops.push({k:'rect', x:r.x+r.w-bw[1], y:r.y, w:bw[1], h:r.h, r:0, fill:bc[1]});
+      }
+    }
+    // Pallino degli elenchi
+    if(cs.display==='list-item'){
+      const fs=parseFloat(cs.fontSize), lh=parseFloat(cs.lineHeight)||fs*1.5;
+      ops.push({k:'dot', x:r.x-fs*0.75, y:r.y+lh/2, rr:fs*0.17, fill:_pdfRgb(cs.color)||[0,0,0]});
+    }
+    const clip = (cs.overflow==='hidden' && rad>0) ? {x:r.x, y:r.y, h:r.h, r:rad} : null;
+    for(const ch of e.childNodes){
+      if(ch.nodeType===3) testo(ch, cs);
+      else if(ch.nodeType===1) el(ch, clip);
+    }
+  }
+  el(root, null);
+  return ops;
+}
+
+// Punti in cui la pagina non va tagliata (righe, riquadri, titoli attaccati a ciò che segue)
+function _pdfBlocchi(root){
+  const base=root.getBoundingClientRect().top;
+  const box = e => { const r=e.getBoundingClientRect(); return [r.top-base, r.bottom-base]; };
+  const b=[...root.querySelectorAll('tr, h2, h3, p, li, img, .rz-nota, .rz-set, .rz-forn .top, .rz-scheda > div, .rz-kpi, .rz-head, .rz-stato')].map(box);
+  root.querySelectorAll('table').forEach(t=>{ const r=t.rows; if(r.length>1) b.push([box(r[0])[0], box(r[1])[1]]); });
+  root.querySelectorAll('.rz-forn').forEach(f=>{ const r=f.querySelectorAll('tr'); b.push([box(f)[0], r.length>1?box(r[1])[1]:box(f)[1]]); });
+  root.querySelectorAll('h2, h3').forEach(h=>{ const n=h.nextElementSibling; if(n){ const nb=n.matches('table')&&n.rows.length>1?box(n.rows[1]):box(n); b.push([box(h)[0], Math.min(nb[1], box(h)[0]+400)]); } });
+  return b;
+}
+
+// HTML A4 → PDF (Blob) con testo selezionabile
+async function htmlA4Pdf(html, piede){
   const wrap=document.createElement('div');
   wrap.className='rz';
-  wrap.style.cssText='position:fixed;left:-10000px;top:0;width:'+W+'px;background:#fff;';
+  wrap.style.cssText='position:fixed;left:-10000px;top:0;width:'+A4_PX+'px;background:#fff;';
   wrap.innerHTML=html;
-  wrap.querySelector('.rz-piede')?.remove();    // nel PDF il piè di pagina è su ogni pagina
+  wrap.querySelector('.rz-piede')?.remove();      // il piè di pagina va su ogni pagina
   document.body.appendChild(wrap);
   try{
-    await new Promise(r=>setTimeout(r,50));
-    const base=wrap.getBoundingClientRect().top;
-    // Punti in cui non si può tagliare la pagina (righe, riquadri, paragrafi…)
-    const box = el => { const r=el.getBoundingClientRect(); return [r.top-base, r.bottom-base]; };
-    const blocchi=[...wrap.querySelectorAll('tr, h2, h3, p, .rz-nota, .rz-set, .rz-forn .top, .rz-scheda > div, .rz-kpi, .rz-head, .rz-stato')].map(box);
-    // Titoli, intestazioni di tabella e testata del fornitore restano attaccati alla prima riga che segue
-    wrap.querySelectorAll('table').forEach(t=>{ const r=t.rows; if(r.length>1) blocchi.push([box(r[0])[0], box(r[1])[1]]); });
-    wrap.querySelectorAll('.rz-forn').forEach(f=>{ const r=f.querySelectorAll('tr'); const fine=r.length>1?box(r[1])[1]:box(f)[1]; blocchi.push([box(f)[0], fine]); });
-    wrap.querySelectorAll('h2, h3').forEach(hh=>{ const n=hh.nextElementSibling; if(n){ const nb=n.matches('table')&&n.rows.length>1?box(n.rows[1]):box(n); blocchi.push([box(hh)[0], Math.min(nb[1], box(hh)[0]+400)]); } });
-    const SCALE=2;
-    const canvas=await html2canvas(wrap,{scale:SCALE, backgroundColor:'#ffffff', useCORS:true, logging:false, windowWidth:W});
+    if(document.fonts && document.fonts.ready) await document.fonts.ready;
+    const ops=_pdfOperazioni(wrap);
+    const blocchi=_pdfBlocchi(wrap);
     const totale=wrap.scrollHeight;
     const { jsPDF } = window.jspdf;
-    const pdf=new jsPDF({orientation:'portrait', unit:'mm', format:'a4'});
-    const mmPx=210/W;                            // mm per pixel
-    const TOP=8, BOT=14;                         // margini in mm (in basso il piè di pagina)
-    const altPagina=Math.floor((297-TOP-BOT)/mmPx);
+    const pdf=new jsPDF({orientation:'portrait', unit:'mm', format:'a4', compress:true});
+    const TOP=10, BOT=14;
+    // Tagli di pagina
     const tagli=[0];
     while(tagli[tagli.length-1] < totale-1){
       const ini=tagli[tagli.length-1];
-      let fine=Math.min(ini+altPagina, totale);
+      const cap=Math.floor((297-(tagli.length===1?0:TOP)-BOT)/_PDF_MM);
+      let fine=Math.min(ini+cap, totale);
       if(fine<totale){
-        // arretra il taglio finché non attraversa nessun blocco
         let y=fine, giri=0;
-        while(giri++<200){
-          const b=blocchi.find(([t,bt])=>t<y-1 && bt>y+1 && (bt-t)<altPagina);
-          if(!b) break;
-          y=b[0];
-        }
-        if(y>ini+altPagina*0.3) fine=y;
+        while(giri++<300){ const bb=blocchi.find(([t,bt])=>t<y-1 && bt>y+1 && (bt-t)<cap); if(!bb) break; y=bb[0]; }
+        if(y>ini+cap*0.3) fine=y;
       }
       tagli.push(fine);
     }
     const pagine=tagli.length-1;
-    for(let i=0;i<pagine;i++){
-      const y0=tagli[i], h=tagli[i+1]-tagli[i];
-      const c=document.createElement('canvas');
-      c.width=W*SCALE; c.height=Math.ceil(h*SCALE);
-      const ctx=c.getContext('2d');
-      ctx.fillStyle='#fff'; ctx.fillRect(0,0,c.width,c.height);
-      ctx.drawImage(canvas, 0, Math.round(y0*SCALE), c.width, c.height, 0, 0, c.width, c.height);
-      if(i>0) pdf.addPage();
-      pdf.addImage(c.toDataURL('image/jpeg',0.9), 'JPEG', 0, i===0?0:TOP, 210, h*mmPx);
+    const mm = px => px*_PDF_MM;
+    for(let p=0;p<pagine;p++){
+      if(p>0) pdf.addPage();
+      const y0=tagli[p], y1=tagli[p+1];
+      const dy=(p===0?0:TOP) - mm(y0);
+      const Y = py => mm(py)+dy;
+      // Pezzi della stessa riga (testo normale, grassetto, icone) scorrono uno dopo l'altro:
+      // il carattere del PDF può essere più stretto di quello della pagina
+      let linea=null;
+      const segue = o => o.align==='left' && linea && linea.blk===o.blk && Math.abs(linea.top-o.y0)<3 && o.x>=linea.fineLayout-1;
+      for(const o of ops){
+        if(o.k==='txt'){
+          if(o.top<y0-1 || o.bottom>y1+1) continue;
+          pdf.setFont('helvetica', o.stile); pdf.setFontSize(o.fs*0.75); pdf.setTextColor(...o.col);
+          const w=pdf.getTextWidth(o.str), target=mm(o.dx);
+          // si restringe solo se sborderebbe; se è più corto si allinea come nella pagina
+          const cs = (w>target && o.str.length>1) ? Math.max(-0.4, (target-w)/(o.str.length-1)) : 0;
+          const wEff = cs ? target : w;
+          let x0 = mm(o.x);
+          if(o.align==='right') x0 = mm(o.x)+target-wEff; else if(o.align==='center') x0 = mm(o.x)+(target-wEff)/2;
+          o.y0=o.top;
+          const spazioPdf=pdf.getTextWidth(' ');
+          if(segue(o)) x0 = linea.finePdf + Math.max((o.prima||linea.dopo) ? spazioPdf : 0, mm(o.x-linea.fineLayout));
+          linea={blk:o.blk, top:o.top, fineLayout:o.x+o.dx, finePdf:x0+wEff, dopo:!!o.dopo};
+          const pre=o.prima?spazioPdf+cs:0;
+          pdf.text((o.prima||'')+o.str+(o.dopo||''), x0-pre, Y(o.bottom-o.fs*0.22), {charSpace:cs});
+          continue;
+        }
+        if(o.k==='img'){
+          if(o.y<y0-1 || o.y+o.h>y1+1) continue;
+          o.y0=o.y;
+          const xi = segue(o) ? linea.finePdf + mm(o.x-linea.fineLayout) : mm(o.x);
+          linea={blk:o.blk, top:o.y, fineLayout:o.x+o.w, finePdf:xi+mm(o.w)};
+          pdf.addImage(o.data, 'PNG', xi, Y(o.y), mm(o.w), mm(o.h), undefined, 'FAST');
+          continue;
+        }
+        if(o.k==='dot'){
+          if(o.y<y0 || o.y>y1) continue;
+          pdf.setFillColor(...o.fill); pdf.circle(mm(o.x), Y(o.y), mm(o.rr), 'F');
+          continue;
+        }
+        // rettangoli e sfumature: solo la parte che cade in questa pagina
+        const top=Math.max(o.y, y0), bot=Math.min(o.y+o.h, y1);
+        if(bot-top<=0.1) continue;
+        const tagliato = top>o.y || bot<o.y+o.h;
+        const x=mm(o.x), y=Y(top), w=mm(o.w), h=mm(bot-top);
+        if(o.k==='grad'){
+          const n=48, a=o.cols[0], z=o.cols[o.cols.length-1];
+          for(let i=0;i<n;i++){
+            const f=i/(n-1); pdf.setFillColor(...a.map((v,j)=>Math.round(v+(z[j]-v)*f)));
+            pdf.rect(x+w*i/n, y, w/n+0.2, h, 'F');
+          }
+          continue;
+        }
+        const r=tagliato?0:Math.min(mm(o.r||0), w/2, h/2);
+        if(o.fill){
+          pdf.setFillColor(...o.fill);
+          if(r>0.05){
+            pdf.roundedRect(x, y, w, h, r, r, 'F');
+            if(o.soloSopra) pdf.rect(x, y+r, w, h-r, 'F');     // angoli in basso dritti
+          } else pdf.rect(x, y, w, h, 'F');
+        }
+        if(o.stroke){
+          pdf.setDrawColor(...o.stroke); pdf.setLineWidth(mm(o.lw));
+          const d=mm(o.lw)/2;
+          if(r>0.05) pdf.roundedRect(x+d, y+d, w-2*d, h-2*d, r, r, 'S'); else pdf.rect(x+d, y+d, w-2*d, h-2*d, 'S');
+        }
+      }
+      // Piè di pagina
       pdf.setFont('helvetica','normal'); pdf.setFontSize(8); pdf.setTextColor(148,163,184);
-      pdf.setDrawColor(226,232,240); pdf.line(12, 297-10, 198, 297-10);
-      pdf.text(piede.replace(/[^\x00-\xFF–—]/g,''), 12, 297-6);
-      pdf.text('Pagina '+(i+1)+' di '+pagine, 198, 297-6, {align:'right'});
+      pdf.setDrawColor(226,232,240); pdf.setLineWidth(0.2); pdf.line(12, 297-10, 198, 297-10);
+      pdf.text(String(piede||'').split('').filter(_pdfScrivibile).join(''), 12, 297-6);
+      pdf.text('Pagina '+(p+1)+' di '+pagine, 198, 297-6, {align:'right'});
     }
     return pdf.output('blob');
   } finally {
@@ -6573,31 +6758,74 @@ async function _relPdfBlob(html, piede){
   }
 }
 
-async function relazionePdf(mode){
-  if(!_rel.html) return;
-  const v=DB.vehicles().find(x=>x.id===_rel.vid);
-  const per=_relPeriodo(v);
-  const nomeFile='Relazione_'+(v?v.targa:'mezzo')+'_'+per.da+'_'+per.a+'.pdf';
-  // La finestra va aperta subito, nel tocco: dopo l'attesa il telefono la bloccherebbe
-  const w = mode==='open' ? window.open('', '_blank') : null;
-  if(w){ try{ w.document.write('<p style="font-family:sans-serif;padding:20px;">Preparazione del PDF…</p>'); }catch(e){} }
-  toast('Preparazione PDF…');
+// ── Azioni sui PDF temporanei: nessun file resta nel telefono, tranne con "Salva" ──
+async function pdfCondividi(blobP, nomeFile){
   let blob;
-  try{ blob=await (_rel.pdfP || (_rel.pdfP=_relPdfBlob(_rel.html, _relPiede(v, per)))); }
-  catch(e){ console.error(e); _rel.pdfP=null; if(w) w.close(); toast('Errore generazione PDF'+(e&&e.message?': '+e.message:''),'error'); return; }
-  if(mode==='share' && navigator.share){
-    const file=new File([blob], nomeFile, {type:'application/pdf'});
-    if(!navigator.canShare || navigator.canShare({files:[file]})){
-      try{ await navigator.share({files:[file], title:nomeFile}); return; }
-      catch(e){ if(e && e.name==='AbortError') return; }
-    }
+  try{ blob=await blobP; }catch(e){ console.error(e); toast('Errore preparazione PDF','error'); return; }
+  const file=new File([blob], nomeFile, {type:'application/pdf'});
+  if(!navigator.share || (navigator.canShare && !navigator.canShare({files:[file]}))){
+    toast('Condivisione non disponibile su questo dispositivo: usa Salva','error'); return;
   }
+  try{ await navigator.share({files:[file], title:nomeFile}); }
+  catch(e){ if(!e || e.name!=='AbortError') toast('Condivisione non riuscita','error'); }
+}
+async function pdfSalva(blobP, nomeFile){
+  let blob;
+  try{ blob=await blobP; }catch(e){ console.error(e); toast('Errore preparazione PDF','error'); return; }
   const url=URL.createObjectURL(blob);
-  if(w) w.location.href=url;
-  else { const el=document.createElement('a'); el.href=url; el.download=nomeFile; document.body.appendChild(el); el.click(); el.remove(); }
-  setTimeout(()=>URL.revokeObjectURL(url), 60000);
+  const a=document.createElement('a'); a.href=url; a.download=nomeFile;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 30000);
+  toast('PDF salvato','success');
+}
+// Stampa di sistema da HTML (nessun file): classe 'cpr-img' per moduli immagine, 'cpr-rz' per documenti A4
+function stampaHtml(html, classe){
+  const frame=document.getElementById('check-print-frame');
+  if(!frame) return;
+  frame.className=classe||'';
+  frame.innerHTML=html;
+  const imgs=[...frame.querySelectorAll('img')];
+  Promise.all(imgs.map(i=>i.decode?i.decode().catch(()=>{}):Promise.resolve())).then(()=>{
+    const pulisci=()=>{ frame.innerHTML=''; frame.className=''; window.removeEventListener('afterprint', pulisci); };
+    window.addEventListener('afterprint', pulisci);
+    setTimeout(()=>window.print(), 50);
+  });
 }
 
+// ── Visualizzatore a tutto schermo (dentro l'app, con zoom) ──
+function apriVisualizzatore(titolo, html, azioni){
+  document.getElementById('pv-overlay')?.remove();
+  const ov=document.createElement('div');
+  ov.id='pv-overlay';
+  ov.innerHTML=`
+    <div class="pv-bar">
+      <button class="pv-x" title="Chiudi">✕</button>
+      <span class="pv-tit">${escHtml(titolo)}</span>
+      <button class="pv-z" data-z="-">−</button><button class="pv-z" data-z="fit">⤢</button><button class="pv-z" data-z="+">＋</button>
+    </div>
+    <div class="pv-body"><div class="pv-pag"><div class="pv-doc">${html}</div></div></div>
+    <div class="pv-azioni">
+      ${azioni.condividi?'<button data-a="condividi">📤 Condividi</button>':''}
+      ${azioni.stampa?'<button data-a="stampa">🖨️ Stampa</button>':''}
+      ${azioni.salva?'<button data-a="salva">💾 Salva</button>':''}
+    </div>`;
+  document.body.appendChild(ov);
+  const body=ov.querySelector('.pv-body'), pag=ov.querySelector('.pv-pag'), doc=ov.querySelector('.pv-doc');
+  let k=1;
+  const fit=()=>Math.min(1.5, (body.clientWidth-16)/A4_PX);
+  const applica=()=>{ doc.style.transform='scale('+k+')'; pag.style.width=Math.ceil(A4_PX*k)+'px'; pag.style.height=Math.ceil(doc.offsetHeight*k)+'px'; };
+  k=fit(); applica();
+  ov.querySelector('.pv-x').onclick=()=>ov.remove();
+  ov.querySelectorAll('.pv-z').forEach(b=>b.onclick=()=>{
+    const z=b.dataset.z; k = z==='fit'?fit():Math.max(0.3, Math.min(3, k*(z==='+'?1.25:0.8))); applica();
+  });
+  ov.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>azioni[b.dataset.a]());
+  // pizzico per ingrandire
+  let d0=null, k0=1;
+  body.addEventListener('touchstart', e=>{ if(e.touches.length===2){ d0=Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY); k0=k; } }, {passive:true});
+  body.addEventListener('touchmove', e=>{ if(e.touches.length===2 && d0){ e.preventDefault(); const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY); k=Math.max(0.3, Math.min(3, k0*d/d0)); applica(); } }, {passive:false});
+  body.addEventListener('touchend', e=>{ if(e.touches.length<2) d0=null; });
+}
 
 
 // ── PLANNER — costanti layout ──
@@ -7763,7 +7991,7 @@ function openSettings(){
       </label>
     </div>
     <button class="btn btn-danger" onclick="confirmResetAll()">🗑️ Azzera tutti i dati</button>
-    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.1.17 — VehicleCare Pro</p>
+    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.1.18 — VehicleCare Pro</p>
     <div style="height:10px;"></div>
   `);
   renderBackupStatus();

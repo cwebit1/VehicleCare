@@ -2,6 +2,17 @@
 
 ---
 
+## v117 — 2026-10-29
+### PDF con testo selezionabile, PDF temporanei, fix stampa check
+- **Relazioni: PDF con testo vero**, selezionabile e copiabile (anche le tabelle). Il PDF si ricava dalla stessa pagina HTML dell'anteprima: testo scritto come testo, riquadri, linee, etichette e barre disegnati, icone ed emoji inserite come piccole immagini. Pagine A4 senza tagli di righe, riquadri e titoli, "Pagina X di Y" su ogni pagina
+- **PDF temporanei**: nessun file viene più scritto nel telefono salvo con **💾 Salva**. Pulsanti per Relazioni e Stampa check: **👁️ Visualizza** (visualizzatore a tutto schermo dentro l'app, con zoom e pizzico), **📤 Condividi** (PDF solo in memoria, liberato dopo l'invio), **🖨️ Stampa** (stampa di sistema dalla pagina, nessun file), **💾 Salva**. Prima "Apri PDF" su Android scaricava il file nella cartella Download
+- **Fix stampa check**: stampando più check usciva una sola pagina bianca. La pagina dell'app è bloccata all'altezza dello schermo e il riquadro di stampa era "fissato" allo schermo, quindi il browser non lo divideva in pagine. Ora in stampa l'altezza è libera, ogni modulo occupa una pagina A4 senza margini e il fondo è bianco; il riquadro si svuota a stampa conclusa
+- La stampa della relazione usa la stessa pagina, A4 con margini, senza spezzare righe e riquadri
+- Rimossa la libreria html2canvas (non più necessaria)
+- In-app 1.1.18
+
+---
+
 ## v116 — 2026-10-29
 ### Relazioni: nuova impaginazione, PDF identico all'anteprima
 - Relazione ridisegnata come documento A4: testata con targa, periodo, data e operatore; **riquadri con i numeri chiave** (km percorsi e media mensile, check, interventi, fornitori, giorni alla revisione)
