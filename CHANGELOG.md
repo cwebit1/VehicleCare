@@ -2,6 +2,19 @@
 
 ---
 
+## v113 — 2026-10-29
+### Relazioni al posto di Archivio · Gommista e deposito nel cambio gomme
+- **Nuova sezione Relazioni** (sostituisce Archivio, che duplicava lo Storico): si sceglie il mezzo e il periodo (dalla presa in carico a oggi, ultimo mese, ultimi 12 mesi, anno in corso, anno precedente, personalizzato) e si genera una relazione scritta, in testo ed elenchi, per una revisione interna
+- Struttura: dati del mezzo · **attività interna** (check mensili con esito di ogni anomalia, anomalie ricorrenti, mesi senza check, segnalazioni degli operatori, riparazioni interne) · **un capitolo per ogni fornitore** con tutto ciò che ha fatto (interventi, revisioni, cambi gomme, gomme che custodisce) · lavori senza fornitore indicato · situazione attuale (gomme montate e in deposito, interventi aperti, cose da gestire, revisione)
+- Anteprima a schermo, **PDF** (A4, con numero di pagina) da aprire o **condividere**
+- Presa in carico = data di inserimento del mezzo nell'app, altrimenti il primo evento registrato
+- **Cambio gomme: Fornitore e Deposito**. In pianificazione, esecuzione e modifica il fornitore è proposto su Technogomme ma si sceglie da elenco fornitori; il deposito delle gomme smontate si sceglie tra i fornitori oppure con **"Personalizza…"** si scrive il luogo (es. "Cantina Struttura RSD")
+- Il deposito viene salvato sul set gomme: compare nella scheda Gomme (📍), nello Storico e nella relazione, ed è modificabile dalla maschera del set; quando il set viene rimontato il deposito si azzera
+- Impostazioni: descrizione della Gestione avanzata aggiornata (abilita solo l'eliminazione)
+- In-app 1.1.14
+
+---
+
 ## v112 — 2026-10-29
 ### Storico del mezzo: tutto in un posto, ogni evento si apre
 - **Nuovi eventi nello Storico**: cambi gomme (programmati, completati, annullati, con le gomme smontate e montate), montaggio e smontaggio dei set gomme non legati a un cambio, documenti caricati, revisione con icona propria e nuova scadenza

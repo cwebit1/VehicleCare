@@ -200,6 +200,18 @@ body.dark #modal-box-2{background:#2a2a2a;}
 .tl-card.tl-open{cursor:pointer;position:relative;padding-right:26px;}
 .tl-card.tl-open::after{content:'›';position:absolute;top:6px;right:10px;color:#94a3b8;font-size:20px;line-height:1;}
 .tl-card.tl-open:active{background:#f8fafc;}
+.rel-doc{background:#fff;border-radius:12px;padding:18px 16px;box-shadow:0 1px 3px rgba(0,0,0,.08);color:#1e293b;font-size:14px;line-height:1.5;}
+.rel-doc h1{font-size:19px;margin:0 0 6px;}
+.rel-doc h2{font-size:16px;margin:20px 0 8px;padding-bottom:4px;border-bottom:1px solid #cbd5e1;}
+.rel-doc h3{font-size:14px;margin:14px 0 6px;color:#334155;}
+.rel-doc p{margin:0 0 8px;color:#334155;}
+.rel-doc ul{margin:0 0 8px;padding-left:20px;}
+.rel-doc li{margin-bottom:5px;}
+.rel-kv{display:flex;gap:10px;padding:3px 0;border-bottom:1px solid #f1f5f9;}
+.rel-kv span{flex:0 0 42%;color:#64748b;font-size:13px;}
+body.dark .rel-doc{background:#2a2a2a;color:#e0e0e0;}
+body.dark .rel-doc p, body.dark .rel-doc h3{color:#cfcfcf;}
+body.dark .rel-kv{border-bottom-color:#3a3a3a;}
 .tl-dot.gray{background:#94a3b8;box-shadow:0 0 0 1.5px #94a3b8;}
 .tl-type{font-size:11px;font-weight:600;margin-bottom:2px;}
 .tl-desc{font-size:13px;color:#334155;}
@@ -477,9 +489,9 @@ body.dark .backup-banner-text{color:#fcd34d;}
       <span class="ni ni-chart"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><polyline points="3 20 21 20"/></svg></span>
       <span class="nav-label">Report</span>
     </button>
-    <button class="nav-tab" id="tab-archivio" onclick="switchTab('archivio')">
-      <span class="ni ni-archive"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5" rx="1"/><line x1="10" y1="12" x2="14" y2="12"/></svg></span>
-      <span class="nav-label">Archivio</span>
+    <button class="nav-tab" id="tab-relazioni" onclick="switchTab('relazioni')">
+      <span class="ni ni-archive"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="14" y2="17"/></svg></span>
+      <span class="nav-label">Relazioni</span>
     </button>
     <button class="nav-tab" id="tab-analytics" onclick="switchTab('analytics')">
       <span class="ni" style="background:#F0FDF4;color:#16a34a;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
@@ -2232,7 +2244,7 @@ function switchTab(tab){
 function renderFab(){
   const fab=document.getElementById('main-fab');
   const lbl=document.getElementById('fab-label');
-  const labels={'veicoli':null,'gestione':'Nuovo Veicolo','gomme':null,'fornitori':null,'report':null,'archivio':null,'analytics':null};
+  const labels={'veicoli':null,'gestione':'Nuovo Veicolo','gomme':null,'fornitori':null,'report':null,'relazioni':null,'analytics':null};
   if(labels[currentTab]===null){ fab.style.display='none'; return; }
   fab.style.display='flex';
   lbl.textContent=labels[currentTab]||'Nuovo';
@@ -2262,7 +2274,7 @@ function renderMain(){
   else if(currentTab==='gomme') renderTires(main);
   else if(currentTab==='fornitori') renderSuppliers(main);
   else if(currentTab==='report') renderReport(main);
-  else if(currentTab==='archivio') renderArchivio(main);
+  else if(currentTab==='relazioni') renderRelazioni(main);
   else if(currentTab==='analytics') renderAnalytics(main);
 }
 
@@ -4268,6 +4280,7 @@ async function openHistory(vehicleId){
             fmtDate(ev.date)+(t.stato==='completato'?' · '+fmtKM(t.kmEffettivo):''),
             '<div class="tl-type" style="color:#1e40af;">🔄 Cambio gomme — '+lbl+'</div>'
             +(t.stato==='programmato'?'<div class="tl-desc" style="color:#64748b;margin-top:4px;">Programmato per il '+fmtDate(t.dataProgrammata)+' · tocca per eseguirlo</div>':'')
+            +((t.fornitoreId||depositoLabel(t))?'<div class="tl-desc" style="color:#64748b;font-size:11px;margin-top:4px;">'+[t.fornitoreId&&suppliers.find(x=>x.id===t.fornitoreId)?'🏠 '+escHtml(suppliers.find(x=>x.id===t.fornitoreId).nome):'', depositoLabel(t)?'📍 deposito: '+escHtml(depositoLabel(t)):''].filter(Boolean).join(' · ')+'</div>':'')
             +(t.note?'<div class="tl-desc" style="color:#64748b;margin-top:4px;">'+escHtml(t.note)+'</div>':'')
             +elenco('SMONTATE', smontate, x=>x.stato==='buttata'?'🗑️ smaltite':'📦 deposito')
             +elenco('MONTATE', montate, null)
@@ -4284,6 +4297,7 @@ async function openHistory(vehicleId){
             fmtDate(ev.date)+' · '+fmtKM(mont?t.kmMontaggio:t.kmSmontaggio),
             '<div class="tl-type" style="color:'+(t.stagione==='estate'?'#92400e':'#1e40af')+';">'+titolo+'</div>'
             +'<div class="tl-desc" style="margin-top:4px;">'+tireIcon(t.stagione)+' '+_histStagione(t.stagione)+' — '+_histSetTxt(t)+'</div>'
+            +(!mont&&t.stato==='deposito'&&depositoLabel(t)?'<div class="tl-desc" style="color:#64748b;font-size:11px;">📍 '+escHtml(depositoLabel(t))+'</div>':'')
             +(t.note?'<div class="tl-desc" style="color:#64748b;">'+escHtml(t.note)+'</div>':'')
             +btnRow([
               _histBtn('✏️ Modifica',"openEditTireSet('"+t.id+"')"),
@@ -4741,7 +4755,7 @@ function renderVehicleTireCard(v, tires, tireInts){
         <div class="tire-row-icon">${tireIcon(t.stagione)}</div>
         <div class="tire-row-body">
           <div class="tire-row-name">${escHtml(t.marca)}${t.modello?' '+escHtml(t.modello):''} <span style="font-weight:400;color:#94a3b8;font-size:12px;">${escHtml(t.dimensione||'')} ×${t.quantita||4}</span></div>
-          <div class="tire-row-meta">Smontate ${fmtDate(t.dataSmontaggio)} &nbsp;·&nbsp; ${kmRow(t)}</div>
+          <div class="tire-row-meta">Smontate ${fmtDate(t.dataSmontaggio)} &nbsp;·&nbsp; ${kmRow(t)}${depositoLabel(t)?' &nbsp;·&nbsp; 📍 '+escHtml(depositoLabel(t)):''}</div>
         </div>
         <span class="tire-status deposito">Deposito ✏️</span>
       </div>
@@ -4990,6 +5004,45 @@ function saveTire(vehicleId){
 // ─────────────────────────────────────────────
 //  STEP 1 — PIANIFICA CAMBIO GOMME
 // ─────────────────────────────────────────────
+// ─────────────────────────────────────────────
+//  FORNITORE E DEPOSITO DEL CAMBIO GOMME
+// ─────────────────────────────────────────────
+// Fornitore proposto: Technogomme, se presente tra i fornitori
+function _gommistaDefaultId(){
+  const s = DB.suppliers().find(x=>/techno\s*gomm/i.test(x.nome||''));
+  return s ? s.id : '';
+}
+function _gommeSupplierOpts(selId){
+  return DB.suppliers().filter(s=>s.attivo || s.id===selId)
+    .map(s=>`<option value="${s.id}" ${s.id===selId?'selected':''}>${escHtml(s.nome)}${s.tipo?' ('+escHtml(s.tipo)+')':''}${s.attivo?'':' — non attivo'}</option>`).join('');
+}
+function _gommeFornitoreSelect(id, selId){
+  return `<select class="form-select" id="${id}"><option value="">— Non indicato —</option>${_gommeSupplierOpts(selId)}</select>`;
+}
+// Deposito: un fornitore oppure un luogo scritto a mano (es. "Cantina Struttura RSD")
+function _gommeDepositoSelect(id, fornId, luogo){
+  const custom = !fornId && !!luogo;
+  return `<select class="form-select" id="${id}" onchange="document.getElementById('${id}-txt').style.display=this.value==='__luogo'?'block':'none'">
+      <option value="">— Non indicato —</option>${_gommeSupplierOpts(fornId)}
+      <option value="__luogo" ${custom?'selected':''}>✏️ Personalizza…</option>
+    </select>
+    <input class="form-input" id="${id}-txt" style="margin-top:6px;display:${custom?'block':'none'};" placeholder="Es. Cantina Struttura RSD" value="${escHtml(luogo||'')}" autocomplete="off">`;
+}
+// Restituisce {depositoFornitoreId, depositoLuogo}, oppure null se "Personalizza" è vuoto
+function _gommeDepositoRead(id){
+  const v = document.getElementById(id)?.value || '';
+  if(v==='__luogo'){
+    const t = (document.getElementById(id+'-txt')?.value||'').trim();
+    return t ? {depositoFornitoreId:null, depositoLuogo:t} : null;
+  }
+  return {depositoFornitoreId:v||null, depositoLuogo:null};
+}
+function depositoLabel(x){
+  if(!x) return '';
+  if(x.depositoFornitoreId){ const s=DB.suppliers().find(s=>s.id===x.depositoFornitoreId); return s?s.nome:''; }
+  return x.depositoLuogo||'';
+}
+
 function openPianificaCambio(vehicleId){
   const v = DB.vehicles().find(x=>x.id===vehicleId);
   const tires = DB.tires().filter(t=>t.vehicleId===vehicleId);
@@ -5030,6 +5083,8 @@ function openPianificaCambio(vehicleId){
 
     <div class="form-group"><label class="form-label">Data prevista intervento *</label>
       <input class="form-input" id="pc-data" type="date" value="${today()}"></div>
+    <div class="form-group"><label class="form-label">Fornitore</label>
+      ${_gommeFornitoreSelect('pc-fornitore', _gommistaDefaultId())}</div>
     <div class="form-group"><label class="form-label">Note (opzionale)</label>
       <input class="form-input" id="pc-note" placeholder="Es. portare dal gommista Rossi" autocomplete="off"></div>
 
@@ -5050,6 +5105,7 @@ function savePianificaCambio(vehicleId){
     dataProgrammata: data,
     dataEffettiva: null,
     stato: 'programmato',
+    fornitoreId: document.getElementById('pc-fornitore').value || null,
     note: document.getElementById('pc-note').value.trim(),
     createdAt: nowISO()
   });
@@ -5182,6 +5238,10 @@ function openEditCambioGomme(intId){
         <div class="form-group"><label class="form-label">KM veicolo *</label>
           <input class="form-input" id="ec-km" type="number" inputmode="numeric" value="" min="0" placeholder="${kmUltimoCheck(tireInt.vehicleId)??''}"></div>
       </div>
+      <div class="form-group"><label class="form-label">Fornitore</label>
+        ${_gommeFornitoreSelect('ec-fornitore', tireInt.fornitoreId!==undefined ? (tireInt.fornitoreId||'') : _gommistaDefaultId())}</div>
+      ${montate.length>0 ? `<div class="form-group" style="margin-bottom:14px;"><label class="form-label">Deposito delle gomme smontate</label>
+        ${_gommeDepositoSelect('ec-deposito', (tireInt.depositoFornitoreId||tireInt.depositoLuogo) ? tireInt.depositoFornitoreId : _gommistaDefaultId(), tireInt.depositoLuogo)}</div>` : ''}
 
       ${montate.length>0 ? `
       <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:8px;">① Smontaggio — cosa faccio con le gomme?</div>
@@ -5243,6 +5303,9 @@ function saveEditCambioGomme(intId, vehicleId){
   const dataEff = document.getElementById('ec-data').value||today();
   const km = kmInput('ec-km');
   if(!km){ toast('Inserisci i KM del veicolo','error'); return; }
+  const fornitoreId = document.getElementById('ec-fornitore')?.value || null;
+  const dep = document.getElementById('ec-deposito') ? _gommeDepositoRead('ec-deposito') : {depositoFornitoreId:null, depositoLuogo:null};
+  if(!dep){ toast('Scrivi dove sono in deposito le gomme','error'); return; }
 
   const tires = DB.tires();
   const montate = tires.filter(t=>t.vehicleId===vehicleId&&t.stato==='montata');
@@ -5259,6 +5322,7 @@ function saveEditCambioGomme(intId, vehicleId){
       tires[idx].stato = 'deposito';
       tires[idx].dataSmontaggio = dataEff;
       tires[idx].kmSmontaggio = km;
+      Object.assign(tires[idx], dep);
     } else if(mode==='tutte-buttate'){
       tires[idx].stato = 'buttata';
       tires[idx].dataSmontaggio = dataEff;
@@ -5272,6 +5336,7 @@ function saveEditCambioGomme(intId, vehicleId){
       tires[idx].stato = 'deposito';
       tires[idx].dataSmontaggio = dataEff;
       tires[idx].kmSmontaggio = km;
+      Object.assign(tires[idx], dep);
       if(qtyBut>0){
         tires.push({
           ...t,
@@ -5304,6 +5369,8 @@ function saveEditCambioGomme(intId, vehicleId){
       tires[idx].kmMontaggio = km;
       tires[idx].dataSmontaggio = null;
       tires[idx].kmSmontaggio = null;
+      tires[idx].depositoFornitoreId = null;
+      tires[idx].depositoLuogo = null;
     }
   });
 
@@ -5336,6 +5403,8 @@ function saveEditCambioGomme(intId, vehicleId){
     tireInts[iidx].stato = 'completato';
     tireInts[iidx].dataEffettiva = dataEff;
     tireInts[iidx].kmEffettivo = km;
+    tireInts[iidx].fornitoreId = fornitoreId;
+    Object.assign(tireInts[iidx], dep);
   }
   DB.saveTireInterventions(tireInts);
 
@@ -5412,7 +5481,9 @@ function openEditTireSet(tireId){
         <input class="form-input" id="es-datasmon" type="date" value="${val(t.dataSmontaggio)}"></div>
       <div class="form-group"><label class="form-label">KM allo smontaggio</label>
         <input class="form-input" id="es-kmsmon" type="number" inputmode="numeric" min="0" value="${val(t.kmSmontaggio)}"></div>
-    </div>`:''}
+    </div>
+    ${t.stato==='deposito'?`<div class="form-group"><label class="form-label">Deposito</label>
+      ${_gommeDepositoSelect('es-deposito', t.depositoFornitoreId||'', t.depositoLuogo)}</div>`:''}`:''}
     <div class="form-group"><label class="form-label">KM percorsi nei montaggi precedenti</label>
       <input class="form-input" id="es-kmprec" type="number" inputmode="numeric" min="0" value="${val(t.kmPrecedenti)}" placeholder="0">
       <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Si sommano ai km del periodo ${smontato?'montaggio → smontaggio':'in corso'} per la vita del set.</div></div>
@@ -5448,6 +5519,11 @@ function saveEditTireSet(tireId){
     f.kmSmontaggio   = num('es-kmsmon');
   }
 
+  if(document.getElementById('es-deposito')){
+    const dep = _gommeDepositoRead('es-deposito');
+    if(!dep){ toast('Scrivi dove sono in deposito le gomme','error'); return; }
+    Object.assign(f, dep);
+  }
   if(!f.marca){ toast('Inserisci la marca','error'); return; }
   if([f.kmMontaggio, f.kmSmontaggio, f.kmPrecedenti].some(k=>k!=null && k<0)){ toast('I km non possono essere negativi','error'); return; }
   if(f.dataSmontaggio && f.dataMontaggio && f.dataSmontaggio < f.dataMontaggio){ toast('La data di smontaggio non può precedere il montaggio','error'); return; }
@@ -5985,228 +6061,381 @@ function reportDetail(type){
 
 
 // ═══════════════════════════════════════════════════════
-//  ARCHIVIO TAB — Check & Interventi per veicolo
+//  RELAZIONI — relazione scritta dell'attività di un mezzo
+//  (prima attività interna, poi un capitolo per fornitore)
 // ═══════════════════════════════════════════════════════
-let _archivioTab    = 'check';       // 'check' | 'interventi' | 'gomme'
-let _archivioVeicolo = '';           // '' = tutti
-let _archivioFiltroInt = 'tutti';    // 'tutti'|'aperti'|'chiusi'|'anomalie'
+const _rel = {vid:'', periodo:'presa', da:'', a:'', blocks:null, titolo:''};
 
-function renderArchivio(container){
-  const vehicles    = DB.vehicles();
-  const checks      = DB.checks();
-  const interventions = DB.interventions();
-  const suppliers   = DB.suppliers();
-  const tireInts    = DB.tireInterventions();
+function _relIsoAdd(iso, months){ const d=new Date(iso+'T12:00:00'); d.setMonth(d.getMonth()+months); return d.toISOString().slice(0,10); }
+function _relGiorni(daIso, aIso){ return Math.round((new Date(aIso+'T12:00:00')-new Date(daIso+'T12:00:00'))/86400000); }
+const _REL_MESI=['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
 
-  // ── Selettore veicolo ──
-  const vOptions = ['<option value="">Tutti i veicoli</option>',
-    ...vehicles.map(v=>`<option value="${v.id}" ${_archivioVeicolo===v.id?'selected':''}>${escHtml(v.targa)} — ${escHtml(v.nome)}</option>`)
-  ].join('');
+// Data di presa in carico: inserimento nell'app, altrimenti il primo evento registrato
+function _relPresaInCarico(v){
+  const date=[];
+  if(v.createdAt) date.push(String(v.createdAt).slice(0,10));
+  DB.checks().forEach(c=>{ if(c.vehicleId===v.id&&c.data) date.push(c.data); });
+  DB.interventions().forEach(i=>{ if(i.vehicleId===v.id&&i.dataApertura) date.push(i.dataApertura); });
+  DB.segnalazioni().forEach(s=>{ if(s.vehicleId===v.id&&s.data) date.push(s.data); });
+  DB.tires().forEach(t=>{ if(t.vehicleId===v.id&&t.dataMontaggio) date.push(t.dataMontaggio); });
+  DB.tireInterventions().forEach(t=>{ if(t.vehicleId===v.id){ const d=t.dataEffettiva||t.dataProgrammata; if(d) date.push(d); } });
+  date.sort();
+  return date[0] || today();
+}
 
-  // ── Filtra per veicolo ──
-  const filtChecks = _archivioVeicolo
-    ? checks.filter(c=>c.vehicleId===_archivioVeicolo)
-    : checks;
-  const filtInts = _archivioVeicolo
-    ? interventions.filter(i=>i.vehicleId===_archivioVeicolo)
-    : interventions;
-
-  // ── Filtra interventi per stato ──
-  const filtIntsStato = _archivioFiltroInt==='tutti'    ? filtInts
-    : _archivioFiltroInt==='aperti'   ? filtInts.filter(i=>i.stato==='in_lavorazione'||i.stato==='anomalia')
-    : _archivioFiltroInt==='chiusi'   ? filtInts.filter(i=>i.stato==='chiuso')
-    : _archivioFiltroInt==='anomalie' ? filtInts.filter(i=>i.stato==='anomalia')
-    : filtInts;
-
-  // Ordine cronologico inverso
-  const sortedChecks = [...filtChecks].sort((a,b)=>new Date(b.data)-new Date(a.data));
-  const sortedInts   = [...filtIntsStato].sort((a,b)=>new Date(b.dataApertura)-new Date(a.dataApertura));
-
-  // ── HTML sezione check ──
-  function renderCheckCards(){
-    if(sortedChecks.length===0) return '<div class="empty"><p>Nessun check trovato</p></div>';
-    const avanzata = DB.settings().gestioneAvanzata;
-    return sortedChecks.map(c=>{
-      const v    = vehicles.find(x=>x.id===c.vehicleId);
-      const anom = (c.items||[]).filter(i=>i.val==='anomalia');
-      const hasAnom = anom.length>0;
-      return `
-      <div class="card" style="margin-bottom:8px;">
-        <div style="display:flex;align-items:flex-start;gap:10px;">
-          <div style="flex:1;min-width:0;">
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
-              ${v?renderTargaHtml(v.targa):''}
-              <span style="font-size:13px;color:#64748b;">${escHtml(v?.nome||'')}</span>
-            </div>
-            <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:#64748b;margin-bottom:6px;">
-              <span>📅 ${fmtDate(c.data)}</span>
-              <span>🛣️ ${fmtKM(c.km)}</span>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;">
-              <span style="font-size:12px;color:#64748b;white-space:nowrap;">👤 ${escHtml(c.operatore||'')}</span>
-              <div style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;flex-shrink:0;${hasAnom?'background:#fee2e2;color:#b91c1c;':'background:#dcfce7;color:#15803d;'}">
-                ${hasAnom?`⚠️ ${anom.length} anomali${anom.length===1?'a':'e'}: ${anom.slice(0,2).map(a=>escHtml(a.voce)).join(', ')}${anom.length>2?'…':''}` :'✅ Tutto OK'}
-              </div>
-            </div>
-          </div>
-          <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
-            <button onclick="openCheckViewer('${c.id}','${c.vehicleId}')" style="background:#1e40af;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">
-              📋 Apri
-            </button>
-            <button onclick="stampaCheckModulo('${c.id}')" style="background:#f1f5f9;color:#475569;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">
-              🖨️ Stampa
-            </button>
-            <button onclick="openCheckForm('${c.vehicleId}','${c.id}')" style="background:#f1f5f9;color:#475569;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">
-              ✏️ Modifica
-            </button>
-            ${avanzata?`<button onclick="eliminaCheck('${c.id}')" style="background:#fee2e2;color:#b91c1c;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">
-              🗑️ Elimina
-            </button>`:''}
-          </div>
-        </div>
-      </div>`;
-    }).join('');
+function _relPeriodo(v){
+  const oggi=today();
+  switch(_rel.periodo){
+    case 'mese':     return {da:_relIsoAdd(oggi,-1), a:oggi};
+    case '12mesi':   return {da:_relIsoAdd(oggi,-12), a:oggi};
+    case 'anno':     return {da:oggi.slice(0,4)+'-01-01', a:oggi};
+    case 'annoPrec': { const y=parseInt(oggi.slice(0,4))-1; return {da:y+'-01-01', a:y+'-12-31'}; }
+    case 'custom':   return {da:_rel.da||oggi, a:_rel.a||oggi};
+    default:         return {da:_relPresaInCarico(v), a:oggi};
   }
+}
 
-  // ── HTML sezione interventi ──
-  function renderIntCards(){
-    if(sortedInts.length===0) return '<div class="empty"><p>Nessun intervento trovato</p></div>';
-    const avanzata = DB.settings().gestioneAvanzata;
-    const statoMap = {
-      in_lavorazione:{cls:'lavorazione',lbl:'🔧 In lavorazione'},
-      anomalia:      {cls:'anomalia',   lbl:'⚠️ Anomalia'},
-      chiuso:        {cls:'chiuso',     lbl:'✅ Chiuso'},
-      annullato:     {cls:'annullato',  lbl:'✕ Annullato'}
-    };
-    return sortedInts.map(i=>{
-      const v   = vehicles.find(x=>x.id===i.vehicleId);
-      const sup = suppliers.find(x=>x.id===i.fornitoreId);
-      const st  = statoMap[i.stato]||{cls:'',lbl:i.stato};
-      const isAperto = i.stato==='in_lavorazione'||i.stato==='anomalia';
-      return `
-      <div class="card" style="margin-bottom:8px;">
-        <div style="display:flex;align-items:flex-start;gap:10px;">
-          <div style="flex:1;min-width:0;">
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
-              ${v?renderTargaHtml(v.targa):''}
-              <span style="font-size:13px;color:#64748b;">${escHtml(v?.nome||'')}</span>
-            </div>
-            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px;">
-              <span class="int-status ${st.cls}">${st.lbl}</span>
-              ${sup?`<span style="font-size:11px;color:#64748b;">🏠 ${escHtml(sup.nome)}</span>`:''}
-            </div>
-            <div style="font-size:11px;color:#94a3b8;margin-bottom:4px;">
-              Aperto ${fmtDate(i.dataApertura)}${i.kmApertura?' · '+fmtKM(i.kmApertura):''}
-              ${i.dataChiusura?` &nbsp;→&nbsp; Chiuso ${fmtDate(i.dataChiusura)}${i.kmChiusura?' · '+fmtKM(i.kmChiusura):''}` :''}
-            </div>
-            <div style="font-size:13px;color:#334155;font-weight:500;margin-bottom:4px;">${escHtml(i.descrizione||'')}</div>
-            ${i.noteChiusura?`<div style="font-size:11px;color:#64748b;margin-top:3px;font-style:italic;">${escHtml(i.noteChiusura)}</div>`:''}
-          </div>
-          <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
-            ${isAperto?`<button onclick="openChiusuraForm('${i.id}','${i.vehicleId}')" style="background:#16a34a;color:#fff;border:none;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">✅ Chiudi</button>`:''}
-            <button onclick="openInterventionForm('${i.vehicleId}','${i.id}')" style="background:#f1f5f9;color:#475569;border:none;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">✏️ Modifica</button>
-            ${isAperto?`<button onclick="annullaIntervento('${i.id}','${i.vehicleId}')" style="background:#fef3c7;color:#92400e;border:none;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">✕ Annulla</button>`:''}
-            ${avanzata?`<button onclick="eliminaIntervento('${i.id}')" style="background:#fee2e2;color:#b91c1c;border:none;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">🗑️ Elimina</button>`:''}
-          </div>
-        </div>
-      </div>`;
-    }).join('');
-  }
-
-  // ── HTML sezione gomme ──
-  function renderGommeCards(){
-    const avanzata = DB.settings().gestioneAvanzata;
-    const filtTireInts = _archivioVeicolo
-      ? tireInts.filter(t=>t.vehicleId===_archivioVeicolo)
-      : tireInts;
-    const sorted = [...filtTireInts].sort((a,b)=>new Date(b.dataProgrammata||b.createdAt)-new Date(a.dataProgrammata||a.createdAt));
-    if(sorted.length===0) return '<div class="empty"><p>Nessun cambio gomme trovato</p></div>';
-    const statoColors = {
-      programmato: 'background:#dbeafe;color:#1e40af',
-      completato:  'background:#dcfce7;color:#15803d',
-      annullato:   'background:#f1f5f9;color:#64748b'
-    };
-    return sorted.map(t=>{
-      const v = vehicles.find(x=>x.id===t.vehicleId);
-      const sc = statoColors[t.stato]||statoColors.programmato;
-      return `
-      <div class="card" style="margin-bottom:8px;">
-        <div style="display:flex;align-items:flex-start;gap:10px;">
-          <div style="flex:1;min-width:0;">
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
-              ${v?renderTargaHtml(v.targa):''}
-              <span style="font-size:13px;color:#64748b;">${escHtml(v?.nome||'')}</span>
-            </div>
-            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px;">
-              <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;${sc}">🔄 ${t.stato.charAt(0).toUpperCase()+t.stato.slice(1)}</span>
-            </div>
-            <div style="font-size:12px;color:#64748b;">
-              📅 Programmato: ${fmtDate(t.dataProgrammata)}
-              ${t.dataEffettiva?` &nbsp;→&nbsp; Effettuato: ${fmtDate(t.dataEffettiva)}`:''}
-            </div>
-            ${t.note?`<div style="font-size:11px;color:#94a3b8;margin-top:3px;font-style:italic;">${escHtml(t.note)}</div>`:''}
-          </div>
-          <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
-            <button onclick="modificaCambioGomme('${t.id}')" style="background:#f1f5f9;color:#475569;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">✏️ Modifica</button>
-            ${avanzata?`<button onclick="eliminaCambioGomme('${t.id}')" style="background:#fee2e2;color:#b91c1c;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">🗑️ Elimina</button>`:''}
-          </div>
-        </div>
-      </div>`;
-    }).join('');
-  }
-
-  // ── Contatori per badge ──
-  const nCheck = sortedChecks.length;
-  const nInt   = sortedInts.length;
-  const nAperti = filtInts.filter(i=>i.stato==='in_lavorazione'||i.stato==='anomalia').length;
-  const nGomme = (_archivioVeicolo ? tireInts.filter(t=>t.vehicleId===_archivioVeicolo) : tireInts).length;
-
-  container.innerHTML = `
-    <div style="padding-bottom:2px;">
-
-      <!-- Selettore veicolo -->
-      <div style="position:relative;margin-bottom:12px;">
-        <select class="form-select" onchange="_archivioVeicolo=this.value;renderMain()" style="font-size:13px;padding:10px 36px 10px 12px;">
-          ${vOptions}
-        </select>
-      </div>
-
-      <!-- Tab bar check / interventi -->
-      <div class="tab-bar" style="margin-bottom:12px;">
-        <div class="tab-item ${_archivioTab==='check'?'active':''}" onclick="_archivioTab='check';renderMain()">
-          📋 Check <span style="font-size:11px;background:${_archivioTab==='check'?'#dbeafe':'#e2e8f0'};color:${_archivioTab==='check'?'#1e40af':'#64748b'};border-radius:10px;padding:1px 6px;margin-left:3px;">${nCheck}</span>
-        </div>
-        <div class="tab-item ${_archivioTab==='interventi'?'active':''}" onclick="_archivioTab='interventi';renderMain()">
-          🔧 Interventi <span style="font-size:11px;background:${_archivioTab==='interventi'?'#dbeafe':'#e2e8f0'};color:${_archivioTab==='interventi'?'#1e40af':'#64748b'};border-radius:10px;padding:1px 6px;margin-left:3px;">${filtInts.length}</span>
-        </div>
-        <div class="tab-item ${_archivioTab==='gomme'?'active':''}" onclick="_archivioTab='gomme';renderMain()">
-          🔄 Gomme <span style="font-size:11px;background:${_archivioTab==='gomme'?'#dbeafe':'#e2e8f0'};color:${_archivioTab==='gomme'?'#1e40af':'#64748b'};border-radius:10px;padding:1px 6px;margin-left:3px;">${nGomme}</span>
-        </div>
-      </div>
-
-      <!-- Filtro stato interventi -->
-      ${_archivioTab==='interventi'?`
-      <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;scrollbar-width:none;margin-bottom:4px;">
-        ${[
-          {k:'tutti',   lbl:'Tutti'},
-          {k:'aperti',  lbl:`Aperti${nAperti>0?' ('+nAperti+')':''}`},
-          {k:'anomalie',lbl:'Anomalie'},
-          {k:'chiusi',  lbl:'Chiusi'}
-        ].map(f=>`
-          <button onclick="_archivioFiltroInt='${f.k}';renderMain()" style="white-space:nowrap;padding:6px 14px;border-radius:20px;border:1.5px solid ${_archivioFiltroInt===f.k?'#1e40af':'#e2e8f0'};background:${_archivioFiltroInt===f.k?'#dbeafe':'#fff'};color:${_archivioFiltroInt===f.k?'#1e40af':'#64748b'};font-size:12px;font-weight:600;cursor:pointer;">
-            ${f.lbl}
-          </button>`).join('')}
-      </div>`:''}
-
+function renderRelazioni(container){
+  const vehicles=DB.vehicles().slice().sort((a,b)=>(a.venduto?1:0)-(b.venduto?1:0) || String(a.targa).localeCompare(String(b.targa)));
+  if(vehicles.length===0){ container.innerHTML='<div class="empty"><p>Nessun veicolo</p></div>'; return; }
+  if(!vehicles.some(v=>v.id===_rel.vid)){ _rel.vid=vehicles[0].id; _rel.blocks=null; }
+  const v=vehicles.find(x=>x.id===_rel.vid);
+  const per=_relPeriodo(v);
+  const periodi=[['presa','Dalla presa in carico a oggi'],['mese','Ultimo mese'],['12mesi','Ultimi 12 mesi'],['anno','Anno in corso'],['annoPrec','Anno precedente'],['custom','Periodo personalizzato']];
+  container.innerHTML=`
+    <div class="card" style="margin-bottom:12px;">
+      <div class="section-title" style="margin-top:0;">Nuova relazione</div>
+      <div class="form-group"><label class="form-label">Mezzo</label>
+        <select class="form-select" onchange="_rel.vid=this.value;_rel.blocks=null;renderMain()">
+          ${vehicles.map(x=>`<option value="${x.id}" ${x.id===_rel.vid?'selected':''}>${escHtml(x.targa)} — ${escHtml(x.nome||'')}${x.venduto?' (venduto)':''}</option>`).join('')}
+        </select></div>
+      <div class="form-group"><label class="form-label">Periodo</label>
+        <select class="form-select" onchange="_rel.periodo=this.value;_rel.blocks=null;renderMain()">
+          ${periodi.map(([k,l])=>`<option value="${k}" ${_rel.periodo===k?'selected':''}>${l}</option>`).join('')}
+        </select></div>
+      ${_rel.periodo==='custom'?`<div class="form-row">
+        <div class="form-group"><label class="form-label">Dal</label>
+          <input class="form-input" type="date" id="rel-da" value="${per.da}"></div>
+        <div class="form-group"><label class="form-label">Al</label>
+          <input class="form-input" type="date" id="rel-a" value="${per.a}"></div>
+      </div>`:`<div style="font-size:12px;color:#64748b;margin:-4px 0 12px;">Dal ${fmtDate(per.da)} al ${fmtDate(per.a)}</div>`}
+      <button class="btn btn-primary" style="width:100%;" onclick="generaRelazione()">📝 Genera relazione</button>
     </div>
-
-    <!-- Contenuto -->
-    <div>
-      ${_archivioTab==='check' ? renderCheckCards() : _archivioTab==='interventi' ? renderIntCards() : renderGommeCards()}
+    ${_rel.blocks?`
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button class="btn btn-primary" style="flex:1;" onclick="relazionePdf('open')">📄 Apri PDF</button>
+      ${navigator.share?'<button class="btn btn-secondary" style="flex:1;" onclick="relazionePdf(\'share\')">📤 Condividi</button>':''}
     </div>
+    <div class="rel-doc">${_relHtml(_rel.blocks)}</div>`:''}
+    <div style="height:80px;"></div>`;
+}
 
-    <div style="height:80px;"></div>
-  `;
+function generaRelazione(){
+  if(_rel.periodo==='custom'){
+    _rel.da=document.getElementById('rel-da').value;
+    _rel.a=document.getElementById('rel-a').value;
+    if(!_rel.da||!_rel.a){ toast('Inserisci le date del periodo','error'); return; }
+    if(_rel.da>_rel.a){ toast('La data iniziale non può essere successiva a quella finale','error'); return; }
+  }
+  const v=DB.vehicles().find(x=>x.id===_rel.vid);
+  if(!v) return;
+  const per=_relPeriodo(v);
+  _rel.blocks=_relBuild(v, per.da, per.a);
+  _rel.titolo='Relazione '+v.targa+' '+per.da+' '+per.a;
+  renderMain();
+}
+
+// ── Costruzione del contenuto (unico per anteprima e PDF) ──
+function _relBuild(v, da, a){
+  const oggi=today();
+  const inP = d => !!d && d>=da && d<=a;
+  const B=[]; const h1=x=>B.push({t:'h1',x}), h2=x=>B.push({t:'h2',x}), h3=x=>B.push({t:'h3',x}),
+        p=x=>B.push({t:'p',x}), li=x=>B.push({t:'li',x}), kv=(k,x)=>B.push({t:'kv',k,x});
+  const suppliers=DB.suppliers();
+  const supNome = id => { const s=suppliers.find(x=>x.id===id); return s?s.nome:'fornitore non più presente'; };
+  const km = n => (n==null||n==='') ? null : fmtKM(n);
+  const conKm = (d,k) => fmtDate(d)+(km(k)?' · '+km(k):'');
+  const plur = (n,s,pl) => n+' '+(n===1?s:pl);
+  const stagione = s => s==='estate'?'estive':s==='4stagioni'?'4 stagioni':'invernali';
+  const setTxt = t => 'gomme '+stagione(t.stagione)+' '+[t.marca,t.modello,t.dimensione].filter(Boolean).join(' ')+' (x'+(t.quantita||4)+')';
+
+  const allChecks=DB.checks().filter(c=>c.vehicleId===v.id);
+  const allInts=DB.interventions().filter(i=>i.vehicleId===v.id);
+  const allSegn=DB.segnalazioni().filter(s=>s.vehicleId===v.id);
+  const tires=DB.tires().filter(t=>t.vehicleId===v.id);
+  const allTireInts=DB.tireInterventions().filter(t=>t.vehicleId===v.id);
+
+  const checks=allChecks.filter(c=>inP(c.data)).sort((x,y)=>String(x.data).localeCompare(String(y.data)));
+  const ints=allInts.filter(i=>inP(i.dataApertura)).sort((x,y)=>String(x.dataApertura).localeCompare(String(y.dataApertura)));
+  const segn=allSegn.filter(s=>inP(s.data)).sort((x,y)=>String(x.data).localeCompare(String(y.data)));
+  const tireInts=allTireInts.filter(t=>inP(t.stato==='completato'&&t.dataEffettiva?t.dataEffettiva:t.dataProgrammata))
+    .sort((x,y)=>String(x.dataEffettiva||x.dataProgrammata).localeCompare(String(y.dataEffettiva||y.dataProgrammata)));
+
+  const intStato = i => {
+    if(i.stato==='chiuso') return 'chiuso il '+fmtDate(i.dataChiusura)+(km(i.kmChiusura)?' a '+km(i.kmChiusura):'');
+    if(i.stato==='annullato') return 'annullato';
+    if(i.stato==='anomalia') return 'in anomalia';
+    if(i.dataApertura && i.dataApertura>oggi) return 'programmato';
+    return 'in lavorazione da '+plur(Math.max(0,_relGiorni(i.dataApertura||oggi, oggi)),'giorno','giorni');
+  };
+  const intOrigine = i => {
+    if(i.origine==='check'){ const c=allChecks.find(x=>x.id===i.checkId); return c?'da check del '+fmtDate(c.data):'da check'; }
+    if(i.origine==='segnalazione') return 'da segnalazione';
+    return '';
+  };
+  const intTxt = i => conKm(i.dataApertura, i.kmApertura)+' — '+(i.descrizione||'Intervento')
+    +(intOrigine(i)?' ('+intOrigine(i)+')':'')+' — '+intStato(i)
+    +(i.noteChiusura?'. Note: '+i.noteChiusura:'');
+  const revTxt = i => conKm(i.dataApertura, i.kmApertura)+' — Revisione periodica'
+    +(i.noteChiusura?' — esito: '+i.noteChiusura:'')
+    +(i.scadenzaRevisione?'; nuova scadenza '+fmtDate(i.scadenzaRevisione):'');
+  const cambioTxt = t => {
+    if(t.stato==='programmato') return fmtDate(t.dataProgrammata)+' — Cambio gomme programmato'+(t.note?'. Note: '+t.note:'');
+    if(t.stato==='annullato') return fmtDate(t.dataProgrammata)+' — Cambio gomme programmato e poi annullato'+(t.note?'. Note: '+t.note:'');
+    const g=t.dataEffettiva;
+    const smont=tires.filter(x=>x.dataSmontaggio===g), mont=tires.filter(x=>x.dataMontaggio===g);
+    const dep=depositoLabel(t);
+    const parti=[];
+    if(smont.length) parti.push('smontate '+smont.map(x=>setTxt(x)+(x.stato==='buttata'?', smaltite':', messe in deposito'+(depositoLabel(x)||dep?' presso '+(depositoLabel(x)||dep):''))).join('; '));
+    if(mont.length) parti.push('montate '+mont.map(setTxt).join('; '));
+    return conKm(g, t.kmEffettivo)+' — Cambio gomme'+(parti.length?': '+parti.join('; '):'')+(t.note?'. Note: '+t.note:'');
+  };
+
+  // ── 1. Dati del mezzo ──
+  h1('Relazione attività — '+v.targa);
+  p('Relazione sull\'attività registrata per il mezzo '+v.targa+(v.nome?' ('+v.nome+')':'')+' nel periodo dal '+fmtDate(da)+' al '+fmtDate(a)+'. Creata il '+fmtDate(oggi)+(DB.settings().operator?' da '+DB.settings().operator:'')+'.');
+  h2('1. Dati del mezzo');
+  const kms=[];
+  checks.forEach(c=>kms.push(c.km)); ints.forEach(i=>{ kms.push(i.kmApertura); if(inP(i.dataChiusura)) kms.push(i.kmChiusura); });
+  segn.forEach(s=>kms.push(s.km)); tireInts.forEach(t=>kms.push(t.kmEffettivo));
+  const kmOk=kms.map(k=>parseInt(k)).filter(k=>!isNaN(k)&&k>0);
+  const kmMin=kmOk.length?Math.min(...kmOk):null, kmMax=kmOk.length?Math.max(...kmOk):null;
+  kv('Targa', v.targa);
+  if(v.nome) kv('Nome', v.nome);
+  if(v.modello) kv('Modello', v.modello);
+  if(v.anno) kv('Anno', String(v.anno));
+  kv('Stato', v.venduto?'venduto / dismesso':'in servizio');
+  if(v.createdAt) kv('Inserito nell\'app il', fmtDate(String(v.createdAt).slice(0,10)));
+  kv('Km attuali', fmtKM(v.km));
+  if(kmMin!=null && kmMax>kmMin) kv('Km nel periodo', 'da '+fmtKM(kmMin)+' a '+fmtKM(kmMax)+' (circa '+fmtKM(kmMax-kmMin)+' registrati)');
+  kv('Scadenza revisione', v.scadenzaRevisione?fmtDate(v.scadenzaRevisione):'non indicata');
+  const dot=[v.sollevatore&&'sollevatore', v.pedana&&'pedana', v.spazzolePost&&'spazzole posteriori', v.lavavetriPost&&'lavavetri posteriori'].filter(Boolean);
+  kv('Dotazioni', dot.length?dot.join(', '):'nessuna indicata');
+  if(v.note) kv('Note', v.note);
+
+  // ── 2. Attività interna ──
+  const interne=ints.filter(i=>!i.fornitoreId && i.origine!=='revisione');
+  const nAnomCheck=checks.filter(c=>(c.items||[]).some(x=>x.val==='anomalia')).length;
+  const segnGestite=segn.filter(s=>allInts.some(i=>i.segnalazioneId===s.id&&i.stato!=='annullato')).length;
+  h2('2. Attività interna');
+  p('Nel periodo '+(checks.length===1?'è stato eseguito ':'sono stati eseguiti ')+plur(checks.length,'check mensile','check mensili')
+    +(checks.length?' ('+nAnomCheck+' con anomalie)':'')
+    +', '+(segn.length===1?'è stata ricevuta ':'sono state ricevute ')+plur(segn.length,'segnalazione','segnalazioni')
+    +(segn.length?' ('+segnGestite+' '+(segnGestite===1?'gestita':'gestite')+')':'')
+    +(interne.length===1?' ed è stata registrata ':' e sono state registrate ')+plur(interne.length,'riparazione interna','riparazioni interne')+'.');
+
+  h3('2.1 Check mensili');
+  if(!checks.length) p('Nessun check registrato nel periodo.');
+  checks.forEach(c=>{
+    const anom=(c.items||[]).filter(x=>x.val==='anomalia');
+    const testa=conKm(c.data,c.km)+(c.operatore?' · '+c.operatore:'');
+    if(!anom.length){ li(testa+' — nessuna anomalia'+(c.note?'. Note: '+c.note:'')); return; }
+    const esiti=anom.map(x=>{
+      const cand=allInts.filter(i=>i.checkId===c.id && (i.descrizione||'').startsWith(x.voce));
+      const i=cand.find(z=>z.stato!=='annullato')||cand[0];
+      let e;
+      if(!i) e='non ancora gestita';
+      else if(i.fornitoreId) e='affidata a '+supNome(i.fornitoreId)+' ('+intStato(i)+')';
+      else e=i.stato==='chiuso'?'risolta internamente il '+fmtDate(i.dataChiusura):'riparazione interna '+intStato(i);
+      return x.voce+(x.note?' ("'+x.note+'")':'')+': '+e;
+    });
+    li(testa+' — '+plur(anom.length,'anomalia','anomalie')+': '+esiti.join('; ')+(c.note?'. Note: '+c.note:''));
+  });
+  // Anomalie ricorrenti e mesi senza check
+  const conta={};
+  checks.forEach(c=>(c.items||[]).forEach(x=>{ if(x.val==='anomalia') conta[x.voce]=(conta[x.voce]||0)+1; }));
+  const ricorrenti=Object.keys(conta).filter(k=>conta[k]>1);
+  if(ricorrenti.length) p('Anomalie ricorrenti: '+ricorrenti.map(k=>k+' ('+conta[k]+' volte)').join(', ')+'.');
+  const mesiSenza=[];
+  let m=new Date(da.slice(0,7)+'-01T12:00:00');
+  while(true){
+    const ini=m.toISOString().slice(0,10);
+    const fine=new Date(m.getFullYear(), m.getMonth()+1, 0, 12).toISOString().slice(0,10);
+    if(ini>a) break;
+    if(ini>=da && fine<=a && !checks.some(c=>c.data>=ini&&c.data<=fine)) mesiSenza.push(_REL_MESI[m.getMonth()]+' '+m.getFullYear());
+    m=new Date(m.getFullYear(), m.getMonth()+1, 1, 12);
+  }
+  if(checks.length && mesiSenza.length) p('Mesi senza check: '+mesiSenza.join(', ')+'.');
+
+  h3('2.2 Segnalazioni degli operatori');
+  if(!segn.length) p('Nessuna segnalazione nel periodo.');
+  segn.forEach(s=>{
+    const gi=allInts.filter(i=>i.segnalazioneId===s.id && i.stato!=='annullato');
+    const esito=!gi.length?'ancora aperta'
+      :gi.map(i=>i.fornitoreId?'affidata a '+supNome(i.fornitoreId)+' ('+intStato(i)+')':(i.stato==='chiuso'?'risolta internamente il '+fmtDate(i.dataChiusura):'riparazione interna '+intStato(i))).join('; ');
+    li(conKm(s.data,s.km)+(s.operatore?' · '+s.operatore:'')+' — '+s.problema+(s.note?' ("'+s.note+'")':'')+' — '+esito);
+  });
+
+  h3('2.3 Riparazioni interne');
+  if(!interne.length) p('Nessuna riparazione interna nel periodo.');
+  interne.forEach(i=>li(intTxt(i)));
+
+  // ── 3. Fornitori ──
+  const perFornitore={};
+  const add=(id,k,x)=>{ (perFornitore[id]=perFornitore[id]||{int:[],rev:[],gomme:[],deposito:[]})[k].push(x); };
+  ints.filter(i=>i.fornitoreId).forEach(i=>add(i.fornitoreId, i.origine==='revisione'?'rev':'int', i));
+  tireInts.filter(t=>t.fornitoreId).forEach(t=>add(t.fornitoreId,'gomme',t));
+  tires.filter(t=>t.stato==='deposito'&&t.depositoFornitoreId).forEach(t=>add(t.depositoFornitoreId,'deposito',t));
+  const ordine=Object.keys(perFornitore).sort((x,y)=>{
+    const n=id=>perFornitore[id].int.length+perFornitore[id].rev.length+perFornitore[id].gomme.length;
+    return n(y)-n(x) || supNome(x).localeCompare(supNome(y));
+  });
+  let cap=3;
+  h2(cap+'. Fornitori');
+  if(!ordine.length) p('Nel periodo nessun lavoro risulta affidato a fornitori esterni.');
+  else p('Nel periodo hanno lavorato sul mezzo '+plur(ordine.length,'fornitore','fornitori')+': '+ordine.map(supNome).join(', ')+'.');
+  ordine.forEach((id,n)=>{
+    const f=perFornitore[id];
+    const sup=suppliers.find(x=>x.id===id);
+    h3(cap+'.'+(n+1)+' '+supNome(id)+(sup&&sup.tipo?' ('+sup.tipo+')':''));
+    const chiusi=f.int.filter(i=>i.stato==='chiuso').length;
+    const parti=[];
+    if(f.int.length) parti.push(plur(f.int.length,'intervento','interventi')+' ('+chiusi+' '+(chiusi===1?'chiuso':'chiusi')+')');
+    if(f.rev.length) parti.push(plur(f.rev.length,'revisione','revisioni'));
+    if(f.gomme.length) parti.push(plur(f.gomme.length,'cambio gomme','cambi gomme'));
+    if(parti.length) p('Nel periodo: '+parti.join(', ')+'.');
+    [...f.int.map(i=>({d:i.dataApertura,x:intTxt(i)})), ...f.rev.map(i=>({d:i.dataApertura,x:revTxt(i)})),
+     ...f.gomme.map(t=>({d:t.dataEffettiva||t.dataProgrammata,x:cambioTxt(t)}))]
+      .sort((x,y)=>String(x.d).localeCompare(String(y.d))).forEach(e=>li(e.x));
+    if(f.deposito.length) p('Custodisce attualmente in deposito: '+f.deposito.map(setTxt).join('; ')+'.');
+  });
+
+  // ── Fornitore non indicato (revisioni e cambi gomme) ──
+  const revSenza=ints.filter(i=>!i.fornitoreId && i.origine==='revisione');
+  const gommeSenza=tireInts.filter(t=>!t.fornitoreId);
+  if(revSenza.length||gommeSenza.length){
+    cap++;
+    h2(cap+'. Lavori senza fornitore indicato');
+    p('Revisioni e cambi gomme registrati senza indicare chi li ha eseguiti.');
+    [...revSenza.map(i=>({d:i.dataApertura,x:revTxt(i)})), ...gommeSenza.map(t=>({d:t.dataEffettiva||t.dataProgrammata,x:cambioTxt(t)}))]
+      .sort((x,y)=>String(x.d).localeCompare(String(y.d))).forEach(e=>li(e.x));
+  }
+
+  // ── Situazione attuale ──
+  cap++;
+  h2(cap+'. Situazione al '+fmtDate(oggi));
+  const montate=tires.filter(t=>t.stato==='montata'), deposito=tires.filter(t=>t.stato==='deposito');
+  h3('Gomme');
+  if(!montate.length&&!deposito.length) p('Nessuna gomma registrata.');
+  montate.forEach(t=>{ const k=tireKmPercorsi(t,v.km); li('Montate: '+setTxt(t)+', dal '+fmtDate(t.dataMontaggio)+(k!=null?', '+fmtKM(k)+' percorsi':'')); });
+  deposito.forEach(t=>{ const k=tireKmPercorsi(t,v.km); li('In deposito'+(depositoLabel(t)?' presso '+depositoLabel(t):'')+': '+setTxt(t)+(k!=null?', '+fmtKM(k)+' percorsi':'')); });
+  const aperti=allInts.filter(i=>i.stato==='in_lavorazione'||i.stato==='anomalia');
+  h3('Interventi aperti');
+  if(!aperti.length) p('Nessun intervento aperto.');
+  aperti.forEach(i=>li(intTxt(i)+(i.fornitoreId?' — presso '+supNome(i.fornitoreId):' — interno')));
+  const segnAperte=allSegn.filter(s=>!allInts.some(i=>i.segnalazioneId===s.id&&i.stato!=='annullato'));
+  const anomAperte=[];
+  allChecks.forEach(c=>(c.items||[]).forEach(x=>{
+    if(x.val==='anomalia' && !allInts.some(i=>i.checkId===c.id&&(i.descrizione||'').startsWith(x.voce)&&i.stato!=='annullato')) anomAperte.push(fmtDate(c.data)+' — '+x.voce+(x.note?' ("'+x.note+'")':''));
+  }));
+  if(segnAperte.length||anomAperte.length){
+    h3('Da gestire');
+    segnAperte.forEach(s=>li('Segnalazione del '+fmtDate(s.data)+': '+s.problema));
+    anomAperte.forEach(x=>li('Anomalia del check '+x));
+  }
+  h3('Revisione');
+  if(!v.scadenzaRevisione) p('Scadenza della revisione non indicata.');
+  else {
+    const gg=_relGiorni(oggi, v.scadenzaRevisione);
+    p('Prossima scadenza: '+fmtDate(v.scadenzaRevisione)+(gg<0?' — SCADUTA da '+plur(-gg,'giorno','giorni'):' (tra '+plur(gg,'giorno','giorni')+')')+'.');
+  }
+  return B;
+}
+
+// ── Anteprima a schermo ──
+function _relHtml(B){
+  let html='', inList=false;
+  B.forEach(b=>{
+    if(b.t!=='li' && inList){ html+='</ul>'; inList=false; }
+    if(b.t==='li' && !inList){ html+='<ul>'; inList=true; }
+    if(b.t==='h1') html+='<h1>'+escHtml(b.x)+'</h1>';
+    else if(b.t==='h2') html+='<h2>'+escHtml(b.x)+'</h2>';
+    else if(b.t==='h3') html+='<h3>'+escHtml(b.x)+'</h3>';
+    else if(b.t==='p') html+='<p>'+escHtml(b.x)+'</p>';
+    else if(b.t==='li') html+='<li>'+escHtml(b.x)+'</li>';
+    else if(b.t==='kv') html+='<div class="rel-kv"><span>'+escHtml(b.k)+'</span><strong>'+escHtml(b.x)+'</strong></div>';
+  });
+  if(inList) html+='</ul>';
+  return html;
+}
+
+// ── PDF (testo, A4) ──
+function _relPdfTxt(s){
+  // I caratteri standard del PDF non hanno emoji e simboli speciali
+  return String(s==null?'':s).replace(/[^\x00-\xFF€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ]/g,'');
+}
+function _relPdfBlob(B, titolo){
+  const { jsPDF } = window.jspdf;
+  const pdf=new jsPDF({orientation:'portrait', unit:'mm', format:'a4'});
+  const M=18, W=210-2*M, BOTTOM=297-18;
+  let y=M;
+  const lh=pt=>pt*0.3528*1.35;
+  const need=h=>{ if(y+h>BOTTOM){ pdf.addPage(); y=M; } };
+  const testo=(s, pt, style, x, w)=>{
+    pdf.setFont('helvetica', style); pdf.setFontSize(pt);
+    const righe=pdf.splitTextToSize(_relPdfTxt(s), w);
+    righe.forEach(r=>{ need(lh(pt)); pdf.text(r, x, y+lh(pt)*0.75); y+=lh(pt); });
+  };
+  B.forEach(b=>{
+    if(b.t==='h1'){ testo(b.x, 16, 'bold', M, W); y+=2; }
+    else if(b.t==='h2'){ y+=4; need(lh(13)+4); testo(b.x, 13, 'bold', M, W); pdf.setDrawColor(150); pdf.line(M, y+0.5, M+W, y+0.5); y+=3; }
+    else if(b.t==='h3'){ y+=2; need(lh(11)+2); testo(b.x, 11, 'bold', M, W); y+=1; }
+    else if(b.t==='p'){ testo(b.x, 10, 'normal', M, W); y+=1.5; }
+    else if(b.t==='li'){
+      pdf.setFont('helvetica','normal'); pdf.setFontSize(10);
+      const righe=pdf.splitTextToSize(_relPdfTxt(b.x), W-5);
+      righe.forEach((r,i)=>{ need(lh(10)); if(i===0) pdf.text('•', M+1, y+lh(10)*0.75); pdf.text(r, M+5, y+lh(10)*0.75); y+=lh(10); });
+      y+=1;
+    }
+    else if(b.t==='kv'){
+      pdf.setFont('helvetica','normal'); pdf.setFontSize(10);
+      const righe=pdf.splitTextToSize(_relPdfTxt(b.x), W-50);
+      need(lh(10)*righe.length);
+      pdf.setTextColor(100); pdf.text(_relPdfTxt(b.k), M, y+lh(10)*0.75); pdf.setTextColor(0);
+      pdf.setFont('helvetica','bold');
+      righe.forEach(r=>{ pdf.text(r, M+50, y+lh(10)*0.75); y+=lh(10); });
+      y+=0.8;
+    }
+  });
+  const n=pdf.getNumberOfPages();
+  for(let i=1;i<=n;i++){
+    pdf.setPage(i); pdf.setFont('helvetica','normal'); pdf.setFontSize(8); pdf.setTextColor(120);
+    pdf.text(_relPdfTxt(titolo), M, 297-10);
+    pdf.text('Pagina '+i+' di '+n, 210-M, 297-10, {align:'right'});
+    pdf.setTextColor(0);
+  }
+  return pdf.output('blob');
+}
+
+async function relazionePdf(mode){
+  if(!_rel.blocks) return;
+  const v=DB.vehicles().find(x=>x.id===_rel.vid);
+  const per=_relPeriodo(v);
+  const nomeFile='Relazione_'+(v?v.targa:'mezzo')+'_'+per.da+'_'+per.a+'.pdf';
+  let blob;
+  try{ blob=_relPdfBlob(_rel.blocks, 'Relazione attività '+(v?v.targa:'')+' — dal '+fmtDate(per.da)+' al '+fmtDate(per.a)); }
+  catch(e){ console.error(e); toast('Errore generazione PDF','error'); return; }
+  if(mode==='share' && navigator.share){
+    const file=new File([blob], nomeFile, {type:'application/pdf'});
+    if(!navigator.canShare || navigator.canShare({files:[file]})){
+      try{ await navigator.share({files:[file], title:nomeFile}); return; }
+      catch(e){ if(e && e.name==='AbortError') return; }
+    }
+  }
+  const url=URL.createObjectURL(blob);
+  const w=window.open(url,'_blank');
+  if(!w){ const a=document.createElement('a'); a.href=url; a.download=nomeFile; document.body.appendChild(a); a.click(); a.remove(); }
+  setTimeout(()=>URL.revokeObjectURL(url), 60000);
 }
 
 
@@ -7364,7 +7593,7 @@ function openSettings(){
     <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0 14px;">
       <div>
         <span style="font-size:14px;font-weight:600;color:var(--c-text,#1e293b);">🔓 Gestione avanzata</span>
-        <div style="font-size:11px;color:#94a3b8;margin-top:2px;">Abilita eliminazione record in archivio</div>
+        <div style="font-size:11px;color:#94a3b8;margin-top:2px;">Abilita l'eliminazione dei dati (le modifiche sono sempre consentite)</div>
       </div>
       <label style="position:relative;display:inline-block;width:48px;height:26px;flex-shrink:0;">
         <input type="checkbox" id="st-advanced" ${s.gestioneAvanzata?'checked':''} onchange="toggleGestioneAvanzata(this.checked)" style="opacity:0;width:0;height:0;position:absolute;">
@@ -7374,7 +7603,7 @@ function openSettings(){
       </label>
     </div>
     <button class="btn btn-danger" onclick="confirmResetAll()">🗑️ Azzera tutti i dati</button>
-    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.1.13 — VehicleCare Pro</p>
+    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.1.14 — VehicleCare Pro</p>
     <div style="height:10px;"></div>
   `);
   renderBackupStatus();
@@ -7525,6 +7754,10 @@ function modificaCambioGomme(intId){
         <div class="form-group" style="margin-bottom:0;"><label class="form-label">Note intervento</label>
           <input class="form-input" id="et-note" value="${escHtml(t.note||'')}"></div>
       </div>
+      <div class="form-group"><label class="form-label">Fornitore</label>
+        ${_gommeFornitoreSelect('et-fornitore', t.fornitoreId||'')}</div>
+      <div class="form-group" style="margin-bottom:12px;"><label class="form-label">Deposito delle gomme smontate</label>
+        ${_gommeDepositoSelect('et-deposito', t.depositoFornitoreId||'', t.depositoLuogo)}</div>
 
       <div style="font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:8px;">Gomme associate</div>
       ${tiresHtml}
@@ -7553,8 +7786,12 @@ function saveModificaCambioGomme(intId){
     dataProgrammata: document.getElementById('et-dataprog').value||null,
     dataEffettiva: document.getElementById('et-dataeff').value||null,
     kmEffettivo: numOrNull('et-kmeff'),
-    note: document.getElementById('et-note').value.trim()
+    note: document.getElementById('et-note').value.trim(),
+    fornitoreId: document.getElementById('et-fornitore').value || null
   };
+  const dep = _gommeDepositoRead('et-deposito');
+  if(!dep){ toast('Scrivi dove sono in deposito le gomme','error'); return; }
+  Object.assign(formInt, dep);
   Object.keys(formInt).forEach(k=>{ if(norm(formInt[k])!==norm(it[k])){ it[k]=formInt[k]; cambiati++; } });
   if(cambiati) DB.saveTireInterventions(tireInts);
 
