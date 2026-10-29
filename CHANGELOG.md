@@ -2,6 +2,17 @@
 
 ---
 
+## v115 — 2026-10-29
+### Gomme: km bloccati, modificabili solo in modalità avanzata
+- Nella maschera del set gomme i km del veicolo al montaggio e allo smontaggio sono bloccati (grigi, sola lettura)
+- Solo con la **modalità avanzata** attiva compare il pulsante **"🔓 Modifica km"**, che li sblocca; senza modalità avanzata un avviso spiega che non si possono cambiare
+- Stessa regola nella modifica del cambio gomme: km effettivi del cambio e km di montaggio/smontaggio delle gomme associate
+- I km restano inseriti normalmente dall'operatore quando esegue il cambio gomme
+- Fix: un valore di 0 km nella modifica del cambio gomme non viene più svuotato al salvataggio
+- In-app 1.1.16
+
+---
+
 ## v114 — 2026-10-29
 ### Gomme: vita del set non modificabile
 - Nella maschera del set gomme i km di vita non si possono più scrivere a mano: sono mostrati in sola lettura, calcolati come differenza tra i km del veicolo ai cambi gomme (montaggio → smontaggio, oppure montaggio → km attuali), sommando i montaggi precedenti registrati automaticamente dal cambio gomme

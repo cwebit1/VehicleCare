@@ -212,6 +212,8 @@ body.dark #modal-box-2{background:#2a2a2a;}
 body.dark .rel-doc{background:#2a2a2a;color:#e0e0e0;}
 body.dark .rel-doc p, body.dark .rel-doc h3{color:#cfcfcf;}
 body.dark .rel-kv{border-bottom-color:#3a3a3a;}
+.km-lock[readonly]{background:#f1f5f9;color:#64748b;}
+body.dark .km-lock[readonly]{background:#1f1f1f;color:#888;}
 .tl-dot.gray{background:#94a3b8;box-shadow:0 0 0 1.5px #94a3b8;}
 .tl-type{font-size:11px;font-weight:600;margin-bottom:2px;}
 .tl-desc{font-size:13px;color:#334155;}
@@ -5037,6 +5039,18 @@ function _gommeDepositoRead(id){
   }
   return {depositoFornitoreId:v||null, depositoLuogo:null};
 }
+// Km del veicolo registrati sulle gomme: bloccati; solo in modalità avanzata si sbloccano con "Modifica km"
+function _kmLockBtn(ids){
+  if(!DB.settings().gestioneAvanzata) return '<div style="font-size:11px;color:#94a3b8;margin:-6px 0 12px;">🔒 I km si modificano solo in modalità avanzata.</div>';
+  return `<button type="button" class="btn btn-secondary" style="width:100%;margin:-4px 0 14px;" onclick="_sbloccaKm(this,'${ids.join(',')}')">🔓 Modifica km</button>`;
+}
+function _sbloccaKm(btn, ids){
+  if(!DB.settings().gestioneAvanzata) return;
+  const els = ids.split(',').map(id=>document.getElementById(id)).filter(Boolean);
+  els.forEach(el=>{ el.readOnly=false; });
+  btn.remove();
+  if(els[0]) els[0].focus();
+}
 function depositoLabel(x){
   if(!x) return '';
   if(x.depositoFornitoreId){ const s=DB.suppliers().find(s=>s.id===x.depositoFornitoreId); return s?s.nome:''; }
@@ -5473,17 +5487,18 @@ function openEditTireSet(tireId){
       <div class="form-group"><label class="form-label">Data montaggio</label>
         <input class="form-input" id="es-datamon" type="date" value="${val(t.dataMontaggio)}"></div>
       <div class="form-group"><label class="form-label">KM al montaggio</label>
-        <input class="form-input" id="es-kmmon" type="number" inputmode="numeric" min="0" value="${val(t.kmMontaggio)}"></div>
+        <input class="form-input km-lock" id="es-kmmon" type="number" inputmode="numeric" min="0" value="${val(t.kmMontaggio)}" readonly></div>
     </div>
     ${smontato?`
     <div class="form-row">
       <div class="form-group"><label class="form-label">Data smontaggio</label>
         <input class="form-input" id="es-datasmon" type="date" value="${val(t.dataSmontaggio)}"></div>
       <div class="form-group"><label class="form-label">KM allo smontaggio</label>
-        <input class="form-input" id="es-kmsmon" type="number" inputmode="numeric" min="0" value="${val(t.kmSmontaggio)}"></div>
+        <input class="form-input km-lock" id="es-kmsmon" type="number" inputmode="numeric" min="0" value="${val(t.kmSmontaggio)}" readonly></div>
     </div>
     ${t.stato==='deposito'?`<div class="form-group"><label class="form-label">Deposito</label>
       ${_gommeDepositoSelect('es-deposito', t.depositoFornitoreId||'', t.depositoLuogo)}</div>`:''}`:''}
+    ${_kmLockBtn(smontato?['es-kmmon','es-kmsmon']:['es-kmmon'])}
     ${(()=>{
       // Vita del set: solo lettura, calcolata dai km del veicolo ai cambi gomme
       const vita = tireKmPercorsi(t, v?.km);
@@ -7610,7 +7625,7 @@ function openSettings(){
       </label>
     </div>
     <button class="btn btn-danger" onclick="confirmResetAll()">🗑️ Azzera tutti i dati</button>
-    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.1.15 — VehicleCare Pro</p>
+    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.1.16 — VehicleCare Pro</p>
     <div style="height:10px;"></div>
   `);
   renderBackupStatus();
@@ -7732,11 +7747,11 @@ function modificaCambioGomme(intId){
           <div class="form-group" style="margin-bottom:0;"><label class="form-label">Data montaggio</label>
             <input class="form-input" type="date" id="et-datamon-${tire.id}" value="${tire.dataMontaggio||''}"></div>
           <div class="form-group" style="margin-bottom:0;"><label class="form-label">Km montaggio</label>
-            <input class="form-input" type="number" id="et-kmmon-${tire.id}" value="${tire.kmMontaggio||''}"></div>
+            <input class="form-input km-lock" type="number" id="et-kmmon-${tire.id}" value="${tire.kmMontaggio??''}" readonly></div>
           <div class="form-group" style="margin-bottom:0;"><label class="form-label">Data smontaggio</label>
             <input class="form-input" type="date" id="et-datasmon-${tire.id}" value="${tire.dataSmontaggio||''}"></div>
           <div class="form-group" style="margin-bottom:0;"><label class="form-label">Km smontaggio</label>
-            <input class="form-input" type="number" id="et-kmsmon-${tire.id}" value="${tire.kmSmontaggio||''}"></div>
+            <input class="form-input km-lock" type="number" id="et-kmsmon-${tire.id}" value="${tire.kmSmontaggio??''}" readonly></div>
         </div>
         <div class="form-group" style="margin-top:8px;margin-bottom:0;"><label class="form-label">Note</label>
           <input class="form-input" id="et-note-${tire.id}" value="${escHtml(tire.note||'')}"></div>
@@ -7757,7 +7772,7 @@ function modificaCambioGomme(intId){
         <div class="form-group" style="margin-bottom:0;"><label class="form-label">Data effettiva</label>
           <input class="form-input" type="date" id="et-dataeff" value="${t.dataEffettiva||''}"></div>
         <div class="form-group" style="margin-bottom:0;"><label class="form-label">Km effettivi</label>
-          <input class="form-input" type="number" id="et-kmeff" value="${t.kmEffettivo||''}"></div>
+          <input class="form-input km-lock" type="number" id="et-kmeff" value="${t.kmEffettivo??''}" readonly></div>
         <div class="form-group" style="margin-bottom:0;"><label class="form-label">Note intervento</label>
           <input class="form-input" id="et-note" value="${escHtml(t.note||'')}"></div>
       </div>
@@ -7766,6 +7781,7 @@ function modificaCambioGomme(intId){
       <div class="form-group" style="margin-bottom:12px;"><label class="form-label">Deposito delle gomme smontate</label>
         ${_gommeDepositoSelect('et-deposito', t.depositoFornitoreId||'', t.depositoLuogo)}</div>
 
+      ${_kmLockBtn(['et-kmeff', ...tires.flatMap(x=>['et-kmmon-'+x.id,'et-kmsmon-'+x.id])])}
       <div style="font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:8px;">Gomme associate</div>
       ${tiresHtml}
 
