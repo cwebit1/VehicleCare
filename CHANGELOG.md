@@ -2,6 +2,21 @@
 
 ---
 
+## v112 — 2026-10-29
+### Storico del mezzo: tutto in un posto, ogni evento si apre
+- **Nuovi eventi nello Storico**: cambi gomme (programmati, completati, annullati, con le gomme smontate e montate), montaggio e smontaggio dei set gomme non legati a un cambio, documenti caricati, revisione con icona propria e nuova scadenza
+- **Tocco su un evento → si apre**: check nel visualizzatore, intervento e segnalazione nel dettaglio, cambio gomme programmato nella maschera di esecuzione (gli altri nella modifica), set gomme nella sua maschera, documento nel visualizzatore. Si aprono anche gli interventi collegati a check e segnalazioni e le gomme dentro un cambio
+- **Chiudendo un evento si torna allo Storico**; chiudendo lo Storico non si riapre più da solo dopo altre operazioni
+- **Modifica sempre disponibile agli operatori** (check, interventi, segnalazioni, cambi gomme, set gomme, anche in Archivio); **solo Elimina richiede la modalità avanzata**
+- **Segnalazioni modificabili**: problema, note, data, km, operatore (si salvano solo i campi cambiati)
+- Filtri in cima: Tutto · Check · Interventi · Segnalazioni · Gomme · Documenti
+- Ordine per data corretto; interventi programmati evidenziati come "📅 Programmato"; origine (da check / da segnalazione) e fornitore indicati sull'intervento
+- La revisione registra anche la nuova scadenza sull'intervento
+- Fix: "Elimina" sulle gomme nello Storico non trovava mai l'elemento; "✓ Risolto" dal dettaglio segnalazione apriva e richiudeva subito la maschera; ogni apertura dello Storico aggiungeva un gestore di tocchi in più (azioni ripetute)
+- In-app 1.1.13
+
+---
+
 ## v111 — 2026-10-29
 ### Gomme: modifica dei set montati e in deposito
 - **Toccando un set gomme** nelle sezioni "Montate" o "In deposito" si apre la maschera di modifica di quel set (nessun pulsante in più; l'etichetta mostra ✏️)

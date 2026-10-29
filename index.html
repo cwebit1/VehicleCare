@@ -197,6 +197,10 @@ body.dark #modal-box-2{background:#2a2a2a;}
 .tl-dot.amber{background:#f59e0b;box-shadow:0 0 0 1.5px #f59e0b;}
 .tl-date{font-size:11px;color:#94a3b8;margin-bottom:2px;}
 .tl-card{background:#fff;border-radius:10px;padding:10px 12px;box-shadow:0 1px 2px rgba(0,0,0,.06);}
+.tl-card.tl-open{cursor:pointer;position:relative;padding-right:26px;}
+.tl-card.tl-open::after{content:'›';position:absolute;top:6px;right:10px;color:#94a3b8;font-size:20px;line-height:1;}
+.tl-card.tl-open:active{background:#f8fafc;}
+.tl-dot.gray{background:#94a3b8;box-shadow:0 0 0 1.5px #94a3b8;}
 .tl-type{font-size:11px;font-weight:600;margin-bottom:2px;}
 .tl-desc{font-size:13px;color:#334155;}
 
@@ -1709,6 +1713,7 @@ function confirm2(msg, cb){
 //  MODAL
 // ═══════════════════════════════════════════════════════
 function openModal(title, bodyHtml){
+  _histVisible = false;
   document.getElementById('modal-title').textContent = title;
   document.getElementById('modal-body').innerHTML = bodyHtml;
   document.getElementById('modal-overlay').classList.add('active');
@@ -1718,7 +1723,18 @@ function openModal(title, bodyHtml){
   hdr.classList.toggle('hidden', !title);
 }
 function closeModal(){
+  const eraStorico = _histVisible;
+  _histVisible = false;
   document.getElementById('modal-overlay').classList.remove('active');
+  if(eraStorico){
+    // Chiuso lo Storico: non va più riaperto
+    window._openView = null; window._histReturn = null;
+  } else if(window._histReturn){
+    // Chiuso un evento aperto dallo Storico: si torna allo Storico
+    setTimeout(()=>{
+      if(window._histReturn && !document.getElementById('modal-overlay').classList.contains('active')) openHistory(window._histReturn);
+    }, 80);
+  }
 }
 function openModalSmart(title, bodyHtml){
   // Se il planner è aperto, usa il secondo overlay per non chiuderlo
@@ -2057,6 +2073,7 @@ function saveRevisione(vehicleId){
     dataApertura: data, dataProgrammazione: data, dataChiusura: data,
     kmApertura: km, kmChiusura: km,
     fornitoreId: fornitoreId,
+    scadenzaRevisione: nuovaScad,
     noteChiusura: note || 'Revisione effettuata',
     createdAt: nowISO()
   });
@@ -2706,6 +2723,56 @@ function saveSegnalazione(vehicleId){
   renderMain();
 }
 
+function openSegnalazioneEditForm(segnId){
+  const s = DB.segnalazioni().find(x=>x.id===segnId);
+  if(!s){ toast('Segnalazione non trovata','error'); return; }
+  const v = DB.vehicles().find(x=>x.id===s.vehicleId);
+  openModal('✏️ Modifica segnalazione — '+(v?v.targa:''),
+    '<div class="form-group"><label class="form-label">Problema *</label>'
+    +'<textarea class="form-input" id="segn-problema" rows="3">'+escHtml(s.problema||'')+'</textarea></div>'
+    +'<div class="form-group"><label class="form-label">Note aggiuntive</label>'
+    +'<textarea class="form-input" id="segn-note" rows="2">'+escHtml(s.note||'')+'</textarea></div>'
+    +'<div class="form-row">'
+    +'<div class="form-group"><label class="form-label">Data</label>'
+    +'<input class="form-input" id="segn-data" type="date" value="'+escHtml(s.data||'')+'"></div>'
+    +'<div class="form-group"><label class="form-label">KM</label>'
+    +'<input class="form-input" id="segn-km" type="number" inputmode="numeric" min="0" value="'+(s.km??'')+'"></div>'
+    +'</div>'
+    +'<div class="form-group"><label class="form-label">Operatore</label>'
+    +'<input class="form-input" id="segn-operatore" type="text" value="'+escHtml(s.operatore||'')+'"></div>'
+    +'<div class="btn-row">'
+    +'<button class="btn btn-secondary" onclick="closeModal()">Annulla</button>'
+    +'<button class="btn btn-primary" onclick="saveSegnalazioneEdit(\''+s.id+'\')">💾 Salva</button>'
+    +'</div>'
+  );
+}
+
+function saveSegnalazioneEdit(segnId){
+  const segnalazioni = DB.segnalazioni();
+  const s = segnalazioni.find(x=>x.id===segnId);
+  if(!s){ toast('Segnalazione non trovata','error'); return; }
+  const kmEl = document.getElementById('segn-km');
+  const f = {
+    problema:  document.getElementById('segn-problema').value.trim(),
+    note:      document.getElementById('segn-note').value.trim(),
+    data:      document.getElementById('segn-data').value,
+    km:        kmEl.value.trim()==='' ? null : (parseInt(kmEl.value)||0),
+    operatore: document.getElementById('segn-operatore').value.trim()
+  };
+  if(!f.problema){ toast('Inserisci una descrizione del problema','error'); return; }
+  if(!f.data){ toast('Inserisci la data','error'); return; }
+  if(f.data > today()){ toast('La data non può essere futura','error'); return; }
+  if(f.km!=null && f.km<0){ toast('I km non possono essere negativi','error'); return; }
+  // Salva solo i campi cambiati
+  const norm = x => (x===undefined||x===null||x==='') ? null : String(x);
+  let cambiati = 0;
+  Object.keys(f).forEach(k=>{ if(norm(f[k])!==norm(s[k])){ s[k]=f[k]; cambiati++; } });
+  if(cambiati) DB.saveSegnalazioni(segnalazioni);
+  closeModal();
+  toast(cambiati ? 'Segnalazione aggiornata' : 'Nessuna modifica', cambiati?'success':'');
+  if(cambiati){ renderAlerts(); renderMain(); }
+}
+
 function openSegnalazioneDetail(segnalazioneId){
   const segnalazioni = DB.segnalazioni();
   const s = segnalazioni.find(x=>x.id===segnalazioneId);
@@ -2719,6 +2786,7 @@ function openSegnalazioneDetail(segnalazioneId){
     +'</div>'
     +'<div class="btn-row">'
     +'<button class="btn btn-secondary" onclick="closeModalSmart()">Chiudi</button>'
+    +'<button id="btn-segn-mod" class="btn btn-secondary">✏️ Modifica</button>'
     +'<button id="btn-segn-int" class="btn btn-primary">+ Intervento</button>'
     +'<button id="btn-segn-ris" class="btn" style="background:#16a34a;color:#fff;">✓ Risolto</button>'
     +'</div>'
@@ -2726,8 +2794,11 @@ function openSegnalazioneDetail(segnalazioneId){
   setTimeout(function(){
     var bi=document.getElementById('btn-segn-int');
     var br=document.getElementById('btn-segn-ris');
+    var bm=document.getElementById('btn-segn-mod');
     if(bi) bi.onclick = function(){ closeModalSmart(); setTimeout(function(){ openInterventionFromSegnalazione(s); }, 20); };
-    if(br) br.onclick = function(){ risolviSegnalazione(s); closeModalSmart(); refreshAll(); };
+    // prima la maschera "Segna risolto" veniva aperta e subito richiusa
+    if(br) br.onclick = function(){ closeModalSmart(); setTimeout(function(){ risolviSegnalazione(s); }, 20); };
+    if(bm) bm.onclick = function(){ closeModalSmart(); setTimeout(function(){ openSegnalazioneEditForm(s.id); }, 20); };
   }, 20);
 }
 
@@ -4001,23 +4072,60 @@ function stampaCheck(checkId){
 // ═══════════════════════════════════════════════════════
 //  STORICO VEICOLO
 // ═══════════════════════════════════════════════════════
-function openHistory(vehicleId){
+// Stato dello Storico: filtro per mezzo e ritorno allo Storico dopo aver aperto un evento
+var _histVisible = false;
+const HIST_FILTRI = [
+  ['tutto','Tutto'],['check','📋 Check'],['interventi','🔧 Interventi'],
+  ['segnalazioni','📢 Segnalazioni'],['gomme','🛞 Gomme'],['documenti','📎 Documenti']
+];
+const HIST_CATEGORIA = {check:'check', intervento:'interventi', segnalazione:'segnalazioni', cambio:'gomme', tireMont:'gomme', tireSmont:'gomme', doc:'documenti'};
+
+function _histBtn(label, onclick, kind){
+  const st = kind==='danger' ? 'background:#fee2e2;color:#b91c1c;font-weight:700;'
+           : kind==='primary' ? 'background:#16a34a;color:#fff;font-weight:700;'
+           : kind==='warn' ? 'background:#ca8a04;color:#fff;font-weight:600;'
+           : 'background:#f1f5f9;color:#475569;font-weight:600;';
+  return '<button onclick="'+onclick+'" style="'+st+'border:none;border-radius:7px;padding:6px 12px;font-size:12px;cursor:pointer;">'+label+'</button>';
+}
+function _histStagione(s){ return s==='estate'?'Estive':s==='4stagioni'?'4 stagioni':'Invernali'; }
+function _histSetTxt(t){
+  return escHtml(t.marca||'')+(t.modello?' '+escHtml(t.modello):'')+(t.dimensione?' '+escHtml(t.dimensione):'')+' ×'+(t.quantita||4);
+}
+
+async function openHistory(vehicleId){
   const v=DB.vehicles().find(x=>x.id===vehicleId);
   window._openView='history'; window._openViewVehicle=vehicleId;
+  window._histReturn=vehicleId;
+  if(!window._histFilter || window._histFilter.vid!==vehicleId) window._histFilter={vid:vehicleId, f:'tutto'};
+  const filtro=window._histFilter.f;
   const avanzata=DB.settings().gestioneAvanzata;
+  const oggi=today();
+  const allInterventions=DB.interventions();
   const checks=DB.checks().filter(c=>c.vehicleId===vehicleId);
-  const interventions=DB.interventions().filter(i=>i.vehicleId===vehicleId);
+  const interventions=allInterventions.filter(i=>i.vehicleId===vehicleId);
   const tires=DB.tires().filter(t=>t.vehicleId===vehicleId);
-
-  // Merge e ordina per data
+  const tireInts=DB.tireInterventions().filter(t=>t.vehicleId===vehicleId);
   const segnalazioni=DB.segnalazioni().filter(s=>s.vehicleId===vehicleId);
+  const suppliers=DB.suppliers();
+  let docs=[];
+  try{ docs=await IDB.getByVehicle(vehicleId); }catch(e){ console.warn('Storico documenti:', e); }
+
+  // Montaggi/smontaggi già raccontati da un cambio gomme completato nello stesso giorno
+  const giorniCambio=new Set(tireInts.filter(t=>t.stato==='completato'&&t.dataEffettiva).map(t=>t.dataEffettiva));
+  // Ultima revisione: mostra la scadenza attuale della scheda se l'intervento non la riporta
+  const ultimaRev=interventions.filter(i=>i.origine==='revisione').sort((a,b)=>String(b.dataApertura||'').localeCompare(String(a.dataApertura||'')))[0];
+
   const events=[
     ...checks.map(c=>({type:'check',date:c.data,data:c})),
     ...interventions.map(i=>({type:'intervento',date:i.dataApertura,data:i})),
-    ...tires.map(t=>({type:'gomme',date:t.dataMontaggio,data:t})),
-    ...segnalazioni.map(s=>({type:'segnalazione',date:s.data,data:s}))
-  ].sort((a,b)=>{
-    const d=new Date(b.date)-new Date(a.date);
+    ...segnalazioni.map(s=>({type:'segnalazione',date:s.data,data:s})),
+    ...tireInts.map(t=>({type:'cambio',date:(t.stato==='completato'&&t.dataEffettiva)?t.dataEffettiva:t.dataProgrammata,data:t})),
+    ...tires.filter(t=>t.dataMontaggio && !giorniCambio.has(t.dataMontaggio)).map(t=>({type:'tireMont',date:t.dataMontaggio,data:t})),
+    ...tires.filter(t=>t.stato!=='montata' && t.dataSmontaggio && !giorniCambio.has(t.dataSmontaggio)).map(t=>({type:'tireSmont',date:t.dataSmontaggio,data:t})),
+    ...docs.map(d=>({type:'doc',date:String(d.createdAt||'').slice(0,10),data:d}))
+  ].filter(ev=>filtro==='tutto' || HIST_CATEGORIA[ev.type]===filtro)
+   .sort((a,b)=>{
+    const d=String(b.date||'').localeCompare(String(a.date||''));
     if(d!==0) return d;
     // Stessa data: ordina per momento di creazione (creato dopo = più in alto)
     const ca=(a.data&&a.data.createdAt)?a.data.createdAt:'';
@@ -4025,17 +4133,34 @@ function openHistory(vehicleId){
     return cb.localeCompare(ca);
   });
 
+  const badge=function(st){
+    if(st==='chiuso') return '<span style="background:#dcfce7;color:#15803d;padding:1px 7px;border-radius:6px;font-size:10px;font-weight:700;white-space:nowrap;">✅ Chiuso</span>';
+    if(st==='annullato') return '<span style="background:#fef9c3;color:#92400e;padding:1px 7px;border-radius:6px;font-size:10px;font-weight:700;white-space:nowrap;">✕ Annullato</span>';
+    if(st==='anomalia') return '<span style="background:#ffedd5;color:#c2410c;padding:1px 7px;border-radius:6px;font-size:10px;font-weight:700;white-space:nowrap;">⚠️ Anomalia</span>';
+    return '<span style="background:#fef3c7;color:#b45309;padding:1px 7px;border-radius:6px;font-size:10px;font-weight:700;white-space:nowrap;">🔧 In lavorazione</span>';
+  };
+  const linkRow=function(open, testo, destra){
+    return '<div data-open="'+open+'" style="display:flex;align-items:center;gap:8px;padding:6px 9px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:7px;margin-bottom:4px;cursor:pointer;">'
+      +'<div style="font-size:11px;color:#334155;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+testo+'</div>'
+      +(destra||'')+'<span style="color:#94a3b8;font-size:14px;">›</span></div>';
+  };
+  // Scheda evento: toccandola si apre l'evento
+  const card=function(open, dot, dateTxt, body, extra){
+    return '<div class="tl-item"><div class="tl-dot '+dot+'"></div>'
+      +'<div class="tl-date">'+dateTxt+'</div>'
+      +'<div class="tl-card tl-open" data-open="'+open+'"'+(extra||'')+'>'+body+'</div></div>';
+  };
+  const btnRow=function(btns){ const b=btns.filter(Boolean); return b.length?'<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">'+b.join('')+'</div>':''; };
+
   const timelineHtml=events.length===0
     ? '<div class="empty"><p>Nessun evento registrato</p></div>'
-    : `<div class="timeline">${events.map(ev=>{
+    : '<div class="timeline">'+events.map(ev=>{
         if(ev.type==='check'){
           const c=ev.data;
-          const allInterventions=DB.interventions();
           const anom=c.items?.filter(i=>i.val==='anomalia')||[];
           const anomSenzaInt=anom.filter(a=>
-            !allInterventions.some(i=>i.checkId===c.id && i.descrizione.startsWith(a.voce) && i.stato!=='annullato')
+            !allInterventions.some(i=>i.checkId===c.id && (i.descrizione||'').startsWith(a.voce) && i.stato!=='annullato')
           );
-          // Costruisci HTML anomalie senza backtick annidati
           let anomHtml='';
           if(anom.length>0){
             anomHtml='<div class="tl-desc" style="margin-top:4px;">⚠️ '+anom.length+' anomali'+(anom.length>1?'e':'a')+': '
@@ -4062,122 +4187,187 @@ function openHistory(vehicleId){
           } else if(anom.length>0){
             anomBoxHtml='<div style="margin-top:6px;font-size:11px;color:#15803d;font-weight:600;">✅ Interventi già creati per tutte le anomalie</div>';
           }
-          // Lista interventi collegati a questo check (qualsiasi stato): sempre rintracciabili qui
+          // Interventi collegati a questo check (qualsiasi stato): sempre rintracciabili qui
           const linkedInts=allInterventions.filter(i=>i.checkId===c.id);
-          let linkedListHtml='';
-          if(linkedInts.length>0){
-            const badge=function(st){
-              if(st==='chiuso') return '<span style="background:#dcfce7;color:#15803d;padding:1px 7px;border-radius:6px;font-size:10px;font-weight:700;white-space:nowrap;">✅ Chiuso</span>';
-              if(st==='annullato') return '<span style="background:#fef9c3;color:#92400e;padding:1px 7px;border-radius:6px;font-size:10px;font-weight:700;white-space:nowrap;">✕ Annullato</span>';
-              if(st==='anomalia') return '<span style="background:#ffedd5;color:#c2410c;padding:1px 7px;border-radius:6px;font-size:10px;font-weight:700;white-space:nowrap;">⚠️ Anomalia</span>';
-              return '<span style="background:#fef3c7;color:#b45309;padding:1px 7px;border-radius:6px;font-size:10px;font-weight:700;white-space:nowrap;">🔧 In lavorazione</span>';
-            };
-            linkedListHtml='<div style="margin-top:8px;padding-top:8px;border-top:1px dashed #e2e8f0;">'
-              +'<div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:5px;">🔗 INTERVENTI DI QUESTO CHECK ('+linkedInts.length+'):</div>'
-              +linkedInts.map(function(i){
-                const dStr=i.dataChiusura?(' · chiuso '+fmtDate(i.dataChiusura)):'';
-                return '<div style="display:flex;align-items:center;gap:8px;padding:6px 9px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:7px;margin-bottom:4px;">'
-                  +(avanzata?'<button onclick="event.stopPropagation();eliminaIntervento(\''+i.id+'\')" title="Elimina intervento" style="background:#fee2e2;color:#b91c1c;border:none;border-radius:6px;width:24px;height:24px;font-size:13px;font-weight:700;line-height:1;cursor:pointer;flex-shrink:0;">✕</button>':'')
-                  +'<div onclick="openInterventionForm(\''+i.vehicleId+'\',\''+i.id+'\')" style="font-size:11px;color:#334155;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;">'+escHtml(i.descrizione||'')+dStr+'</div>'
-                  +badge(i.stato)
-                  +'</div>';
-              }).join('')
-              +'</div>';
-          }
-          return '<div class="tl-item">'
-            +'<div class="tl-dot '+(anom.length>0?'red':'blue')+'"></div>'
-            +'<div class="tl-date">'+fmtDate(c.data)+' · '+fmtKM(c.km)+' · '+escHtml(c.operatore)+'</div>'
-            +'<div class="tl-card">'
-            +'<div class="tl-type" style="color:#1e40af;">📋 Check mensile</div>'
+          const linkedListHtml=linkedInts.length===0 ? '' :
+            '<div style="margin-top:8px;padding-top:8px;border-top:1px dashed #e2e8f0;">'
+            +'<div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:5px;">🔗 INTERVENTI DI QUESTO CHECK ('+linkedInts.length+'):</div>'
+            +linkedInts.map(i=>linkRow('int:'+i.id, escHtml(i.descrizione||'')+(i.dataChiusura?' · chiuso '+fmtDate(i.dataChiusura):''), badge(i.stato))).join('')
+            +'</div>';
+          return card('check:'+c.id, anom.length>0?'red':'blue', fmtDate(c.data)+' · '+fmtKM(c.km)+(c.operatore?' · '+escHtml(c.operatore):''),
+            '<div class="tl-type" style="color:#1e40af;">📋 Check mensile</div>'
             +anomHtml
             +(c.note?'<div class="tl-desc" style="margin-top:4px;color:#64748b;">'+escHtml(c.note)+'</div>':'')
-            +'<div style="margin-top:8px;">'
-            +'<button onclick="openCheckViewer(\''+c.id+'\',\''+vehicleId+'\')" style="background:#1e40af;color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">📋 Apri check</button>'
-            +(avanzata?'<button onclick="openCheckForm(\''+vehicleId+'\',\''+c.id+'\')" style="background:#f1f5f9;color:#475569;border:none;border-radius:7px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;">✏️ Modifica</button>':'')
-            +(avanzata?'<button onclick="eliminaCheck(\''+c.id+'\')" style="background:#fee2e2;color:#b91c1c;border:none;border-radius:7px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">🗑️ Elimina</button>':'')
-            +'</div>'
+            +btnRow([
+              _histBtn('✏️ Modifica',"openCheckForm('"+vehicleId+"','"+c.id+"')"),
+              avanzata?_histBtn('🗑️ Elimina',"eliminaCheck('"+c.id+"')",'danger'):''
+            ])
             +anomBoxHtml
-            +linkedListHtml
-            +'</div></div>';
-        } else if(ev.type==='intervento'){
+            +linkedListHtml);
+        }
+        if(ev.type==='intervento'){
           const i=ev.data;
           const statusMap={in_lavorazione:{cls:'amber',lbl:'In lavorazione'},anomalia:{cls:'red',lbl:'Anomalia'},chiuso:{cls:'green',lbl:'Chiuso'},annullato:{cls:'amber',lbl:'Annullato'}};
           const st=statusMap[i.stato]||{cls:'gray',lbl:i.stato};
-          return `<div class="tl-item">
-            <div class="tl-dot ${st.cls}"></div>
-            <div class="tl-date">${fmtDate(i.dataApertura)} · ${fmtKM(i.kmApertura)}</div>
-            <div class="tl-card">
-              <div class="tl-type"><span class="int-status ${i.stato}">🔧 ${st.lbl}</span></div>
-              <div class="tl-desc" style="margin-top:6px;">${escHtml(i.descrizione)}</div>
-              ${i.dataChiusura?`<div class="tl-desc" style="color:#64748b;margin-top:4px;">Chiuso: ${fmtDate(i.dataChiusura)} · ${fmtKM(i.kmChiusura)}</div>`:''}
-              ${i.noteChiusura?`<div class="tl-desc" style="color:#64748b;">${escHtml(i.noteChiusura)}</div>`:''}
-              <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
-                ${i.stato!=='chiuso'&&i.stato!=='annullato'?`<button style="flex:1;background:#16a34a;color:#fff;border:none;border-radius:8px;padding:9px 10px;font-size:12px;font-weight:700;cursor:pointer;" onclick="openChiusuraForm('${i.id}','${i.vehicleId}')">✅ Chiudi</button>`:''}
-                ${i.stato!=='chiuso'&&i.stato!=='annullato'?`<button style="background:#ca8a04;color:#fff;border:none;border-radius:8px;padding:9px 10px;font-size:12px;font-weight:600;cursor:pointer;" onclick="annullaIntervento('${i.id}','${i.vehicleId}')">✕ Annulla</button>`:''}
-                <button style="background:#f1f5f9;color:#475569;border:none;border-radius:8px;padding:9px 10px;font-size:12px;font-weight:600;cursor:pointer;" onclick="openInterventionForm('${i.vehicleId}','${i.id}')">Modifica</button>
-                ${avanzata?`<button style="background:#fee2e2;color:#b91c1c;border:none;border-radius:8px;padding:9px 10px;font-size:12px;font-weight:700;cursor:pointer;" onclick="eliminaIntervento('${i.id}')">🗑️ Elimina</button>`:''}
-              </div>
-            </div>
-          </div>`;
-        } else if(ev.type==='segnalazione'){
+          const aperto=i.stato!=='chiuso'&&i.stato!=='annullato';
+          const programmato=i.stato==='in_lavorazione' && i.dataApertura && i.dataApertura>oggi;
+          const isRev=i.origine==='revisione';
+          const sup=i.fornitoreId?suppliers.find(s=>s.id===i.fornitoreId):null;
+          const scadRev=isRev?(i.scadenzaRevisione||(ultimaRev&&ultimaRev.id===i.id?v?.scadenzaRevisione:null)):null;
+          const origine={check:'da check',segnalazione:'da segnalazione',revisione:'revisione periodica'}[i.origine]||'';
+          return card('int:'+i.id, isRev&&i.stato==='chiuso'?'green':st.cls, fmtDate(i.dataApertura)+' · '+fmtKM(i.kmApertura),
+            (isRev
+              ? '<div class="tl-type" style="color:#15803d;">🛂 Revisione</div>'
+              : '<div class="tl-type"><span class="int-status '+i.stato+'">'+(programmato?'📅 Programmato':'🔧 '+st.lbl)+'</span></div>')
+            +'<div class="tl-desc" style="margin-top:6px;">'+escHtml(i.descrizione)+'</div>'
+            +((origine&&!isRev)||sup?'<div class="tl-desc" style="color:#64748b;font-size:11px;margin-top:2px;">'+[origine&&!isRev?origine:'', sup?'🏠 '+escHtml(sup.nome):''].filter(Boolean).join(' · ')+'</div>':'')
+            +(scadRev?'<div class="tl-desc" style="color:#15803d;margin-top:4px;font-weight:600;">Nuova scadenza: '+fmtDate(scadRev)+'</div>':'')
+            +(i.dataChiusura&&!isRev?'<div class="tl-desc" style="color:#64748b;margin-top:4px;">Chiuso: '+fmtDate(i.dataChiusura)+' · '+fmtKM(i.kmChiusura)+'</div>':'')
+            +(i.noteChiusura?'<div class="tl-desc" style="color:#64748b;">'+escHtml(i.noteChiusura)+'</div>':'')
+            +btnRow([
+              aperto?_histBtn('✅ Chiudi',"openChiusuraForm('"+i.id+"','"+i.vehicleId+"')",'primary'):'',
+              aperto?_histBtn('✕ Annulla',"annullaIntervento('"+i.id+"','"+i.vehicleId+"')",'warn'):'',
+              _histBtn('✏️ Modifica',"openInterventionForm('"+i.vehicleId+"','"+i.id+"')"),
+              avanzata?_histBtn('🗑️ Elimina',"eliminaIntervento('"+i.id+"')",'danger'):''
+            ]));
+        }
+        if(ev.type==='segnalazione'){
           const s=ev.data;
-          const allInterventions=DB.interventions();
-          const handled=allInterventions.some(function(i){ return i.segnalazioneId===s.id && i.stato!=='annullato'; });
-          const boxHtml = !handled
+          const presa=allInterventions.filter(i=>i.segnalazioneId===s.id && i.stato!=='annullato');
+          const boxHtml = presa.length===0
             ? '<div style="margin-top:8px;padding:8px 10px;background:#fff0f0;border:1px solid #fca5a5;border-radius:8px;">'
-              +'<div style="font-size:11px;font-weight:700;color:#b91c1c;margin-bottom:6px;">SEGNALAZIONE APERTA:</div>'
-              +'<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">'
-              +'<div style="font-size:12px;color:#7c2d12;flex:1;"><strong>'+escHtml(s.problema)+'</strong>'+(s.note?'<br><span style="font-style:italic;color:#9a3412;">'+escHtml(s.note)+'</span>':'')+'</div>'
-              +'<div style="display:flex;gap:4px;flex-shrink:0;">'
-              +'<button data-segn-int="'+s.id+'" data-vid="'+s.vehicleId+'" style="background:#1e40af;color:#fff;border:none;border-radius:7px;padding:6px 8px;font-size:11px;font-weight:700;cursor:pointer;">+ Intervento</button>'
-              +'<button data-segn-risolto="'+s.id+'" data-vid="'+s.vehicleId+'" data-problema="'+escHtml(s.problema).replace(/"/g,'&quot;')+'" data-km="'+s.km+'" style="background:#16a34a;color:#fff;border:none;border-radius:7px;padding:6px 8px;font-size:11px;font-weight:700;cursor:pointer;">✓ Risolto</button>'
-              +'</div></div></div>'
-            : '<div style="margin-top:6px;font-size:11px;color:#15803d;font-weight:600;">✅ Presa in carico</div>';
-          return '<div class="tl-item">'
-            +'<div class="tl-dot red"></div>'
-            +'<div class="tl-date">'+fmtDate(s.data)+' · '+fmtKM(s.km)+(s.operatore?' · '+escHtml(s.operatore):'')+'</div>'
-            +'<div class="tl-card">'
-            +'<div class="tl-type" style="color:#b91c1c;">📢 Segnalazione</div>'
+              +'<div style="font-size:11px;font-weight:700;color:#b91c1c;margin-bottom:6px;">SEGNALAZIONE APERTA</div>'
+              +'<div style="display:flex;gap:4px;">'
+              +'<button data-segn-int="'+s.id+'" style="background:#1e40af;color:#fff;border:none;border-radius:7px;padding:6px 8px;font-size:11px;font-weight:700;cursor:pointer;">+ Intervento</button>'
+              +'<button data-segn-risolto="'+s.id+'" style="background:#16a34a;color:#fff;border:none;border-radius:7px;padding:6px 8px;font-size:11px;font-weight:700;cursor:pointer;">✓ Risolto</button>'
+              +'</div></div>'
+            : '<div style="margin-top:8px;padding-top:8px;border-top:1px dashed #e2e8f0;">'
+              +'<div style="font-size:10px;font-weight:700;color:#15803d;margin-bottom:5px;">✅ PRESA IN CARICO:</div>'
+              +presa.map(i=>linkRow('int:'+i.id, escHtml(i.descrizione||''), badge(i.stato))).join('')
+              +'</div>';
+          return card('segn:'+s.id, 'red', fmtDate(s.data)+' · '+fmtKM(s.km)+(s.operatore?' · '+escHtml(s.operatore):''),
+            '<div class="tl-type" style="color:#b91c1c;">📢 Segnalazione</div>'
             +'<div class="tl-desc" style="margin-top:4px;font-weight:600;">'+escHtml(s.problema)+'</div>'
             +(s.note?'<div class="tl-desc" style="color:#64748b;">'+escHtml(s.note)+'</div>':'')
-            +boxHtml
-            +(avanzata?'<div style="margin-top:6px;"><button onclick="eliminaSegnalazione(\''+s.id+'\')" style="background:#fee2e2;color:#b91c1c;border:none;border-radius:7px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">🗑️ Elimina</button></div>':'')
-            +'</div></div>';
-        } else {
-          const t=ev.data;
-          return `<div class="tl-item">
-            <div class="tl-dot ${t.stagione==='estate'?'amber':'blue'}"></div>
-            <div class="tl-date">${fmtDate(t.dataMontaggio)} · ${fmtKM(t.kmMontaggio)}</div>
-            <div class="tl-card">
-              <div class="tl-type" style="color:${t.stagione==='estate'?'#92400e':'#1e40af'};">🔵 Gomme ${t.stagione}</div>
-              <div class="tl-desc">${escHtml(t.marca)} ${escHtml(t.modello||'')} ${escHtml(t.dimensione||'')} × ${t.quantita||4}</div>
-              ${t.dataSmontaggio?`<div class="tl-desc" style="color:#64748b;">Smontate: ${fmtDate(t.dataSmontaggio)}</div>`:''}
-              ${avanzata?`<div style="margin-top:6px;"><button onclick="eliminaCambioGomme('${t.id}')" style="background:#fee2e2;color:#b91c1c;border:none;border-radius:7px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">🗑️ Elimina</button></div>`:''}
-            </div>
-          </div>`;
+            +btnRow([
+              _histBtn('✏️ Modifica',"openSegnalazioneEditForm('"+s.id+"')"),
+              avanzata?_histBtn('🗑️ Elimina',"eliminaSegnalazione('"+s.id+"')",'danger'):''
+            ])
+            +boxHtml);
         }
-      }).join('')}</div>`;
+        if(ev.type==='cambio'){
+          const t=ev.data;
+          const lbl={programmato:'📅 Programmato',completato:'✅ Completato',annullato:'✕ Annullato'}[t.stato]||t.stato;
+          const giorno=t.stato==='completato'?t.dataEffettiva:null;
+          const smontate=giorno?tires.filter(x=>x.dataSmontaggio===giorno):[];
+          const montate=giorno?tires.filter(x=>x.dataMontaggio===giorno):[];
+          const elenco=(titolo, lista, stato)=>lista.length===0?'':
+            '<div style="font-size:10px;font-weight:700;color:#64748b;margin:6px 0 4px;">'+titolo+'</div>'
+            +lista.map(x=>linkRow('tire:'+x.id, tireIcon(x.stagione)+' '+_histSetTxt(x), stato?'<span style="font-size:10px;color:#64748b;white-space:nowrap;">'+stato(x)+'</span>':'')).join('');
+          return card('cambio:'+t.id, t.stato==='completato'?'green':t.stato==='annullato'?'amber':'blue',
+            fmtDate(ev.date)+(t.stato==='completato'?' · '+fmtKM(t.kmEffettivo):''),
+            '<div class="tl-type" style="color:#1e40af;">🔄 Cambio gomme — '+lbl+'</div>'
+            +(t.stato==='programmato'?'<div class="tl-desc" style="color:#64748b;margin-top:4px;">Programmato per il '+fmtDate(t.dataProgrammata)+' · tocca per eseguirlo</div>':'')
+            +(t.note?'<div class="tl-desc" style="color:#64748b;margin-top:4px;">'+escHtml(t.note)+'</div>':'')
+            +elenco('SMONTATE', smontate, x=>x.stato==='buttata'?'🗑️ smaltite':'📦 deposito')
+            +elenco('MONTATE', montate, null)
+            +btnRow([
+              _histBtn('✏️ Modifica',"modificaCambioGomme('"+t.id+"')"),
+              avanzata?_histBtn('🗑️ Elimina',"eliminaCambioGomme('"+t.id+"')",'danger'):''
+            ]));
+        }
+        if(ev.type==='tireMont' || ev.type==='tireSmont'){
+          const t=ev.data;
+          const mont=ev.type==='tireMont';
+          const titolo=mont?'🛞 Gomme montate':(t.stato==='buttata'?'🗑️ Gomme smontate e smaltite':'📦 Gomme smontate — in deposito');
+          return card('tire:'+t.id, mont?(t.stagione==='estate'?'amber':'blue'):'amber',
+            fmtDate(ev.date)+' · '+fmtKM(mont?t.kmMontaggio:t.kmSmontaggio),
+            '<div class="tl-type" style="color:'+(t.stagione==='estate'?'#92400e':'#1e40af')+';">'+titolo+'</div>'
+            +'<div class="tl-desc" style="margin-top:4px;">'+tireIcon(t.stagione)+' '+_histStagione(t.stagione)+' — '+_histSetTxt(t)+'</div>'
+            +(t.note?'<div class="tl-desc" style="color:#64748b;">'+escHtml(t.note)+'</div>':'')
+            +btnRow([
+              _histBtn('✏️ Modifica',"openEditTireSet('"+t.id+"')"),
+              avanzata?_histBtn('🗑️ Elimina',"eliminaTireSet('"+t.id+"')",'danger'):''
+            ]));
+        }
+        // Documento caricato
+        const d=ev.data;
+        return card('doc:'+d.id, 'gray', fmtDate(ev.date),
+          '<div class="tl-type" style="color:#475569;">📎 '+escHtml(d.tipo||'Documento')+'</div>'
+          +'<div class="tl-desc" style="margin-top:4px;color:#64748b;">'+escHtml(d.nome||'')+'</div>'
+          +btnRow([
+            avanzata?_histBtn('🗑️ Elimina',"eliminaDocumentoStorico('"+d.id+"')",'danger'):''
+          ]), ' data-pdf="'+(d.mime==='application/pdf'?'1':'0')+'"');
+      }).join('')+'</div>';
+
+  const filtriHtml='<div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:6px;">'
+    +HIST_FILTRI.map(([k,l])=>'<button data-hfilter="'+k+'" style="flex-shrink:0;border:1px solid '+(filtro===k?'#1e40af':'#e2e8f0')+';background:'+(filtro===k?'#1e40af':'#fff')+';color:'+(filtro===k?'#fff':'#475569')+';border-radius:20px;padding:5px 11px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">'+l+'</button>').join('')
+    +'</div>';
 
   openModal(`Storico — ${v?.targa||''}`, `
     <div style="margin-bottom:10px;">${renderTargaHtml(v?.targa||'')} <strong style="margin-left:8px;">${escHtml(v?.nome||'')}</strong></div>
     <div class="divider"></div>
+    ${filtriHtml}
     ${timelineHtml}
     <div style="height:10px;"></div>
   `);
-  // Event delegation per i bottoni segnalazione nello storico
-  document.getElementById('modal-box').addEventListener('click', function(e){
-    const btnInt = e.target.closest('[data-segn-int]');
-    const btnRis = e.target.closest('[data-segn-risolto]');
-    if(btnInt){
-      const sid = btnInt.dataset.segnInt;
-      const s = DB.segnalazioni().find(x=>x.id===sid);
-      if(s){ closeModal(); createInterventionFromSegnalazione(s); }
-    } else if(btnRis){
-      const sid = btnRis.dataset.segnRisolto;
-      const s = DB.segnalazioni().find(x=>x.id===sid);
-      if(s){ closeModal(); risolviSegnalazione(s); }
+  _histVisible=true;
+  _installHistoryClicks();
+}
+
+// Un solo gestore per i tocchi nello Storico (prima se ne aggiungeva uno a ogni apertura)
+function _installHistoryClicks(){
+  const box=document.getElementById('modal-box');
+  if(!box || box._histClicks) return;
+  box._histClicks=true;
+  box.addEventListener('click', function(e){
+    if(!_histVisible) return;
+    const vid=window._histReturn;
+    const f=e.target.closest('[data-hfilter]');
+    if(f){ window._histFilter={vid, f:f.dataset.hfilter}; openHistory(vid); return; }
+    const bi=e.target.closest('[data-segn-int]');
+    if(bi){ const s=DB.segnalazioni().find(x=>x.id===bi.dataset.segnInt); if(s){ closeModal(); createInterventionFromSegnalazione(s); } return; }
+    const br=e.target.closest('[data-segn-risolto]');
+    if(br){ const s=DB.segnalazioni().find(x=>x.id===br.dataset.segnRisolto); if(s){ closeModal(); risolviSegnalazione(s); } return; }
+    if(e.target.closest('button, a, input, select, textarea')) return;
+    const el=e.target.closest('[data-open]');
+    if(!el) return;
+    const [kind, id]=el.dataset.open.split(':');
+    if(kind==='check') openCheckViewer(id, vid);
+    else if(kind==='int') openInterventionDetail(id);
+    else if(kind==='segn') openSegnalazioneDetail(id);
+    else if(kind==='tire') openEditTireSet(id);
+    else if(kind==='cambio'){
+      const t=DB.tireInterventions().find(x=>x.id===id);
+      if(t && t.stato==='programmato') openEditCambioGomme(id); else modificaCambioGomme(id);
+    }
+    else if(kind==='doc'){
+      // Il PDF va aperto nel tocco, prima di leggere il file
+      const pdf=el.dataset.pdf==='1';
+      viewDoc(id, pdf);
     }
   });
+}
+
+function eliminaDocumentoStorico(docId){
+  openModal('🗑️ Elimina documento', `
+    <p style="font-size:15px;color:#334155;margin-bottom:8px;">Stai per eliminare questo documento del mezzo.</p>
+    <p style="font-size:13px;color:#dc2626;margin-bottom:20px;">Questa operazione è irreversibile.</p>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="closeModal()">Annulla</button>
+      <button class="btn btn-danger" onclick="_doEliminaDocumentoStorico('${docId}')">Elimina</button>
+    </div>
+  `);
+}
+async function _doEliminaDocumentoStorico(docId){
+  try{
+    const doc=await IDB.get(docId);
+    await IDB.delete(docId);
+    if(doc && doc.tipo==='Foto veicolo') await deleteVehiclePhoto(doc.vehicleId);
+    toast('Documento eliminato','success');
+  }catch(e){ toast('Errore eliminazione: '+((e&&e.message)||e),'error'); }
+  closeModal();
+  renderMain();
 }
 
 // Segna anomalia come risolta senza creare intervento
@@ -5866,9 +6056,9 @@ function renderArchivio(container){
             <button onclick="stampaCheckModulo('${c.id}')" style="background:#f1f5f9;color:#475569;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">
               🖨️ Stampa
             </button>
-            ${avanzata?`<button onclick="openCheckForm('${c.vehicleId}','${c.id}')" style="background:#f1f5f9;color:#475569;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">
+            <button onclick="openCheckForm('${c.vehicleId}','${c.id}')" style="background:#f1f5f9;color:#475569;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">
               ✏️ Modifica
-            </button>`:''}
+            </button>
             ${avanzata?`<button onclick="eliminaCheck('${c.id}')" style="background:#fee2e2;color:#b91c1c;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">
               🗑️ Elimina
             </button>`:''}
@@ -5957,7 +6147,7 @@ function renderArchivio(container){
             ${t.note?`<div style="font-size:11px;color:#94a3b8;margin-top:3px;font-style:italic;">${escHtml(t.note)}</div>`:''}
           </div>
           <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
-            ${avanzata?`<button onclick="modificaCambioGomme('${t.id}')" style="background:#f1f5f9;color:#475569;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">✏️ Modifica</button>`:''}
+            <button onclick="modificaCambioGomme('${t.id}')" style="background:#f1f5f9;color:#475569;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">✏️ Modifica</button>
             ${avanzata?`<button onclick="eliminaCambioGomme('${t.id}')" style="background:#fee2e2;color:#b91c1c;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">🗑️ Elimina</button>`:''}
           </div>
         </div>
@@ -7184,7 +7374,7 @@ function openSettings(){
       </label>
     </div>
     <button class="btn btn-danger" onclick="confirmResetAll()">🗑️ Azzera tutti i dati</button>
-    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.1.12 — VehicleCare Pro</p>
+    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.1.13 — VehicleCare Pro</p>
     <div style="height:10px;"></div>
   `);
   renderBackupStatus();
