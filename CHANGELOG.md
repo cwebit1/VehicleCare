@@ -2,6 +2,18 @@
 
 ---
 
+## v111 — 2026-10-29
+### Gomme: modifica dei set montati e in deposito
+- **Toccando un set gomme** nelle sezioni "Montate" o "In deposito" si apre la maschera di modifica di quel set (nessun pulsante in più; l'etichetta mostra ✏️)
+- Campi modificabili: stagione (estive, invernali, 4 stagioni), marca, modello, dimensione, quantità, data e km di montaggio, data e km di smontaggio (solo set in deposito), km percorsi nei montaggi precedenti, note. Si salvano solo i campi cambiati
+- Controlli: marca obbligatoria, km non negativi, smontaggio non precedente al montaggio (date e km)
+- **Elimina set** con conferma, per i set registrati per errore
+- Montaggio e smontaggio restano affidati al cambio gomme
+- Icona 🌦️ e dicitura "4 stagioni" per i set 4 stagioni
+- In-app 1.1.12
+
+---
+
 ## v110 — 2026-10-27
 ### Documenti mezzi: visualizzatore funzionante su telefono
 - **Visualizzatore immagini**: su telefono e tablet i pulsanti Ruota, Zoom, Reset, Salva e Chiudi non rispondevano al tocco e il visualizzatore a tutto schermo non si chiudeva più, bloccando l'app. Ora i tocchi sui pulsanti funzionano; pizzico e trascinamento sull'immagine invariati
