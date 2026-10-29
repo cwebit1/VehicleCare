@@ -4568,21 +4568,25 @@ function renderVehicleTireCard(v, tires, tireInts){
   const kmNonTracciati = (kmPrimoSet!=null && kmVeicolo>0) ? Math.max(0, kmPrimoSet) : 0;
 
   // Segmenti per stagione — include sia montate che buttate/deposito (storico)
-  // Colore: GIALLO (#fbbf24) = estive, AZZURRO (#38bdf8) = invernali
+  // Colore: GIALLO (#fbbf24) = estive, AZZURRO (#38bdf8) = invernali, VERDE (#34d399) = 4 stagioni
   // Le "smaltite" mantengono il loro colore stagionale (più scuro per indicare l'usura)
   const allTracked = vTires.filter(t=>t.stato!=='montata'); // storico (buttate + deposito)
   const kmEstiveStorico   = allTracked.filter(t=>t.stagione==='estate') .reduce((s,t)=>{ const k=tireKmPercorsi(t,v.km); return s+(k||0); }, 0);
   const kmInvernaliStorico= allTracked.filter(t=>t.stagione==='inverno').reduce((s,t)=>{ const k=tireKmPercorsi(t,v.km); return s+(k||0); }, 0);
   const kmEstiveMontate   = montate.filter(t=>t.stagione==='estate') .reduce((s,t)=>{ const k=tireKmPercorsi(t,v.km); return s+(k||0); }, 0);
   const kmInvernaliMontate= montate.filter(t=>t.stagione==='inverno').reduce((s,t)=>{ const k=tireKmPercorsi(t,v.km); return s+(k||0); }, 0);
+  const km4sStorico       = allTracked.filter(t=>t.stagione==='4stagioni').reduce((s,t)=>{ const k=tireKmPercorsi(t,v.km); return s+(k||0); }, 0);
+  const km4sMontate       = montate.filter(t=>t.stagione==='4stagioni').reduce((s,t)=>{ const k=tireKmPercorsi(t,v.km); return s+(k||0); }, 0);
 
   const totRef = kmVeicolo || 1;
   const pctGrigio       = Math.min(100, Math.round((kmNonTracciati/totRef)*100));
   let remaining         = 100 - pctGrigio;
   const pctEstiveS      = Math.min(remaining, Math.round((kmEstiveStorico/totRef)*100));   remaining -= pctEstiveS;
   const pctInvernaliS   = Math.min(remaining, Math.round((kmInvernaliStorico/totRef)*100)); remaining -= pctInvernaliS;
+  const pct4sS          = Math.min(remaining, Math.round((km4sStorico/totRef)*100));        remaining -= pct4sS;
   const pctEstiveM      = Math.min(remaining, Math.round((kmEstiveMontate/totRef)*100));    remaining -= pctEstiveM;
-  const pctInvernaliM   = Math.min(remaining, Math.round((kmInvernaliMontate/totRef)*100));
+  const pctInvernaliM   = Math.min(remaining, Math.round((kmInvernaliMontate/totRef)*100)); remaining -= pctInvernaliM;
+  const pct4sM          = Math.min(remaining, Math.round((km4sMontate/totRef)*100));
 
   const barraKmHtml = kmVeicolo>0 ? `
     <div style="margin-top:14px;padding-top:12px;border-top:1px solid #f1f5f9;">
@@ -4595,8 +4599,10 @@ function renderVehicleTireCard(v, tires, tireInts){
           [pctGrigio,     '#cbd5e1'],
           [pctEstiveS,    '#f59e0b'],
           [pctInvernaliS, '#60a5fa'],
+          [pct4sS,        '#059669'],
           [pctEstiveM,    '#fbbf24'],
-          [pctInvernaliM, '#38bdf8']
+          [pctInvernaliM, '#38bdf8'],
+          [pct4sM,        '#34d399']
         ].filter(s=>s[0]>0);
         const _divs=_segs.map((s,i)=>{
           const _rL=i===0?'999px':'0';
@@ -4618,6 +4624,10 @@ function renderVehicleTireCard(v, tires, tireInts){
           <div style="width:8px;height:8px;background:#60a5fa;border-radius:50%;flex-shrink:0;"></div>
           ❄️ Invernali (storico): <strong>${Number(kmInvernaliStorico).toLocaleString('it-IT')} km</strong>
         </div>`:''}
+        ${km4sStorico>0?`<div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#64748b;">
+          <div style="width:8px;height:8px;background:#059669;border-radius:50%;flex-shrink:0;"></div>
+          🌦️ 4 stagioni (storico): <strong>${Number(km4sStorico).toLocaleString('it-IT')} km</strong>
+        </div>`:''}
         ${kmEstiveMontate>0?`<div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#64748b;">
           <div style="width:8px;height:8px;background:#fbbf24;border-radius:50%;flex-shrink:0;"></div>
           ☀️ Estive (in uso): <strong>${Number(kmEstiveMontate).toLocaleString('it-IT')} km</strong>
@@ -4625,6 +4635,10 @@ function renderVehicleTireCard(v, tires, tireInts){
         ${kmInvernaliMontate>0?`<div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#64748b;">
           <div style="width:8px;height:8px;background:#38bdf8;border-radius:50%;flex-shrink:0;"></div>
           ❄️ Invernali (in uso): <strong>${Number(kmInvernaliMontate).toLocaleString('it-IT')} km</strong>
+        </div>`:''}
+        ${km4sMontate>0?`<div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#64748b;">
+          <div style="width:8px;height:8px;background:#34d399;border-radius:50%;flex-shrink:0;"></div>
+          🌦️ 4 stagioni (in uso): <strong>${Number(km4sMontate).toLocaleString('it-IT')} km</strong>
         </div>`:''}
       </div>
     </div>
