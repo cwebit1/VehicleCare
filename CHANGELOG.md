@@ -10,6 +10,7 @@
 - **Elimina set** con conferma, per i set registrati per errore
 - Montaggio e smontaggio restano affidati al cambio gomme
 - Icona 🌦️ e dicitura "4 stagioni" per i set 4 stagioni
+- **Barra "Vita km veicolo"**: conteggia anche i km dei set 4 stagioni (verde scuro storico, verde chiaro in uso), prima esclusi
 - In-app 1.1.12
 
 ---
