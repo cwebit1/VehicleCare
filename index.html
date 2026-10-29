@@ -5484,9 +5484,17 @@ function openEditTireSet(tireId){
     </div>
     ${t.stato==='deposito'?`<div class="form-group"><label class="form-label">Deposito</label>
       ${_gommeDepositoSelect('es-deposito', t.depositoFornitoreId||'', t.depositoLuogo)}</div>`:''}`:''}
-    <div class="form-group"><label class="form-label">KM percorsi nei montaggi precedenti</label>
-      <input class="form-input" id="es-kmprec" type="number" inputmode="numeric" min="0" value="${val(t.kmPrecedenti)}" placeholder="0">
-      <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Si sommano ai km del periodo ${smontato?'montaggio → smontaggio':'in corso'} per la vita del set.</div></div>
+    ${(()=>{
+      // Vita del set: solo lettura, calcolata dai km del veicolo ai cambi gomme
+      const vita = tireKmPercorsi(t, v?.km);
+      const prec = parseInt(t.kmPrecedenti)||0;
+      return `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;margin-bottom:14px;">
+        <div style="font-size:12px;color:#64748b;">Vita del set (non modificabile)</div>
+        <div style="font-size:16px;font-weight:700;color:#1e293b;">${vita!=null?Number(vita).toLocaleString('it-IT')+' km':'—'}</div>
+        ${prec>0?`<div style="font-size:11px;color:#94a3b8;margin-top:2px;">di cui ${prec.toLocaleString('it-IT')} km nei montaggi precedenti</div>`:''}
+        <div style="font-size:11px;color:#94a3b8;margin-top:2px;">Differenza tra i km del veicolo ${smontato?'allo smontaggio e al montaggio':'attuali e al montaggio'}.</div>
+      </div>`;
+    })()}
     <div class="form-group"><label class="form-label">Note</label>
       <textarea class="form-input" id="es-note" rows="2">${val(t.note)}</textarea></div>
     <div class="btn-row">
@@ -5511,7 +5519,6 @@ function saveEditTireSet(tireId){
     quantita:   parseInt(document.getElementById('es-qty').value)||4,
     dataMontaggio: document.getElementById('es-datamon').value||null,
     kmMontaggio:   num('es-kmmon'),
-    kmPrecedenti:  num('es-kmprec'),
     note:       document.getElementById('es-note').value.trim()
   };
   if(document.getElementById('es-datasmon')){
@@ -5525,7 +5532,7 @@ function saveEditTireSet(tireId){
     Object.assign(f, dep);
   }
   if(!f.marca){ toast('Inserisci la marca','error'); return; }
-  if([f.kmMontaggio, f.kmSmontaggio, f.kmPrecedenti].some(k=>k!=null && k<0)){ toast('I km non possono essere negativi','error'); return; }
+  if([f.kmMontaggio, f.kmSmontaggio].some(k=>k!=null && k<0)){ toast('I km non possono essere negativi','error'); return; }
   if(f.dataSmontaggio && f.dataMontaggio && f.dataSmontaggio < f.dataMontaggio){ toast('La data di smontaggio non può precedere il montaggio','error'); return; }
   if(f.kmSmontaggio!=null && f.kmMontaggio!=null && f.kmSmontaggio < f.kmMontaggio){ toast('I km allo smontaggio non possono essere inferiori al montaggio','error'); return; }
 
@@ -7603,7 +7610,7 @@ function openSettings(){
       </label>
     </div>
     <button class="btn btn-danger" onclick="confirmResetAll()">🗑️ Azzera tutti i dati</button>
-    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.1.14 — VehicleCare Pro</p>
+    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.1.15 — VehicleCare Pro</p>
     <div style="height:10px;"></div>
   `);
   renderBackupStatus();

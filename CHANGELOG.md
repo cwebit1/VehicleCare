@@ -2,6 +2,14 @@
 
 ---
 
+## v114 — 2026-10-29
+### Gomme: vita del set non modificabile
+- Nella maschera del set gomme i km di vita non si possono più scrivere a mano: sono mostrati in sola lettura, calcolati come differenza tra i km del veicolo ai cambi gomme (montaggio → smontaggio, oppure montaggio → km attuali), sommando i montaggi precedenti registrati automaticamente dal cambio gomme
+- Rimosso il campo "KM percorsi nei montaggi precedenti" introdotto nella v111
+- In-app 1.1.15
+
+---
+
 ## v113 — 2026-10-29
 ### Relazioni al posto di Archivio · Gommista e deposito nel cambio gomme
 - **Nuova sezione Relazioni** (sostituisce Archivio, che duplicava lo Storico): si sceglie il mezzo e il periodo (dalla presa in carico a oggi, ultimo mese, ultimi 12 mesi, anno in corso, anno precedente, personalizzato) e si genera una relazione scritta, in testo ed elenchi, per una revisione interna
