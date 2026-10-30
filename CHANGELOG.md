@@ -2,6 +2,14 @@
 
 ---
 
+## v118 — 2026-10-30
+### Planner: anomalie come cerchi arancioni
+- Un'anomalia trovata con un check è disegnata come **cerchio arancione** in ogni giorno, dal giorno del check finché il mezzo va in lavorazione o l'anomalia è risolta (prima: cella e barra arancioni continue)
+- Le **strisce continue** restano solo per il mezzo fermo (intervento in attesa o in lavorazione); il resto del planner è invariato
+- In-app 1.1.19
+
+---
+
 ## v117 — 2026-10-29
 ### PDF con testo selezionabile, PDF temporanei, fix stampa check
 - **Relazioni: PDF con testo vero**, selezionabile e copiabile (anche le tabelle). Il PDF si ricava dalla stessa pagina HTML dell'anteprima: testo scritto come testo, riquadri, linee, etichette e barre disegnati, icone ed emoji inserite come piccole immagini. Pagine A4 senza tagli di righe, riquadri e titoli, "Pagina X di Y" su ogni pagina

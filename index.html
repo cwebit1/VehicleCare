@@ -340,7 +340,9 @@ body.dark #modal-box-2{background:#2a2a2a;}
 /* Slot veicolo — altezza FISSA, no margin (usiamo gap nel contenitore) */
 .pl-vrow{width:100%;border-radius:2px;background:rgba(0,0,0,.07);display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:7px;font-weight:700;color:transparent;box-sizing:border-box;flex-shrink:0;}
 .pl-vrow.ck-ok{background:#4ade80;color:#fff;}
-.pl-vrow.ck-anom{background:#fb923c;color:#fff;}
+.pl-vrow.ck-anom{background:rgba(0,0,0,.07);color:transparent;}   /* il giorno del check è indicato dal cerchio arancione */
+.pl-anom-giorno{background:transparent !important;justify-content:center;gap:2px;}
+.pl-anom-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;box-shadow:0 0 0 1.5px #fff;}
 /* Barre overlay — button reset completo */
 .pl-bar{position:absolute;border-radius:3px;display:flex;align-items:center;overflow:hidden;cursor:pointer;z-index:2;border:none;outline:none;padding:0;margin:0;box-sizing:border-box;}
 .pl-bar-lbl{font-size:7px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 3px;}
@@ -7117,10 +7119,16 @@ function _buildMonthPanel(Y, M) {
         +' data-tiid="'+seg.int._tireIntId+'" data-vid="'+seg.int.vehicleId+'">'
         +'<span class="pl-bar-lbl">'+lbl+'</span></button>';
     } else if (seg.int._isCheckAnom) {
-      barsHtml += '<button class="pl-bar pl-bar-checkanom"'
-        +' style="left:calc('+left+'% + 1px);width:calc('+width+'% - 2px);top:'+rowTop+'px;height:'+PL_ROW_H+'px;background:'+EV_COLORS.checkAnom+';"'
-        +' data-checkanom-vid="'+seg.int.vehicleId+'" data-checkanom-cid="'+seg.int._checkId+'">'
-        +'<span class="pl-bar-lbl">'+lbl+'</span></button>';
+      // Anomalia in attesa: un cerchio arancione per ogni giorno, finché il mezzo va in lavorazione
+      // o l'anomalia è risolta (le strisce continue restano per il mezzo fermo)
+      for (var d = 0; d < seg.span; d++) {
+        barsHtml += '<button class="pl-bar pl-bar-checkanom pl-anom-giorno"'
+          +' style="left:'+((seg.colStart+d)*colWidthPct)+'%;width:'+colWidthPct+'%;top:'+rowTop+'px;height:'+PL_ROW_H+'px;"'
+          +' data-checkanom-vid="'+seg.int.vehicleId+'" data-checkanom-cid="'+seg.int._checkId+'">'
+          +'<span class="pl-anom-dot" style="background:'+EV_COLORS.checkAnom+';"></span>'
+          +(d===0&&lbl?'<span class="pl-bar-lbl" style="color:#c2410c;">'+lbl+'</span>':'')
+          +'</button>';
+      }
     } else if (seg.int._isSegnalazione) {
       barsHtml += '<button class="pl-bar pl-bar-segnalazione"'
         +' style="left:calc('+left+'% + 1px);width:calc('+width+'% - 2px);top:'+rowTop+'px;height:'+PL_ROW_H+'px;background:'+EV_COLORS.segnalazione+';"'
@@ -7991,7 +7999,7 @@ function openSettings(){
       </label>
     </div>
     <button class="btn btn-danger" onclick="confirmResetAll()">🗑️ Azzera tutti i dati</button>
-    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.1.18 — VehicleCare Pro</p>
+    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.1.19 — VehicleCare Pro</p>
     <div style="height:10px;"></div>
   `);
   renderBackupStatus();
