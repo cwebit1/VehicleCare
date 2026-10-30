@@ -6878,6 +6878,19 @@ function _buildMonthPanel(Y, M) {
   var checks        = DB.checks();
   var interventions = DB.interventions();
 
+  // Segni del giorno per mezzo: check OK, anomalia in attesa (cerchio arancione),
+  // cambio gomme eseguito (cella blu) e programmato (cerchio blu). Più segni nello stesso giorno dividono la cella.
+  var marks = {};
+  function _mark(ds, vid, tipo, extra){
+    if (!ds || ds < gridStartStr || ds > gridEndStr) return;
+    var k = vid + '|' + ds;
+    var l = marks[k] || (marks[k] = []);
+    if (l.some(function(m){ return m.tipo===tipo; })) return;
+    l.push(Object.assign({tipo:tipo, ds:ds, vid:vid}, extra||{}));
+  }
+  function _giornoPrima(ds){ var d=new Date(ds+'T12:00:00'); d.setDate(d.getDate()-1); return _ymd(d); }
+  function _giornoDopo(ds){ var d=new Date(ds+'T12:00:00'); d.setDate(d.getDate()+1); return _ymd(d); }
+
   // Mappa check del mese
   var checkMap = {};
   checks.forEach(function(c) {
@@ -6885,6 +6898,7 @@ function _buildMonthPanel(Y, M) {
     if (!checkMap[c.data]) checkMap[c.data] = {};
     var hasAnom = c.items && c.items.some(function(it){ return it.val === 'anomalia'; });
     checkMap[c.data][c.vehicleId] = { stato: hasAnom ? 'anomalia' : 'ok', checkId: c.id };
+    if (!hasAnom) _mark(c.data, c.vehicleId, 'checkOk');
   });
 
   // Altezza cella
@@ -6906,8 +6920,8 @@ function _buildMonthPanel(Y, M) {
       var ck     = dayChecks[v.id];
       var stato  = ck ? ck.stato : null;
       var cid    = ck ? ck.checkId : null;
-      var cls    = stato === 'ok' ? ' ck-ok' : stato === 'anomalia' ? ' ck-anom' : '';
-      var lbl    = stato ? escHtml(v.targa) : '';
+      var cls    = '';
+      var lbl    = '';
       var dataCk = cid ? ' data-check-id="' + cid + '" data-vehicle-id="' + v.id + '"' : '';
       gridHtml += '<div class="pl-vrow' + cls + '" data-vid="' + v.id + '"' + dataCk + ' style="height:' + PL_ROW_H + 'px;">' + lbl + '</div>';
     });
@@ -7056,7 +7070,12 @@ function _buildMonthPanel(Y, M) {
     } else {
       endDateStr = c.data > todayStr ? c.data : todayStr;
     }
-    _pushDateRangeSegments(c.data, endDateStr, { id:c.id, vehicleId:c.vehicleId, _isCheckAnom:true, _checkId:c.id, stato:'anomalia_check' });
+    // Cerchio arancione ogni giorno dal check fino al giorno prima del passaggio in lavorazione
+    var ultimo = (earliest && earliest > c.data) ? _giornoPrima(earliest) : endDateStr;
+    for (var dd = c.data; dd <= ultimo; dd = _giornoDopo(dd)) {
+      if (dd > gridEndStr) break;
+      _mark(dd, c.vehicleId, 'anom', {primo: dd===c.data});
+    }
     // Giorno di creazione intervento: sfumatura arancio→rosso (poi prosegue la tratteggiata)
     if (earliest && earliest > c.data) {
       _pushDateRangeSegments(earliest, earliest, { id:c.id, vehicleId:c.vehicleId, _isTransition:true, _transFrom:EV_COLORS.checkAnom, stato:'anomalia_check' });
@@ -7089,14 +7108,9 @@ function _buildMonthPanel(Y, M) {
 
   // Gomme programmate
   var tireInts = DB.tireInterventions();
-  tireInts.filter(function(ti){ return ti.stato==='programmato'; }).forEach(function(ti){
-    var dp = ti.dataProgrammata;
-    if (!dp || dp < gridStartStr || dp > gridEndStr) return;
-    var vIdx = vehicles.findIndex(function(v){ return v.id===ti.vehicleId; });
-    if (vIdx===-1) return;
-    var g = parseInt(dp.slice(8,10));
-    var cellIdx = startDayOfWeek + (g-1);
-    segments.push({ int:{id:ti.id,vehicleId:ti.vehicleId,_isTireInt:true,_tireIntId:ti.id}, row:Math.floor(cellIdx/PL_COLS), colStart:cellIdx%PL_COLS, colEnd:cellIdx%PL_COLS, span:1, isFirst:true });
+  tireInts.forEach(function(ti){
+    if (ti.stato==='programmato') _mark(ti.dataProgrammata, ti.vehicleId, 'tireProg');
+    else if (ti.stato==='completato') _mark(ti.dataEffettiva || ti.dataProgrammata, ti.vehicleId, 'tireDone');
   });
 
   // Barre overlay HTML
@@ -7105,6 +7119,33 @@ function _buildMonthPanel(Y, M) {
   // Ordino in modo stabile spostando i segmenti _isResolved in fondo, così sono disegnati per ultimi.
   segments.sort(function(a,b){ return (a.int._isResolved?1:0) - (b.int._isResolved?1:0); });
   var barsHtml = '';
+  // Segni del giorno, sotto alle strisce
+  var ORD = {checkOk:0, anom:1, tireDone:2, tireProg:3};
+  Object.keys(marks).forEach(function(k){
+    var list = marks[k].sort(function(a,b){ return ORD[a.tipo]-ORD[b.tipo]; });
+    var vIdx = vehicles.findIndex(function(v){ return v.id===list[0].vid; });
+    if (vIdx===-1) return;
+    var v = vehicles[vIdx];
+    var idx = _idxOfDate(list[0].ds);
+    var rowTop = Math.floor(idx/PL_COLS) * (cellH + PL_CELL_GAP) + PL_HDR_H + vIdx * (PL_ROW_H + PL_ROW_GAP);
+    var n = list.length, w = colWidthPct/n;
+    list.forEach(function(m, j){
+      var left = (idx%PL_COLS)*colWidthPct + j*w;
+      var targa = n===1 && (m.tipo!=='anom' || m.primo) ? escHtml(v.targa) : '';
+      if (m.tipo==='checkOk' || m.tipo==='tireDone') {
+        barsHtml += '<button class="pl-bar"'
+          +' style="left:calc('+left+'% + 1px);width:calc('+w+'% - 2px);top:'+rowTop+'px;height:'+PL_ROW_H+'px;background:'+(m.tipo==='checkOk'?EV_COLORS.checkOk:EV_COLORS.gomme)+';justify-content:center;"'
+          +' data-vid="'+v.id+'"><span class="pl-bar-lbl">'+targa+'</span></button>';
+      } else {
+        var col = m.tipo==='anom' ? EV_COLORS.checkAnom : EV_COLORS.gomme;
+        barsHtml += '<button class="pl-bar pl-anom-giorno"'
+          +' style="left:'+left+'%;width:'+w+'%;top:'+rowTop+'px;height:'+PL_ROW_H+'px;" data-vid="'+v.id+'">'
+          +'<span class="pl-anom-dot" style="background:'+col+';"></span>'
+          +(targa?'<span class="pl-bar-lbl" style="color:'+(m.tipo==='anom'?'#c2410c':'#1e40af')+';">'+targa+'</span>':'')
+          +'</button>';
+      }
+    });
+  });
   segments.forEach(function(seg) {
     var vIdx = vehicles.findIndex(function(v){ return v.id===seg.int.vehicleId; });
     if (vIdx===-1) return;
@@ -7113,23 +7154,7 @@ function _buildMonthPanel(Y, M) {
     var width= seg.span    * colWidthPct;
     var rowTop = seg.row * (cellH + PL_CELL_GAP) + PL_HDR_H + vIdx * (PL_ROW_H + PL_ROW_GAP);
     var lbl  = seg.isFirst ? escHtml(v.targa) : '';
-    if (seg.int._isTireInt) {
-      barsHtml += '<button class="pl-bar pl-bar-tire"'
-        +' style="left:calc('+left+'% + 1px);width:calc('+width+'% - 2px);top:'+rowTop+'px;height:'+PL_ROW_H+'px;background:'+EV_COLORS.gomme+';"'
-        +' data-tiid="'+seg.int._tireIntId+'" data-vid="'+seg.int.vehicleId+'">'
-        +'<span class="pl-bar-lbl">'+lbl+'</span></button>';
-    } else if (seg.int._isCheckAnom) {
-      // Anomalia in attesa: un cerchio arancione per ogni giorno, finché il mezzo va in lavorazione
-      // o l'anomalia è risolta (le strisce continue restano per il mezzo fermo)
-      for (var d = 0; d < seg.span; d++) {
-        barsHtml += '<button class="pl-bar pl-bar-checkanom pl-anom-giorno"'
-          +' style="left:'+((seg.colStart+d)*colWidthPct)+'%;width:'+colWidthPct+'%;top:'+rowTop+'px;height:'+PL_ROW_H+'px;"'
-          +' data-checkanom-vid="'+seg.int.vehicleId+'" data-checkanom-cid="'+seg.int._checkId+'">'
-          +'<span class="pl-anom-dot" style="background:'+EV_COLORS.checkAnom+';"></span>'
-          +(d===0&&lbl?'<span class="pl-bar-lbl" style="color:#c2410c;">'+lbl+'</span>':'')
-          +'</button>';
-      }
-    } else if (seg.int._isSegnalazione) {
+    if (seg.int._isSegnalazione) {
       barsHtml += '<button class="pl-bar pl-bar-segnalazione"'
         +' style="left:calc('+left+'% + 1px);width:calc('+width+'% - 2px);top:'+rowTop+'px;height:'+PL_ROW_H+'px;background:'+EV_COLORS.segnalazione+';"'
         +' data-segn-id="'+seg.int._segnalazioneId+'">'
@@ -7306,12 +7331,43 @@ function openPlannerCellDetail(vehicleId, dateStr){
       +'</div>');
   });
 
+  // ANOMALIE di check precedenti ancora in attesa quel giorno (cerchi arancioni)
+  var oggiStr = new Date().toISOString().slice(0,10);
+  var tuttiInt = DB.interventions();
+  DB.checks().filter(function(c){ return c.vehicleId===vehicleId && c.data && c.data<dateStr; }).forEach(function(c){
+    var anom=(c.items||[]).filter(function(it){return it.val==='anomalia';});
+    if (!anom.length) return;
+    var date=[], senza=false;
+    anom.forEach(function(a){
+      var li=tuttiInt.find(function(i){ return i.checkId===c.id && (i.descrizione||'').startsWith(a.voce) && i.stato!=='annullato'; });
+      if (li && li.dataApertura) date.push(li.dataProgrammazione||li.dataApertura); else senza=true;
+    });
+    date.sort();
+    var fine = (!senza && date.length) ? date[0] : null;
+    if (fine ? dateStr>=fine : dateStr>oggiStr) return;
+    var gg=Math.round((new Date(dateStr+'T12:00:00')-new Date(c.data+'T12:00:00'))/86400000);
+    cards.push('<div style="'+cardCSS+'border-left:4px solid #fb923c;">'
+      +'<div style="'+titCSS+'color:#c2410c;">🟠 Anomalia in attesa</div>'
+      +'<div style="'+descCSS+'">'+escHtml(anom.map(function(a){return a.voce;}).join(', '))+' · dal check del '+fmtDate(c.data)+' ('+gg+' '+(gg===1?'giorno':'giorni')+')</div>'
+      +'<button onclick="closeModal2();openCheckViewer(\''+c.id+'\',\''+vehicleId+'\')" style="'+bBase+'background:#1e40af;margin:2px;">📋 Apri check</button>'
+      +'<button onclick="closeModal2();openCheckAnomalieFromPlanner(\''+c.id+'\',\''+vehicleId+'\')" style="'+bBase+'background:#ea580c;margin:2px;">⚠️ Gestisci anomalie</button>'
+      +'</div>');
+  });
+
   // INTERVENTI che toccano il giorno (apertura / chiusura / programmazione)
-  DB.interventions().filter(function(i){ return i.vehicleId===vehicleId && (i.dataApertura===dateStr || i.dataChiusura===dateStr || i.dataProgrammazione===dateStr); }).forEach(function(i){
+  // (anche i giorni intermedi: attesa e lavorazione)
+  DB.interventions().filter(function(i){
+    if (i.vehicleId!==vehicleId) return false;
+    if (i.dataApertura===dateStr || i.dataChiusura===dateStr || i.dataProgrammazione===dateStr) return true;
+    if (i.stato==='annullato' || !i.dataApertura) return false;
+    var ini = i.dataProgrammazione || i.dataApertura;
+    var fin = i.dataChiusura || (oggiStr > i.dataApertura ? oggiStr : i.dataApertura);
+    return dateStr>=ini && dateStr<=fin;
+  }).forEach(function(i){
     var lbl, col;
     if (i.stato==='annullato'){ lbl='🟡 Intervento annullato'; col='#ca8a04'; }
     else if (i.dataChiusura===dateStr){ lbl='🟢 Chiuso — mezzo disponibile'; col='#16a34a'; }
-    else if (i.dataProgrammazione===dateStr && i.dataApertura!==dateStr){ lbl='⏳ Programmato (attesa)'; col='#dc2626'; }
+    else if (i.dataApertura && dateStr<i.dataApertura){ lbl='⏳ Programmato (attesa)'; col='#dc2626'; }
     else { lbl='🔴 In lavorazione'; col='#dc2626'; }
     var btns='';
     if (i.stato!=='chiuso' && i.stato!=='annullato'){
@@ -7328,20 +7384,42 @@ function openPlannerCellDetail(vehicleId, dateStr){
   });
 
   // SEGNALAZIONI del giorno
-  DB.segnalazioni().filter(function(s){ return s.vehicleId===vehicleId && s.data===dateStr; }).forEach(function(s){
+  // (anche i giorni in cui è ancora in attesa di intervento)
+  DB.segnalazioni().filter(function(s){
+    if (s.vehicleId!==vehicleId || !s.data) return false;
+    if (s.data===dateStr) return true;
+    var li = tuttiInt.find(function(i){ return i.segnalazioneId===s.id && i.stato!=='annullato'; });
+    var fine = (li && li.dataApertura) ? (li.dataProgrammazione||li.dataApertura) : oggiStr;
+    return dateStr>s.data && dateStr<=fine;
+  }).forEach(function(s){
     cards.push('<div style="'+cardCSS+'border-left:4px solid #facc15;">'
-      +'<div style="'+titCSS+'color:#b45309;">🟡 Segnalazione</div>'
+      +'<div style="'+titCSS+'color:#b45309;">🟡 Segnalazione'+(s.data!==dateStr?' aperta dal '+fmtDate(s.data):'')+'</div>'
       +'<div style="'+descCSS+'">'+escHtml(s.problema||'')+'</div>'
       +'<button onclick="closeModal2();openSegnalazioneDetail(\''+s.id+'\')" style="'+bBase+'background:#1e40af;">📢 Apri</button>'
       +'</div>');
   });
 
   // CAMBI GOMME del giorno
-  DB.tireInterventions().filter(function(t){ return t.vehicleId===vehicleId && t.dataProgrammata===dateStr; }).forEach(function(t){
+  DB.tireInterventions().filter(function(t){
+    if (t.vehicleId!==vehicleId) return false;
+    return t.stato==='completato' ? (t.dataEffettiva||t.dataProgrammata)===dateStr : t.dataProgrammata===dateStr;
+  }).forEach(function(t){
+    if (t.stato==='completato'){
+      var forn = t.fornitoreId ? DB.suppliers().find(function(x){ return x.id===t.fornitoreId; }) : null;
+      cards.push('<div style="'+cardCSS+'border-left:4px solid #60a5fa;">'
+        +'<div style="'+titCSS+'color:#1e40af;">🔵 Cambio gomme eseguito</div>'
+        +'<div style="'+descCSS+'">'+[t.kmEffettivo!=null?fmtKM(t.kmEffettivo):'', forn?escHtml(forn.nome):'', depositoLabel(t)?'deposito: '+escHtml(depositoLabel(t)):'', t.note?escHtml(t.note):''].filter(Boolean).join(' · ')+'</div>'
+        +'<button onclick="closeModal2();modificaCambioGomme(\''+t.id+'\')" style="'+bBase+'background:#64748b;margin:2px;">✏️ Modifica</button>'
+        +(avz?'<button onclick="closeModal2();eliminaCambioGomme(\''+t.id+'\')" style="'+bBase+'background:#dc2626;margin:2px;">🗑️ Elimina</button>':'')
+        +'</div>');
+      return;
+    }
     cards.push('<div style="'+cardCSS+'border-left:4px solid #60a5fa;">'
-      +'<div style="'+titCSS+'color:#1e40af;">🔵 Cambio gomme</div>'
-      +'<div style="'+descCSS+'">'+escHtml(t.note||'Programmato')+'</div>'
-      +'<button onclick="closeModal2();openEditCambioGomme(\''+t.id+'\')" style="'+bBase+'background:#1e40af;">✏️ Edita</button>'
+      +'<div style="'+titCSS+'color:#1e40af;">🔵 Cambio gomme'+(t.stato==='annullato'?' annullato':' programmato')+'</div>'
+      +'<div style="'+descCSS+'">'+escHtml(t.note||(t.stato==='annullato'?'Annullato':'Programmato'))+'</div>'
+      +(t.stato==='annullato'
+        ? '<button onclick="closeModal2();modificaCambioGomme(\''+t.id+'\')" style="'+bBase+'background:#64748b;">✏️ Modifica</button>'
+        : '<button onclick="closeModal2();openEditCambioGomme(\''+t.id+'\')" style="'+bBase+'background:#1e40af;">✏️ Edita</button>')
       +'</div>');
   });
 
@@ -7388,7 +7466,8 @@ function openPlanner(year, month) {
     +'<div class="pl-leg-item"><div class="pl-leg-dot" style="background:'+EV_COLORS.checkOk+'"></div>Check OK</div>'
     +'<div class="pl-leg-item"><div class="pl-leg-dot" style="background:'+EV_COLORS.checkAnom+'"></div>Check anomalia</div>'
     +'<div class="pl-leg-item"><div class="pl-leg-dot" style="background:'+EV_COLORS.intervento+'"></div>Intervento</div>'
-    +'<div class="pl-leg-item"><div class="pl-leg-dot" style="background:'+EV_COLORS.gomme+'"></div>Cambio gomme</div>'
+    +'<div class="pl-leg-item"><div class="pl-leg-dot" style="background:'+EV_COLORS.gomme+'"></div>Gomme programmate</div>'
+    +'<div class="pl-leg-item"><div class="pl-leg-dot" style="background:'+EV_COLORS.gomme+';border-radius:2px;"></div>Gomme cambiate</div>'
     +'<div class="pl-leg-item"><div class="pl-leg-dot" style="background:'+EV_COLORS.annullato+'"></div>Annullato</div>'
     +'</div>';
 
@@ -7552,7 +7631,8 @@ function _plannerSwipe(goNext) {
     +'<div class="pl-leg-item"><div class="pl-leg-dot" style="background:'+EV_COLORS.checkOk+'"></div>Check OK</div>'
     +'<div class="pl-leg-item"><div class="pl-leg-dot" style="background:'+EV_COLORS.checkAnom+'"></div>Check anomalia</div>'
     +'<div class="pl-leg-item"><div class="pl-leg-dot" style="background:'+EV_COLORS.intervento+'"></div>Intervento</div>'
-    +'<div class="pl-leg-item"><div class="pl-leg-dot" style="background:'+EV_COLORS.gomme+'"></div>Cambio gomme</div>'
+    +'<div class="pl-leg-item"><div class="pl-leg-dot" style="background:'+EV_COLORS.gomme+'"></div>Gomme programmate</div>'
+    +'<div class="pl-leg-item"><div class="pl-leg-dot" style="background:'+EV_COLORS.gomme+';border-radius:2px;"></div>Gomme cambiate</div>'
     +'<div class="pl-leg-item"><div class="pl-leg-dot" style="background:'+EV_COLORS.annullato+'"></div>Annullato</div>'
     +'</div>'
     +'<div class="pl-dow-hdr">'+['Lun','Mar','Mer','Gio','Ven','Sab','Dom'].map(function(d){ return '<div class="pl-dow">'+d+'</div>'; }).join('')+'</div>'
@@ -7999,7 +8079,7 @@ function openSettings(){
       </label>
     </div>
     <button class="btn btn-danger" onclick="confirmResetAll()">🗑️ Azzera tutti i dati</button>
-    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.1.19 — VehicleCare Pro</p>
+    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.1.20 — VehicleCare Pro</p>
     <div style="height:10px;"></div>
   `);
   renderBackupStatus();

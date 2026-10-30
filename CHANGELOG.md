@@ -2,6 +2,17 @@
 
 ---
 
+## v119 — 2026-10-30
+### Planner: cambi gomme, celle divise, dettaglio completo del giorno
+- **Cambio gomme**: programmato = **cerchio blu** nel giorno previsto; eseguito = **cella blu** nel giorno in cui è stato fatto (prima il cambio eseguito spariva dal planner e quello programmato copriva il check dello stesso giorno)
+- **Più eventi nello stesso giorno** per lo stesso mezzo (es. check e cambio gomme): la cella si **divide** e si vedono tutti
+- Fix: un cambio programmato in un giorno del mese precedente o successivo visibile ai bordi della griglia veniva disegnato nella cella sbagliata
+- **Tocco su una cella: tutto ciò che è attivo quel giorno**, ognuno con la sua scheda e i suoi pulsanti come prima: check del giorno, **anomalie ancora in attesa** (con check di origine, giorni di attesa, Apri check, Gestisci anomalie), **interventi in attesa o in lavorazione anche nei giorni intermedi**, segnalazioni ancora aperte, cambi gomme programmati, eseguiti (con km, fornitore, deposito, Modifica) o annullati
+- Legenda: "Gomme programmate" (cerchio) e "Gomme cambiate" (quadrato)
+- In-app 1.1.20
+
+---
+
 ## v118 — 2026-10-30
 ### Planner: anomalie come cerchi arancioni
 - Un'anomalia trovata con un check è disegnata come **cerchio arancione** in ogni giorno, dal giorno del check finché il mezzo va in lavorazione o l'anomalia è risolta (prima: cella e barra arancioni continue)
