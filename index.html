@@ -7112,6 +7112,11 @@ function _buildMonthPanel(Y, M) {
     if (ti.stato==='programmato') _mark(ti.dataProgrammata, ti.vehicleId, 'tireProg');
     else if (ti.stato==='completato') _mark(ti.dataEffettiva || ti.dataProgrammata, ti.vehicleId, 'tireDone');
   });
+  // Gomme montate o smontate in qualunque modo (anche senza un cambio pianificato): cella blu nel giorno
+  DB.tires().forEach(function(t){
+    if (t.dataMontaggio) _mark(t.dataMontaggio, t.vehicleId, 'tireDone');
+    if (t.stato!=='montata' && t.dataSmontaggio) _mark(t.dataSmontaggio, t.vehicleId, 'tireDone');
+  });
 
   // Barre overlay HTML
   var colWidthPct = 100 / PL_COLS;
@@ -7422,6 +7427,22 @@ function openPlannerCellDetail(vehicleId, dateStr){
         : '<button onclick="closeModal2();openEditCambioGomme(\''+t.id+'\')" style="'+bBase+'background:#1e40af;">✏️ Edita</button>')
       +'</div>');
   });
+
+  // GOMME montate/smontate quel giorno senza un cambio gomme eseguito registrato
+  var cambioFatto = DB.tireInterventions().some(function(t){ return t.vehicleId===vehicleId && t.stato==='completato' && (t.dataEffettiva||t.dataProgrammata)===dateStr; });
+  if (!cambioFatto) {
+    DB.tires().filter(function(t){ return t.vehicleId===vehicleId && (t.dataMontaggio===dateStr || (t.stato!=='montata' && t.dataSmontaggio===dateStr)); }).forEach(function(t){
+      var mont = t.dataMontaggio===dateStr;
+      var stag = t.stagione==='estate'?'estive':t.stagione==='4stagioni'?'4 stagioni':'invernali';
+      cards.push('<div style="'+cardCSS+'border-left:4px solid #60a5fa;">'
+        +'<div style="'+titCSS+'color:#1e40af;">🔵 '+(mont?'Gomme montate':(t.stato==='buttata'?'Gomme smontate e smaltite':'Gomme smontate — in deposito'))+'</div>'
+        +'<div style="'+descCSS+'">'+escHtml(stag+' '+[t.marca,t.modello,t.dimensione].filter(Boolean).join(' ')+' ×'+(t.quantita||4))
+          +((mont?t.kmMontaggio:t.kmSmontaggio)!=null?' · '+fmtKM(mont?t.kmMontaggio:t.kmSmontaggio):'')
+          +(!mont&&depositoLabel(t)?' · '+escHtml(depositoLabel(t)):'')+'</div>'
+        +'<button onclick="closeModal2();openEditTireSet(\''+t.id+'\')" style="'+bBase+'background:#64748b;">✏️ Modifica</button>'
+        +'</div>');
+    });
+  }
 
   var head = (v?'<div style="margin-bottom:3px;">'+renderTargaHtml(v.targa)+'<span style="font-size:14px;font-weight:600;color:#1e293b;margin-left:8px;">'+escHtml(v.nome||'')+'</span></div>':'')
     +'<div style="font-size:12px;color:#94a3b8;margin:2px 0 12px;">📅 '+fmtDate(dateStr)+'</div>';
@@ -8079,7 +8100,7 @@ function openSettings(){
       </label>
     </div>
     <button class="btn btn-danger" onclick="confirmResetAll()">🗑️ Azzera tutti i dati</button>
-    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.1.20 — VehicleCare Pro</p>
+    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.1.21 — VehicleCare Pro</p>
     <div style="height:10px;"></div>
   `);
   renderBackupStatus();

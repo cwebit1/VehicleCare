@@ -2,6 +2,14 @@
 
 ---
 
+## v120 — 2026-10-30
+### Planner: gomme cambiate sempre visibili
+- La cella blu "gomme cambiate" compare anche quando le gomme sono state montate o smontate senza un cambio pianificato e confermato (prima registrazione, set modificato a mano, dati importati): il planner legge anche le date di montaggio e smontaggio dei set
+- Al tocco della cella, in assenza di un cambio gomme eseguito, il dettaglio mostra i set montati e smontati quel giorno (stagione, marca, km, deposito) con "Modifica"
+- In-app 1.1.21
+
+---
+
 ## v119 — 2026-10-30
 ### Planner: cambi gomme, celle divise, dettaglio completo del giorno
 - **Cambio gomme**: programmato = **cerchio blu** nel giorno previsto; eseguito = **cella blu** nel giorno in cui è stato fatto (prima il cambio eseguito spariva dal planner e quello programmato copriva il check dello stesso giorno)
