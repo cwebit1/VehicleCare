@@ -6898,7 +6898,7 @@ function _buildMonthPanel(Y, M) {
     if (!checkMap[c.data]) checkMap[c.data] = {};
     var hasAnom = c.items && c.items.some(function(it){ return it.val === 'anomalia'; });
     checkMap[c.data][c.vehicleId] = { stato: hasAnom ? 'anomalia' : 'ok', checkId: c.id };
-    if (!hasAnom) _mark(c.data, c.vehicleId, 'checkOk');
+    _mark(c.data, c.vehicleId, hasAnom ? 'checkAnom' : 'checkOk');
   });
 
   // Altezza cella
@@ -7070,11 +7070,12 @@ function _buildMonthPanel(Y, M) {
     } else {
       endDateStr = c.data > todayStr ? c.data : todayStr;
     }
-    // Cerchio arancione ogni giorno dal check fino al giorno prima del passaggio in lavorazione
+    // Il giorno del check è la cella arancione; dal giorno dopo un cerchio arancione per ogni giorno
+    // fino al giorno prima del passaggio in lavorazione (o fino a oggi se l'anomalia è ancora aperta)
     var ultimo = (earliest && earliest > c.data) ? _giornoPrima(earliest) : endDateStr;
-    for (var dd = c.data; dd <= ultimo; dd = _giornoDopo(dd)) {
+    for (var dd = _giornoDopo(c.data); dd <= ultimo; dd = _giornoDopo(dd)) {
       if (dd > gridEndStr) break;
-      _mark(dd, c.vehicleId, 'anom', {primo: dd===c.data});
+      _mark(dd, c.vehicleId, 'anom');
     }
     // Giorno di creazione intervento: sfumatura arancio→rosso (poi prosegue la tratteggiata)
     if (earliest && earliest > c.data) {
@@ -7125,7 +7126,7 @@ function _buildMonthPanel(Y, M) {
   segments.sort(function(a,b){ return (a.int._isResolved?1:0) - (b.int._isResolved?1:0); });
   var barsHtml = '';
   // Segni del giorno, sotto alle strisce
-  var ORD = {checkOk:0, anom:1, tireDone:2, tireProg:3};
+  var ORD = {checkOk:0, checkAnom:1, anom:2, tireDone:3, tireProg:4};
   Object.keys(marks).forEach(function(k){
     var list = marks[k].sort(function(a,b){ return ORD[a.tipo]-ORD[b.tipo]; });
     var vIdx = vehicles.findIndex(function(v){ return v.id===list[0].vid; });
@@ -7136,10 +7137,11 @@ function _buildMonthPanel(Y, M) {
     var n = list.length, w = colWidthPct/n;
     list.forEach(function(m, j){
       var left = (idx%PL_COLS)*colWidthPct + j*w;
-      var targa = n===1 && (m.tipo!=='anom' || m.primo) ? escHtml(v.targa) : '';
-      if (m.tipo==='checkOk' || m.tipo==='tireDone') {
+      var targa = n===1 && m.tipo!=='anom' ? escHtml(v.targa) : '';
+      if (m.tipo==='checkOk' || m.tipo==='checkAnom' || m.tipo==='tireDone') {
+        var bg = m.tipo==='checkOk' ? EV_COLORS.checkOk : m.tipo==='checkAnom' ? EV_COLORS.checkAnom : EV_COLORS.gomme;
         barsHtml += '<button class="pl-bar"'
-          +' style="left:calc('+left+'% + 1px);width:calc('+w+'% - 2px);top:'+rowTop+'px;height:'+PL_ROW_H+'px;background:'+(m.tipo==='checkOk'?EV_COLORS.checkOk:EV_COLORS.gomme)+';justify-content:center;"'
+          +' style="left:calc('+left+'% + 1px);width:calc('+w+'% - 2px);top:'+rowTop+'px;height:'+PL_ROW_H+'px;background:'+bg+';justify-content:center;"'
           +' data-vid="'+v.id+'"><span class="pl-bar-lbl">'+targa+'</span></button>';
       } else {
         var col = m.tipo==='anom' ? EV_COLORS.checkAnom : EV_COLORS.gomme;
@@ -8100,7 +8102,7 @@ function openSettings(){
       </label>
     </div>
     <button class="btn btn-danger" onclick="confirmResetAll()">🗑️ Azzera tutti i dati</button>
-    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.1.21 — VehicleCare Pro</p>
+    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Versione 1.1.22 — VehicleCare Pro</p>
     <div style="height:10px;"></div>
   `);
   renderBackupStatus();

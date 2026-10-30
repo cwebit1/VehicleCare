@@ -2,6 +2,14 @@
 
 ---
 
+## v121 — 2026-10-30
+### Planner: il check con anomalia torna visibile
+- Il giorno del check con anomalie è di nuovo la **cella arancione** con la targa (il check); i **cerchi arancioni** partono dal giorno dopo e proseguono fino a lavorazione o risoluzione. Prima il cerchio occupava anche il giorno del check e il check non si distingueva
+- Se nello stesso giorno ci sono più eventi, la cella resta divisa (es. check OK + anomalia in attesa + gomme programmate)
+- In-app 1.1.22
+
+---
+
 ## v120 — 2026-10-30
 ### Planner: gomme cambiate sempre visibili
 - La cella blu "gomme cambiate" compare anche quando le gomme sono state montate o smontate senza un cambio pianificato e confermato (prima registrazione, set modificato a mano, dati importati): il planner legge anche le date di montaggio e smontaggio dei set
